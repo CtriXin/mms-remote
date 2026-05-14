@@ -35,6 +35,7 @@ struct ContentView: View {
     @State private var selectedThread: CodexThread?
     @State private var navigationPath = NavigationPath()
     @State private var showSettings = false
+    @State private var isShowingTerminalHub = false
     @State private var isShowingManualScanner = false
     @State private var hasDismissedAutomaticScanner = false
     @State private var scannerCanReturnToOnboarding = false
@@ -423,7 +424,14 @@ struct ContentView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         hamburgerButton
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        terminalToolbarButton
+                    }
                 }
+        } else if isShowingTerminalHub {
+            TerminalHubView {
+                isShowingTerminalHub = false
+            }
         } else if let thread = selectedThread {
             TurnView(
                 thread: thread,
@@ -439,6 +447,9 @@ struct ContentView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         hamburgerButton
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        terminalToolbarButton
                     }
                 }
         } else {
@@ -483,8 +494,27 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     hamburgerButton
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    terminalToolbarButton
+                }
             }
         }
+    }
+
+    private var terminalToolbarButton: some View {
+        Button {
+            HapticFeedback.shared.triggerImpactFeedback(style: .light)
+            isShowingTerminalHub = true
+            closeSidebar()
+        } label: {
+            Image(systemName: "terminal")
+                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                .padding(8)
+                .contentShape(Circle())
+                .adaptiveToolbarItem(in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Terminals")
     }
 
     private var hamburgerButton: some View {
