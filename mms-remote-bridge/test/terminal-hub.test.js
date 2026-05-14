@@ -1,0 +1,151 @@
+// FILE: terminal-hub.test.js
+// Purpose: Verifies managed tmux terminal hub operations without iOS.
+// Layer: Unit/integration test
+// Exports: node:test suite
+// Depends on: node:test, node:assert/strict, child_process, fs, os, path, ../src/terminal-hub, ../src/tmux-adapter
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { execFileSync } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { createTerminalHub, handleTerminalMethod, handleTerminalRequest } = require("../src/terminal-hub");
+const { createTmuxAdapter } = require("../src/tmux-adapter");
+
+const hasTmux = (() => {
+  try {
+    execFileSync("tmux", ["-V"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+function makeHub() {
+  const socketName = `mms-remote-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const adapter = createTmuxAdapter({ socketName, timeoutMs: 3000 });
+  return { adapter, hub: createTerminalHub({ adapter }) };
+}
+
+async function cleanup(adapter) {
+  await adapter.killServer().catch(() => {});
+}
+
+async function waitFor(predicate, label) {
+  const deadline = Date.now() + 3000;
+  let lastValue;
+  while (Date.now() < deadline) {
+    lastValue = await predicate();
+    if (lastValue) {
+      return lastValue;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail(`Timed out waiting for ${label}. Last value: ${JSON.stringify(lastValue)}`);
+}
+
+test("terminal hub lists, snapshots, inputs, resizes, and cleans up tmux panes", { skip: !hasTmux }, async () => {
+  const { adapter, hub } = makeHub();
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "mms-remote-terminal-hub-"));
+  const sessionName = `mmsremote${Date.now()}`;
+
+  try {
+    const initial = await hub.list();
+    assert.deepEqual(initial.panes, []);
+
+    await hub.create({
+      name: sessionName,
+      cwd,
+      cols: 100,
+      rows: 30,
+      command: "printf 'ready\\n'; exec sh",
+    });
+
+    const pane = await waitFor(async () => {
+      const list = await hub.list();
+      return list.panes.find((candidate) => candidate.sessionName === sessionName);
+    }, "created tmux pane");
+
+    assert.equal(pane.cwd, fs.realpathSync(cwd));
+    assert.match(pane.paneKey, new RegExp(`^${sessionName}:0\\.0$`));
+
+    const readySnapshot = await waitFor(async () => {
+      const result = await hub.snapshot({ paneId: pane.paneId });
+      return result.content.includes("ready") ? result : null;
+    }, "initial pane output");
+    assert.equal(readySnapshot.pane.paneId, pane.paneId);
+
+    await hub.input({ paneId: pane.paneId, input: { kind: "text", text: "printf mms_input_ok" } });
+    await hub.input({ paneId: pane.paneId, input: { kind: "key", key: "enter" } });
+
+    await waitFor(async () => {
+      const result = await hub.snapshot({ paneId: pane.paneId });
+      return result.content.includes("mms_input_ok") ? result : null;
+    }, "input output");
+
+    const resized = await hub.resize({ paneId: pane.paneId, cols: 90, rows: 20 });
+    assert.equal(resized.ok, true);
+
+    const resizedPane = await waitFor(async () => {
+      const list = await hub.list();
+      return list.panes.find((candidate) => candidate.paneId === pane.paneId && candidate.cols === 90 && candidate.rows === 20);
+    }, "resized pane dimensions");
+    assert.equal(resizedPane.rows, 20);
+
+    await hub.create({ kind: "split", target: pane.paneId, cwd, command: "printf 'second\\n'; exec sh" });
+    const panesAfterSplit = await waitFor(async () => {
+      const list = await hub.list();
+      return list.panes.filter((candidate) => candidate.sessionName === sessionName).length === 2 ? list.panes : null;
+    }, "split pane");
+    assert.equal(panesAfterSplit.filter((candidate) => candidate.sessionName === sessionName).length, 2);
+
+    await hub.kill({ sessionName });
+    await waitFor(async () => {
+      const list = await hub.list();
+      return list.panes.every((candidate) => candidate.sessionName !== sessionName) ? true : null;
+    }, "session cleanup");
+  } finally {
+    await cleanup(adapter);
+  }
+});
+
+test("handleTerminalMethod dispatches terminal/list", { skip: !hasTmux }, async () => {
+  const { adapter, hub } = makeHub();
+  try {
+    const result = await handleTerminalMethod("terminal/list", {}, { hub });
+    assert.equal(Array.isArray(result.sessions), true);
+    assert.equal(Array.isArray(result.windows), true);
+    assert.equal(Array.isArray(result.panes), true);
+  } finally {
+    await cleanup(adapter);
+  }
+});
+
+test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !hasTmux }, async () => {
+  const { adapter, hub } = makeHub();
+  let response = "";
+  let resolveResponse;
+  const responsePromise = new Promise((resolve) => {
+    resolveResponse = resolve;
+  });
+
+  try {
+    const handled = handleTerminalRequest(
+      JSON.stringify({ id: "terminal-1", method: "terminal/list", params: {} }),
+      (payload) => {
+        response = payload;
+        resolveResponse();
+      },
+      { hub }
+    );
+
+    assert.equal(handled, true);
+    await responsePromise;
+    const parsed = JSON.parse(response);
+    assert.equal(parsed.id, "terminal-1");
+    assert.equal(Array.isArray(parsed.result.panes), true);
+  } finally {
+    await cleanup(adapter);
+  }
+});
