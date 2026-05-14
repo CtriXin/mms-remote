@@ -15,6 +15,7 @@ struct TerminalHubView: View {
     @State private var newTerminalName = ""
     @State private var newTerminalCwd = "/"
     @State private var newTerminalCommand = ""
+    @State private var openVisibleTerminalOnMac = true
     @State private var isRefreshing = false
     @State private var isSendingInput = false
     @State private var isCreatingTerminal = false
@@ -233,6 +234,8 @@ struct TerminalHubView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
+            Toggle("Open on Mac", isOn: $openVisibleTerminalOnMac)
+                .font(AppFont.callout())
             Button {
                 createTerminal()
             } label: {
@@ -395,7 +398,8 @@ struct TerminalHubView: View {
                     cwd: cwd,
                     command: newTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
                     cols: 96,
-                    rows: 32
+                    rows: 32,
+                    openVisible: openVisibleTerminalOnMac
                 )
                 newTerminalName = ""
                 if let pane = list.panes.first(where: { $0.sessionName == effectiveName }) ?? list.panes.first {

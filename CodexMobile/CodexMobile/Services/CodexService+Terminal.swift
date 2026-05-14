@@ -91,13 +91,15 @@ extension CodexService {
         cwd: String,
         command: String? = nil,
         cols: Int? = nil,
-        rows: Int? = nil
+        rows: Int? = nil,
+        openVisible: Bool = false
     ) async throws -> ManagedTerminalList {
         var params: RPCObject = ["cwd": .string(cwd)]
         if let name, !name.isEmpty { params["name"] = .string(name) }
         if let command, !command.isEmpty { params["command"] = .string(command) }
         if let cols { params["cols"] = .integer(cols) }
         if let rows { params["rows"] = .integer(rows) }
+        if openVisible { params["openVisible"] = .bool(true) }
 
         let response = try await sendRequest(
             method: "terminal/create",

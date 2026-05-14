@@ -233,3 +233,38 @@ test("mms-remote terminal create forwards cwd command and dimensions", async () 
     rows: 30,
   });
 });
+
+test("mms-remote terminal create forwards visible terminal request", async () => {
+  let capturedParams;
+
+  await main({
+    argv: [
+      "node",
+      "mms-remote",
+      "terminal",
+      "create",
+      "--name",
+      "dev",
+      "--cwd",
+      "/tmp/dev",
+      "--open-visible",
+    ],
+    consoleImpl: {
+      log() {},
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {
+          async create(params) {
+            capturedParams = params;
+            return { panes: [] };
+          },
+        };
+      },
+    },
+  });
+
+  assert.equal(capturedParams.openVisible, true);
+});

@@ -2,12 +2,18 @@
 // Purpose: Coordinates managed terminal pane RPC over tmux.
 // Layer: Service coordinator
 // Exports: createTerminalHub, handleTerminalMethod, handleTerminalRequest
-// Depends on: ./tmux-adapter
+// Depends on: ./tmux-adapter, ./terminal-visible-launcher
 
 const { createTmuxAdapter, TmuxAdapterError } = require("./tmux-adapter");
+const { createTerminalVisibleLauncher } = require("./terminal-visible-launcher");
 
 function createTerminalHub(options = {}) {
   const adapter = options.adapter || createTmuxAdapter(options.tmux || {});
+  const visibleLauncher = options.visibleLauncher || createTerminalVisibleLauncher({
+    ...(options.visibleTerminal || {}),
+    socketName: options.tmux?.socketName || options.visibleTerminal?.socketName || "",
+    tmuxBin: options.tmux?.tmuxBin || options.visibleTerminal?.tmuxBin || undefined,
+  });
 
   async function list() {
     const [tmuxVersion, tree] = await Promise.all([
@@ -48,10 +54,20 @@ function createTerminalHub(options = {}) {
         rows: params.rows,
       });
     }
-    return {
+    const terminalList = await list();
+    const result = {
       created,
-      ...(await list()),
+      ...terminalList,
     };
+
+    if (params.openVisible) {
+      result.visibleTerminal = await openVisibleTerminalForCreatedPane({
+        created,
+        terminalList,
+      });
+    }
+
+    return result;
   }
 
   async function snapshot(params = {}) {
@@ -104,6 +120,16 @@ function createTerminalHub(options = {}) {
     return adapter.findPane(String(target));
   }
 
+  async function openVisibleTerminalForCreatedPane({ created, terminalList }) {
+    const pane = findCreatedPane({ created, terminalList });
+    if (!pane) {
+      throw new TmuxAdapterError("Created terminal pane could not be resolved for visible launch", {
+        code: "terminal_created_pane_not_found",
+      });
+    }
+    return visibleLauncher.openPane(pane);
+  }
+
   async function handleMethod(method, params = {}) {
     switch (method) {
       case "terminal/list":
@@ -140,7 +166,22 @@ function createTerminalHub(options = {}) {
     list,
     resize,
     snapshot,
+    visibleLauncher,
   };
+}
+
+function findCreatedPane({ created = {}, terminalList = {} } = {}) {
+  const panes = terminalList.panes || [];
+  if (created.paneId) {
+    const byPaneId = panes.find((pane) => pane.paneId === created.paneId || pane.id === created.paneId);
+    if (byPaneId) {
+      return byPaneId;
+    }
+  }
+  if (created.sessionName) {
+    return panes.find((pane) => pane.sessionName === created.sessionName) || null;
+  }
+  return null;
 }
 
 async function handleTerminalMethod(method, params = {}, options = {}) {
@@ -183,6 +224,7 @@ function safeParseJSON(rawMessage) {
 
 module.exports = {
   createTerminalHub,
+  findCreatedPane,
   handleTerminalMethod,
   handleTerminalRequest,
 };

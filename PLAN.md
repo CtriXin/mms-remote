@@ -218,6 +218,12 @@ terminal/status
 
 ## 实现阶段
 
+### 当前落地状态（2026-05-14）
+
+- Phase 0/1/2 MVP 已落地：tmux adapter、bridge terminal RPC、iOS basic terminal hub、CLI smoke commands。
+- Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进一段：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Terminal.app 窗口 attach 到同一 tmux session/pane。
+- 仍未完成 Full：真实 terminal renderer、MMS wrapper integration、多 iOS client hardening。
+
 ### Phase 0: Mac-only Proof
 
 目标：先证明 tmux pane 管理链路可行，不碰 iOS 大改。
@@ -402,4 +408,3 @@ MVP input：
 
 MVP：约 4-8 天。
 Full：约 2-4 周。
-

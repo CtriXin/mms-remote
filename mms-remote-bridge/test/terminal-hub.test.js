@@ -149,3 +149,51 @@ test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !ha
     await cleanup(adapter);
   }
 });
+
+test("terminal hub opens a visible macOS terminal when create requests it", async () => {
+  const visibleCalls = [];
+  const adapter = {
+    async version() {
+      return "tmux mock";
+    },
+    async createSession(params) {
+      assert.equal(params.name, "dev");
+      return { sessionName: "dev" };
+    },
+    async listAll() {
+      return {
+        sessions: [],
+        windows: [],
+        panes: [
+          {
+            id: "%1",
+            paneId: "%1",
+            paneKey: "dev:0.0",
+            sessionName: "dev",
+            windowIndex: 0,
+            cwd: "/tmp/dev",
+          },
+        ],
+      };
+    },
+  };
+  const hub = createTerminalHub({
+    adapter,
+    visibleLauncher: {
+      async openPane(pane) {
+        visibleCalls.push(pane);
+        return { ok: true, opened: true, paneId: pane.paneId };
+      },
+    },
+  });
+
+  const result = await hub.create({
+    name: "dev",
+    cwd: "/tmp/dev",
+    openVisible: true,
+  });
+
+  assert.equal(visibleCalls.length, 1);
+  assert.equal(visibleCalls[0].paneId, "%1");
+  assert.deepEqual(result.visibleTerminal, { ok: true, opened: true, paneId: "%1" });
+});

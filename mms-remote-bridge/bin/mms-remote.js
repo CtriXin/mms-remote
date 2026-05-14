@@ -247,7 +247,7 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create|snapshot|input|key|kill> | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible]|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
@@ -302,6 +302,7 @@ async function runTerminalCliCommand({
           command: options.command,
           cols: parsePositiveInt(options.cols),
           rows: parsePositiveInt(options.rows),
+          ...(hasTruthyTerminalOption(options, ["open-visible", "openVisible"]) ? { openVisible: true } : {}),
         });
         emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalList });
         return;
@@ -343,6 +344,13 @@ async function runTerminalCliCommand({
     consoleImpl.error(`[mms-remote] ${(error && error.message) || "Terminal command failed."}`);
     exitImpl(1);
   }
+}
+
+function hasTruthyTerminalOption(options, keys) {
+  return keys.some((key) => {
+    const value = options[key];
+    return value === true || value === "true" || value === "1" || value === "yes";
+  });
 }
 
 function parseTerminalOptions(args) {
@@ -440,6 +448,7 @@ function isVersionCommand(value) {
 }
 
 module.exports = {
+  hasTruthyTerminalOption,
   isVersionCommand,
   main,
   parseTerminalOptions,
