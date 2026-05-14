@@ -1,0 +1,68 @@
+{
+  "schema": "multi_review.pack.v1",
+  "milestone": "tmux-terminal-sync",
+  "commit": "6e1f7a05af134e510e9a2fa811a978e5eab79e50",
+  "title": "Tmux Terminal Sync & Multi-Backend",
+  "summary": "Add tmux transport to bridge, enabling phone to view/control all Mac terminal windows bidirectionally. Relay multi-client support. iOS terminal renderer. Preserve existing Codex mode.",
+  "status": "ready_for_review",
+  "created_at": "2026-05-14T15:06:38+00:00",
+  "roles": {
+    "planner": "opus-class",
+    "executor": "gpt-class",
+    "reviewers": []
+  },
+  "identity": {
+    "reviewer_id_field": "Reviewer",
+    "path_reviewer_id_source": ".ai/reviews/<reviewer>/",
+    "reviewer_id_must_match_path": true,
+    "case_sensitive": true,
+    "root_preflight_required": true,
+    "forbidden_reviewer_ids": [
+      "agent",
+      "claude-code",
+      "cli",
+      "codex",
+      "default",
+      "gemini-cli",
+      "local",
+      "mms",
+      "reviewer",
+      "unknown"
+    ],
+    "note": "Do not normalize or display-case reviewer ids; Reviewer must match the path exactly."
+  },
+  "quorum": {
+    "min_reviews": 3,
+    "block_on_any_blocked": true,
+    "slow_reviewer_policy": "skip_after_quorum"
+  },
+  "paths": {
+    "pack_json": ".ai/plan/review-packs/tmux-terminal-sync.json",
+    "pack_md": ".ai/plan/review-packs/tmux-terminal-sync.md",
+    "review_glob": ".ai/reviews/*/tmux-terminal-sync-review-*.md",
+    "gate_json": ".ai/reviews/log/gate-tmux-terminal-sync.json"
+  },
+  "read_only_files": [
+    "AGENTS.md"
+  ],
+  "changed_files": [
+    "LICENSE"
+  ],
+  "validation": [],
+  "non_goals": [],
+  "review_questions": [
+    "Does this change satisfy the declared scope without opening non-goal boundaries?"
+  ],
+  "reviewer_instructions": [
+    "Run `git rev-parse --show-toplevel` and `cd` to that repository root before reading or writing review artifacts.",
+    "Read the review pack first.",
+    "If a commit was supplied, verify it matches the pack commit before reviewing.",
+    "Inspect only read_only_files, changed_files, and explicit evidence unless a blocker needs narrow expansion.",
+    "Do not modify code except writing your review file.",
+    "Write exactly one review file under .ai/reviews/<reviewer>/.",
+    "The Reviewer header must match the .ai/reviews/<reviewer>/ directory exactly, including case.",
+    "Never write under a subdirectory such as tests/.ai/reviews/.",
+    "Use PASS, PASS_WITH_NOTES, or BLOCKED.",
+    "Do not declare the gate clear or complete; only explicit intake/host mode can do that."
+  ]
+}

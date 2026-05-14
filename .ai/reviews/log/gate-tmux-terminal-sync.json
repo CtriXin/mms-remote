@@ -1,0 +1,51 @@
+{
+  "schema": "multi_review.gate.v1",
+  "milestone": "tmux-terminal-sync",
+  "commit": "6e1f7a05af134e510e9a2fa811a978e5eab79e50",
+  "gate_status": "blocked",
+  "review_count": 6,
+  "min_reviews": 3,
+  "blocking_count": 5,
+  "unknown_count": 0,
+  "invalid_count": 0,
+  "reviews": [
+    {
+      "path": ".ai/reviews/K2.6/tmux-terminal-sync-review-20260514.md",
+      "reviewer": "K2.6",
+      "header_reviewer": "K2.6",
+      "verdict": "BLOCKED"
+    },
+    {
+      "path": ".ai/reviews/deepseek-v4-flash/tmux-terminal-sync-review-20260514.md",
+      "reviewer": "deepseek-v4-flash",
+      "header_reviewer": "deepseek-v4-flash",
+      "verdict": "BLOCKED"
+    },
+    {
+      "path": ".ai/reviews/glm-5.1/tmux-terminal-sync-review-20260514.md",
+      "reviewer": "glm-5.1",
+      "header_reviewer": "glm-5.1",
+      "verdict": "PASS_WITH_NOTES"
+    },
+    {
+      "path": ".ai/reviews/gpt-5.5/tmux-terminal-sync-review-20260514.md",
+      "reviewer": "gpt-5.5",
+      "header_reviewer": "gpt-5.5",
+      "verdict": "BLOCKED"
+    },
+    {
+      "path": ".ai/reviews/mimo-v2.5/tmux-terminal-sync-review-20260514.md",
+      "reviewer": "mimo-v2.5",
+      "header_reviewer": "mimo-v2.5",
+      "verdict": "BLOCKED"
+    },
+    {
+      "path": ".ai/reviews/qwen3.6-plus/tmux-terminal-sync-review-20260514.md",
+      "reviewer": "qwen3.6-plus",
+      "header_reviewer": "qwen3.6-plus",
+      "verdict": "BLOCKED"
+    }
+  ],
+  "invalid_reviews": [],
+  "updated_at": "2026-05-14T15:20:12+00:00"
+}
