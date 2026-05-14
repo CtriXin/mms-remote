@@ -159,3 +159,77 @@ test("mms-remote status --json exposes daemon metadata for companion apps", asyn
   assert.equal(payload.bridgeStatus?.connectionStatus, "connected");
   assert.equal(payload.pairingSession?.pairingPayload?.sessionId, "session-json");
 });
+
+test("mms-remote terminal list prints managed panes", async () => {
+  const messages = [];
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "list"],
+    consoleImpl: {
+      log(message) { messages.push(message); },
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {
+          async list() {
+            return {
+              panes: [
+                { paneId: "%1", paneKey: "dev:0.0", currentCommand: "zsh", cwd: "/tmp/dev" },
+              ],
+            };
+          },
+        };
+      },
+    },
+  });
+
+  assert.deepEqual(messages, ["%1 dev:0.0 zsh /tmp/dev"]);
+});
+
+test("mms-remote terminal create forwards cwd command and dimensions", async () => {
+  let capturedParams;
+
+  await main({
+    argv: [
+      "node",
+      "mms-remote",
+      "terminal",
+      "create",
+      "--name",
+      "dev",
+      "--cwd",
+      "/tmp/dev",
+      "--command",
+      "zsh",
+      "--cols",
+      "100",
+      "--rows",
+      "30",
+    ],
+    consoleImpl: {
+      log() {},
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {
+          async create(params) {
+            capturedParams = params;
+            return { panes: [] };
+          },
+        };
+      },
+    },
+  });
+
+  assert.deepEqual(capturedParams, {
+    name: "dev",
+    cwd: "/tmp/dev",
+    command: "zsh",
+    cols: 100,
+    rows: 30,
+  });
+});

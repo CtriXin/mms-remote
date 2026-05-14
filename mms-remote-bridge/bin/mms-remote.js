@@ -6,6 +6,7 @@
 // Depends on: ../src
 
 const {
+  createTerminalHub,
   getMacOSBridgeServiceStatus,
   printMacOSBridgePairingQr,
   printMacOSBridgeServiceStatus,
@@ -22,6 +23,7 @@ const {
 const { version } = require("../package.json");
 
 const defaultDeps = {
+  createTerminalHub,
   getMacOSBridgeServiceStatus,
   printMacOSBridgePairingQr,
   printMacOSBridgeServiceStatus,
@@ -49,7 +51,8 @@ async function main({
   exitImpl = process.exit,
   deps = defaultDeps,
 } = {}) {
-  const { command, jsonOutput, watchThreadId } = parseCliArgs(argv.slice(2));
+  const parsedArgs = parseCliArgs(argv.slice(2));
+  const { command, jsonOutput, watchThreadId } = parsedArgs;
 
   if (isVersionCommand(command)) {
     emitVersion({ jsonOutput, consoleImpl });
@@ -79,6 +82,17 @@ async function main({
 
   if (command === "run-service") {
     deps.runMacOSBridgeService();
+    return;
+  }
+
+  if (command === "terminal") {
+    await runTerminalCliCommand({
+      args: parsedArgs,
+      deps,
+      jsonOutput,
+      consoleImpl,
+      exitImpl,
+    });
     return;
   }
 
@@ -233,7 +247,8 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create|snapshot|input|key|kill> | "
+    + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
   );
@@ -256,8 +271,123 @@ function parseCliArgs(rawArgs) {
   return {
     command: positionals[0] || "up",
     jsonOutput,
+    positionals,
     watchThreadId: positionals[1] || "",
   };
+}
+
+async function runTerminalCliCommand({
+  args,
+  deps = defaultDeps,
+  jsonOutput = false,
+  consoleImpl = console,
+  exitImpl = process.exit,
+} = {}) {
+  const subcommand = args.positionals[1] || "list";
+  const terminalArgs = args.positionals.slice(2);
+  const hub = deps.createTerminalHub();
+
+  try {
+    switch (subcommand) {
+      case "list": {
+        const result = await hub.list();
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalList });
+        return;
+      }
+      case "create": {
+        const options = parseTerminalOptions(terminalArgs);
+        const result = await hub.create({
+          name: options.name,
+          cwd: options.cwd || process.cwd(),
+          command: options.command,
+          cols: parsePositiveInt(options.cols),
+          rows: parsePositiveInt(options.rows),
+        });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalList });
+        return;
+      }
+      case "snapshot": {
+        const paneId = terminalArgs[0];
+        const result = await hub.snapshot({ paneId });
+        if (jsonOutput) {
+          emitJson(result);
+        } else {
+          consoleImpl.log(result.content);
+        }
+        return;
+      }
+      case "input": {
+        const paneId = terminalArgs[0];
+        const text = terminalArgs.slice(1).join(" ");
+        const result = await hub.input({ paneId, input: { kind: "text", text } });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: () => "[mms-remote] terminal input sent." });
+        return;
+      }
+      case "key": {
+        const paneId = terminalArgs[0];
+        const key = terminalArgs[1];
+        const result = await hub.input({ paneId, input: { kind: "key", key } });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: () => "[mms-remote] terminal key sent." });
+        return;
+      }
+      case "kill": {
+        const paneId = terminalArgs[0];
+        const result = await hub.kill({ paneId });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: () => "[mms-remote] terminal pane closed." });
+        return;
+      }
+      default:
+        throw new Error(`Unknown terminal command: ${subcommand}`);
+    }
+  } catch (error) {
+    consoleImpl.error(`[mms-remote] ${(error && error.message) || "Terminal command failed."}`);
+    exitImpl(1);
+  }
+}
+
+function parseTerminalOptions(args) {
+  const options = {};
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg.startsWith("--")) {
+      continue;
+    }
+    const key = arg.slice(2);
+    const value = args[index + 1];
+    if (value == null || value.startsWith("--")) {
+      options[key] = "true";
+      continue;
+    }
+    options[key] = value;
+    index += 1;
+  }
+  return options;
+}
+
+function parsePositiveInt(value) {
+  if (value == null) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function emitTerminalResult({ result, jsonOutput, consoleImpl, formatter }) {
+  if (jsonOutput) {
+    emitJson(result);
+    return;
+  }
+  consoleImpl.log(formatter(result));
+}
+
+function formatTerminalList(result) {
+  const panes = result?.panes || [];
+  if (panes.length === 0) {
+    return "[mms-remote] No managed tmux panes found.";
+  }
+  return panes
+    .map((pane) => `${pane.paneId} ${pane.paneKey} ${pane.currentCommand || "shell"} ${pane.cwd || ""}`.trim())
+    .join("\n");
 }
 
 function emitVersion({
@@ -312,4 +442,6 @@ function isVersionCommand(value) {
 module.exports = {
   isVersionCommand,
   main,
+  parseTerminalOptions,
+  runTerminalCliCommand,
 };
