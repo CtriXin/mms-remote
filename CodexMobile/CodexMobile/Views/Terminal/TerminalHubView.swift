@@ -57,6 +57,9 @@ struct TerminalHubView: View {
                 await refreshTerminalsAsync()
             }
         }
+        .task(id: codex.selectedTerminalPaneId) {
+            await pollSelectedPaneSnapshot(paneId: codex.selectedTerminalPaneId)
+        }
         .alert("Terminal Error", isPresented: terminalErrorIsPresented) {
             Button("OK", role: .cancel) {
                 localErrorMessage = nil
@@ -154,6 +157,18 @@ struct TerminalHubView: View {
             }
 
             HStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(codex.selectedTerminalPaneId == nil ? Color(.tertiaryLabel) : .green)
+                        .frame(width: 6, height: 6)
+                    Text(codex.selectedTerminalPaneId == nil ? "No pane" : "Live")
+                        .font(AppFont.caption2(weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 7)
+                .background(Color(.secondarySystemBackground), in: Capsule())
+
                 TextField("Command", text: $commandDraft, axis: .vertical)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -303,6 +318,22 @@ struct TerminalHubView: View {
             }
         } catch {
             localErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func pollSelectedPaneSnapshot(paneId: String?) async {
+        guard let paneId, !paneId.isEmpty else { return }
+        while !Task.isCancelled {
+            guard codex.isConnected, codex.selectedTerminalPaneId == paneId else { return }
+            do {
+                try await codex.refreshTerminalSnapshot(paneId: paneId)
+            } catch {
+                if !Task.isCancelled {
+                    codex.terminalLastErrorMessage = error.localizedDescription
+                }
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
     }
 
