@@ -13,11 +13,57 @@ const {
   buildHeartbeatBridgeStatus,
   createMacOSBridgeWakeAssertion,
   fetchAdaptiveThreadTurnsListForRelay,
+  handleTerminalApplicationMessage,
   hasRelayConnectionGoneStale,
   persistBridgePreferences,
   sanitizeLiveGeneratedImageMessageForRelay,
   sanitizeThreadHistoryImagesForRelay,
 } = require("../src/bridge");
+
+test("bridge handles terminal RPC before Codex forwarding", async () => {
+  let response = "";
+  let resolveResponse;
+  const responsePromise = new Promise((resolve) => {
+    resolveResponse = resolve;
+  });
+  const terminalHub = {
+    async handleMethod(method) {
+      assert.equal(method, "terminal/list");
+      return { sessions: [], windows: [], panes: [] };
+    },
+  };
+
+  const handled = handleTerminalApplicationMessage(
+    JSON.stringify({ id: "terminal-list-1", method: "terminal/list", params: {} }),
+    (payload) => {
+      response = payload;
+      resolveResponse();
+    },
+    terminalHub
+  );
+
+  assert.equal(handled, true);
+  await responsePromise;
+  const parsed = JSON.parse(response);
+  assert.equal(parsed.id, "terminal-list-1");
+  assert.deepEqual(parsed.result.panes, []);
+});
+
+test("bridge ignores non-terminal RPC in terminal dispatcher", () => {
+  const handled = handleTerminalApplicationMessage(
+    JSON.stringify({ id: "project-1", method: "project/listDirectory", params: {} }),
+    () => {
+      throw new Error("terminal handler should not respond");
+    },
+    {
+      async handleMethod() {
+        throw new Error("terminal hub should not run");
+      },
+    }
+  );
+
+  assert.equal(handled, false);
+});
 
 test("hasRelayConnectionGoneStale returns true once the relay silence crosses the timeout", () => {
   assert.equal(

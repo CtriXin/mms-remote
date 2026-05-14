@@ -24,6 +24,7 @@ const { handleGitRequest } = require("./git-handler");
 const { handleThreadContextRequest } = require("./thread-context-handler");
 const { handleWorkspaceRequest } = require("./workspace-handler");
 const { handleProjectRequest } = require("./project-handler");
+const { createTerminalHub, handleTerminalRequest } = require("./terminal-hub");
 const { handlePetRequest } = require("./pet-handler");
 const { createNotificationsHandler } = require("./notifications-handler");
 const { createVoiceHandler, resolveVoiceAuth } = require("./voice-handler");
@@ -86,6 +87,7 @@ function startBridge({
   printPairingQr = true,
   onPairingSession = null,
   onBridgeStatus = null,
+  terminalHub: explicitTerminalHub = null,
 } = {}) {
   const config = explicitConfig || readBridgeConfig();
   config.keepMacAwakeEnabled = config.keepMacAwakeEnabled === true;
@@ -138,6 +140,11 @@ function startBridge({
     previewMaxChars: config.pushPreviewMaxChars,
   });
   const readBridgePackageVersionStatus = createBridgePackageVersionStatusReader();
+  const terminalHub = explicitTerminalHub || createTerminalHub({
+    tmux: {
+      socketName: config.terminalTmuxSocketName || "",
+    },
+  });
 
   // Keep the local Codex runtime alive across transient relay disconnects.
   let socket = null;
@@ -536,6 +543,9 @@ function startBridge({
       return;
     }
     if (handleProjectRequest(rawMessage, sendApplicationResponse)) {
+      return;
+    }
+    if (handleTerminalApplicationMessage(rawMessage, sendApplicationResponse, terminalHub)) {
       return;
     }
     if (handlePetRequest(rawMessage, sendApplicationResponse)) {
@@ -1203,6 +1213,10 @@ function startBridge({
 
     return readBridgePreferences();
   }
+}
+
+function handleTerminalApplicationMessage(rawMessage, sendResponse, terminalHub) {
+  return handleTerminalRequest(rawMessage, sendResponse, { hub: terminalHub });
 }
 
 // Holds a single macOS idle-sleep assertion for as long as the bridge process stays alive.
@@ -2465,6 +2479,7 @@ module.exports = {
   buildHeartbeatBridgeStatus,
   createMacOSBridgeWakeAssertion,
   fetchAdaptiveThreadTurnsListForRelay,
+  handleTerminalApplicationMessage,
   hasRelayConnectionGoneStale,
   persistBridgePreferences,
   sanitizeLiveGeneratedImageMessageForRelay,

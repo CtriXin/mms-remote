@@ -162,8 +162,11 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
       sendResponse(JSON.stringify({
         id: message.id ?? null,
         error: {
-          code: error.code || "terminal_error",
+          code: -32000,
           message: error.message || "Terminal request failed",
+          data: {
+            errorCode: error.code || "terminal_error",
+          },
         },
       }));
     });
