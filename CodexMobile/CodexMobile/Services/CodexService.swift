@@ -423,6 +423,16 @@ final class CodexService {
     // In-memory identity directory for subagents, keyed by thread id and agent id.
     var subagentIdentityVersion: Int = 0
 
+    // Managed terminal mode state is intentionally separate from Codex thread/turn timelines.
+    var terminalSessions: [ManagedTerminalSession] = []
+    var terminalWindows: [ManagedTerminalWindow] = []
+    var terminalPanes: [ManagedTerminalPane] = []
+    var terminalSnapshotsByPaneId: [String: ManagedTerminalSnapshot] = [:]
+    var selectedTerminalPaneId: String?
+    var terminalTmuxVersion: String = ""
+    var isLoadingTerminals = false
+    var terminalLastErrorMessage: String?
+
     // Relay session persistence
     var relaySessionId: String?
     var relayUrl: String?
