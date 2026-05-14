@@ -377,6 +377,10 @@ struct TerminalHubView: View {
         }
     }
 
+    private func generatedTerminalName() -> String {
+        "mms-\(Int(Date().timeIntervalSince1970))"
+    }
+
     private func createTerminal() {
         let cwd = newTerminalCwd.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cwd.isEmpty else { return }
@@ -384,14 +388,17 @@ struct TerminalHubView: View {
             isCreatingTerminal = true
             defer { isCreatingTerminal = false }
             do {
+                let requestedName = newTerminalName.trimmingCharacters(in: .whitespacesAndNewlines)
+                let effectiveName = requestedName.isEmpty ? generatedTerminalName() : requestedName
                 let list = try await codex.createManagedTerminal(
-                    name: newTerminalName.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+                    name: effectiveName,
                     cwd: cwd,
                     command: newTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
                     cols: 96,
                     rows: 32
                 )
-                if let pane = list.panes.first(where: { $0.sessionName == newTerminalName }) ?? list.panes.first {
+                newTerminalName = ""
+                if let pane = list.panes.first(where: { $0.sessionName == effectiveName }) ?? list.panes.first {
                     try await codex.attachTerminalPane(pane.paneId)
                 }
             } catch {
