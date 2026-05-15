@@ -1,5 +1,10 @@
 # MMS Remote — Managed Terminal Hub Plan
 
+## 2026-05-15 Handoff Note
+
+Latest operational handoff lives in `.ai/plan/current.md` and `.ai/plan/handoff.md`. Treat those as the current truth before continuing Terminal work. Key point: user identified `3fa85e4bcb8189636fa044832f2558beb85627c7` as the known-good terminal point; current `main` has later failed rescue commits, so after the user merges the external working branch, compare that branch against `3fa85e4` and resume from evidence only.
+
+
 ## 结论
 
 目标可行，但范围必须定义为 **MMS Remote/tmux 管理的 terminal panes**，不是任意已打开的 macOS Terminal.app / iTerm2 / VS Code terminal 窗口。
