@@ -118,3 +118,5 @@ fi
 echo "Installed: $BUNDLE_ID"
 echo "Bridge command:"
 echo "  cd '$ROOT/mms-remote-bridge' && npm start"
+echo "Or from repo root:"
+echo "  cd '$ROOT' && ./run-local-mms-remote.sh"
