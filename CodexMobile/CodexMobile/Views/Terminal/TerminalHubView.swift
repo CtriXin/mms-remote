@@ -2,9 +2,10 @@
 // Purpose: Basic managed terminal mode UI for listing panes, viewing snapshots, and sending input.
 // Layer: View
 // Exports: TerminalHubView
-// Depends on: SwiftUI, CodexService, TerminalModels, AppFont
+// Depends on: SwiftUI, UIKit, CodexService, TerminalModels, AppFont
 
 import SwiftUI
+import UIKit
 
 struct TerminalHubView: View {
     @Environment(CodexService.self) private var codex
@@ -185,6 +186,31 @@ struct TerminalHubView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            copyJoinCommand(for: pane)
+                        } label: {
+                            Label("Copy Join Command", systemImage: "terminal")
+                        }
+
+                        Button {
+                            copyPaneAddress(for: pane)
+                        } label: {
+                            Label("Copy Pane Address", systemImage: "number")
+                        }
+
+                        Button {
+                            openVisiblePaneOnMac(pane)
+                        } label: {
+                            Label("Open on Mac", systemImage: "display")
+                        }
+
+                        Button(role: .destructive) {
+                            panePendingClose = pane
+                        } label: {
+                            Label("Close Terminal", systemImage: "xmark.circle")
+                        }
+                    }
                 }
             }
         }
@@ -465,15 +491,28 @@ struct TerminalHubView: View {
     }
 
     private func openSelectedPaneOnMac() {
+        guard let pane = codex.selectedTerminalPane else { return }
+        openVisiblePaneOnMac(pane)
+    }
+
+    private func openVisiblePaneOnMac(_ pane: ManagedTerminalPane) {
         Task {
             isOpeningVisibleTerminal = true
             defer { isOpeningVisibleTerminal = false }
             do {
-                try await codex.openVisibleTerminalPane()
+                try await codex.openVisibleTerminalPane(pane.paneId)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func copyJoinCommand(for pane: ManagedTerminalPane) {
+        UIPasteboard.general.string = "mms-remote terminal join \(pane.paneKey)"
+    }
+
+    private func copyPaneAddress(for pane: ManagedTerminalPane) {
+        UIPasteboard.general.string = pane.paneKey
     }
 
     private func openCreateTerminalSheet() {

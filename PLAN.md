@@ -229,7 +229,10 @@ terminal/status
 - Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Ghostty/iTerm2/Terminal.app 窗口 attach 到同一 tmux session/pane；已有 pane 也可再打开到 Mac。
 - Mac visible terminal 选择支持 `auto|ghostty|iterm|terminal`，默认 auto 优先 Ghostty，再 iTerm2，再 Terminal.app。
 - 任意 terminal 软件入口已开始落地：`scripts/install-mms-remote-cli.sh` 可把 `mms-remote` 放进 PATH；`mms-remote terminal join` 可在真实交互 shell 里 attach/create managed tmux session。
+- `mms-remote terminal join` 不带名字时会生成短随机 session 名；也支持用 iOS tab 上的 `name:window.pane` 直接 join 指定 pane。
 - iOS Terminal 会后台轮询 pane list；外部 `join` 新增的 managed pane 会自动出现在横向 pane strip。
+- 公网 relay 能力已通过自托管验证：`wss://remote.clawopen.online/relay` 和 `wss://remote.evilsngx.ccwu.cc/relay` 的 `/health` 与 WebSocket relay roundtrip 已通。生产化自动 failover 暂列 backlog。
+- Codex.app GUI live sync 仍是已知限制：手机 Chat 通过 bridge/app-server 写入本地 session 文件，Codex.app 不会实时 live reload；后续列为桌面同步项。
 - 验收前 smoke 已落地：`mms-remote terminal smoke --json` 会创建 managed tmux session、验证 snapshot/input、自动清理。
 - 仍未完成 Full：真实 terminal renderer、MMS wrapper integration、多 iOS client hardening。
 
@@ -368,6 +371,14 @@ MVP input：
 - 两台 iOS 设备同时 attach 同一 pane，都能收到输出
 - 任一设备输入后，另一台和 Mac 都同步
 - 慢客户端不会拖垮 relay/bridge
+
+### Backlog: Relay Failover + Desktop GUI Sync
+
+暂不进入当前 MVP，但保留为后续能力：
+
+- 多 relay endpoints：国内/Global/Japan relay 自动测速、自动 fallback、断线切换后保留 trusted Mac reconnect。
+- 多手机同时在线：relay 不再用新 mobile 挤掉旧 mobile；bridge 同时管理多个 secure mobile sessions。
+- Codex.app GUI 同步：把手机新建/更新的 Chat 可靠带到 Codex.app，可选从“显式 handoff/refresh”升级到低干扰自动刷新；真正 live mirror 取决于 Codex.app 是否支持外部订阅或稳定 refresh API。
 
 ## 风险与处理
 

@@ -381,6 +381,38 @@ test("mms-remote terminal join attaches the current terminal to tmux", async () 
   assert.deepEqual(messages, ["[mms-remote] terminal joined: dev"]);
 });
 
+test("mmr join is a short alias for terminal join", async () => {
+  let captured;
+  const messages = [];
+
+  await main({
+    argv: ["node", "mmr", "join", "dev:0.1"],
+    consoleImpl: {
+      log(message) { messages.push(message); },
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {};
+      },
+      spawnSync(file, args, options) {
+        if (args[0] === "display-message") {
+          return { status: 0, stdout: "dev\n" };
+        }
+        captured = { file, args, options };
+        return { status: 0 };
+      },
+      stdin: { isTTY: true },
+      stdout: { isTTY: true },
+    },
+  });
+
+  assert.equal(captured.file, "tmux");
+  assert.deepEqual(captured.args, ["attach-session", "-t", "dev"]);
+  assert.deepEqual(messages, ["[mms-remote] terminal joined: dev"]);
+});
+
 test("mms-remote terminal join without a name uses a generated session id", async () => {
   let captured;
 

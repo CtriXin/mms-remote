@@ -65,6 +65,20 @@ async function main({
     return;
   }
 
+  if (isTerminalShortcutCommand(command)) {
+    await runTerminalCliCommand({
+      args: {
+        ...parsedArgs,
+        positionals: ["terminal", command, ...parsedArgs.positionals.slice(1)],
+      },
+      deps,
+      jsonOutput,
+      consoleImpl,
+      exitImpl,
+    });
+    return;
+  }
+
   if (command === "up") {
     if (platform === "darwin") {
       consoleImpl.log("[mms-remote] Starting bridge and pairing QR...");
@@ -253,12 +267,16 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|join [name|name:window.pane]|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
+    "Usage: mmr join [name|name:window.pane] | mms-remote up | mms-remote run | mms-remote terminal <list|join [name|name:window.pane]|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
   );
   exitImpl(1);
+}
+
+function isTerminalShortcutCommand(command) {
+  return command === "join";
 }
 
 function parseCliArgs(rawArgs) {
