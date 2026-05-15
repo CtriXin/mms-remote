@@ -270,11 +270,14 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
     return false;
   }
 
+  const logger = options.logger || console;
   handleTerminalMethod(message.method, message.params || {}, options)
     .then((result) => {
+      logTerminalRpcResult(logger, message.method, result);
       sendResponse(JSON.stringify({ id: message.id ?? null, result }));
     })
     .catch((error) => {
+      logTerminalRpcError(logger, message.method, error);
       sendResponse(JSON.stringify({
         id: message.id ?? null,
         error: {
@@ -287,6 +290,30 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
       }));
     });
   return true;
+}
+
+function logTerminalRpcResult(logger, method, result) {
+  if (!logger || typeof logger.log !== "function") {
+    return;
+  }
+  if (method === "terminal/list" || method === "terminal/status" || method === "terminal/create") {
+    logger.log(
+      `[mms-remote] ${method} ok sessions=${countArray(result?.sessions)} windows=${countArray(result?.windows)} panes=${countArray(result?.panes)}`
+    );
+    return;
+  }
+  logger.log(`[mms-remote] ${method} ok`);
+}
+
+function logTerminalRpcError(logger, method, error) {
+  if (!logger || typeof logger.error !== "function") {
+    return;
+  }
+  logger.error(`[mms-remote] ${method} failed code=${error?.code || "terminal_error"} message=${error?.message || "Terminal request failed"}`);
+}
+
+function countArray(value) {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 function safeParseJSON(rawMessage) {
