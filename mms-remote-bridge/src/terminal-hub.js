@@ -129,20 +129,20 @@ function createTerminalHub(options = {}) {
       }
       throw new TmuxAdapterError("Terminal pane id is required", { code: "terminal_pane_required" });
     }
+    const ordinalPane = await resolveOrdinalFallbackPane(normalizedTarget);
+    if (ordinalPane) {
+      return ordinalPane;
+    }
     try {
       return await adapter.findPane(normalizedTarget);
     } catch (error) {
-      const ordinalPane = await resolveOrdinalFallbackPane(normalizedTarget);
-      if (ordinalPane) {
-        return ordinalPane;
-      }
       throw error;
     }
   }
 
   async function newestPane() {
-    const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
-    return tree.panes.find((pane) => paneCaptureTarget(pane)) || tree.panes[0] || null;
+    const terminalList = await list();
+    return terminalList.panes.find((pane) => paneCaptureTarget(pane)) || terminalList.panes[0] || null;
   }
 
   async function resolveOrdinalFallbackPane(target) {
@@ -150,8 +150,8 @@ function createTerminalHub(options = {}) {
     if (ordinalIndex == null) {
       return null;
     }
-    const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
-    return tree.panes[ordinalIndex] || null;
+    const terminalList = await list();
+    return terminalList.panes[ordinalIndex] || null;
   }
 
   async function capturePaneSnapshot(pane, params = {}) {
@@ -441,6 +441,12 @@ function logTerminalRpcRequest(logger, method, params) {
 
 function logTerminalRpcResult(logger, method, result) {
   if (!logger || typeof logger.log !== "function") {
+    return;
+  }
+  if (method === "terminal/attach" || method === "terminal/snapshot") {
+    logger.log(
+      `[mms-remote] ${method} ok target=${normalizePaneTarget(result?.pane?.requestTarget || result?.pane?.paneId || result?.pane?.target) || "(empty)"} content=${String(result?.content || "").length}`
+    );
     return;
   }
   if (method === "terminal/list" || method === "terminal/status" || method === "terminal/create") {
