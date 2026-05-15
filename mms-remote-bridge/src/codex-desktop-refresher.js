@@ -583,6 +583,7 @@ function readBridgeConfig({
     codexEndpoint,
     desktopIpcSocketPath: readFirstDefinedEnv(["MMS_REMOTE_DESKTOP_IPC_SOCKET"], "", env),
     refreshCommand,
+    visibleTerminalApp: readFirstDefinedEnv(["MMS_REMOTE_VISIBLE_TERMINAL"], "auto", env),
     codexBundleId: readFirstDefinedEnv(["MMS_REMOTE_CODEX_BUNDLE_ID"], DEFAULT_BUNDLE_ID, env),
     codexAppPath: DEFAULT_APP_PATH,
   };

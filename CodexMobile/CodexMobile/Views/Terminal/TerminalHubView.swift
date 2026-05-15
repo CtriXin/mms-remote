@@ -247,7 +247,7 @@ struct TerminalHubView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            Toggle("Open Mac Terminal.app", isOn: $openVisibleTerminalOnMac)
+            Toggle("Open Mac terminal app", isOn: $openVisibleTerminalOnMac)
                 .font(AppFont.callout())
             Button {
                 createTerminal()

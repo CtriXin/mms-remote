@@ -39,6 +39,8 @@ iPhone <-> WebSocket Relay <-> Mac Bridge <-> Codex CLI (spawn / existing WS)
 - “所有终端窗口”落地为：所有 **managed tmux panes**
 - “开新的”落地为：bridge 创建 tmux session/window/pane；可选打开 Mac visible terminal attach 到它
 - “双端同步”落地为：Mac 和 iPhone 都连接同一个 tmux pane；输出 snapshot + live stream；输入走 tmux send/input path
+- “Chat + Terminal 共存”落地为：Codex App Chat 保持默认入口；Terminal 是平行入口/顶部入口，不吞掉 Chat。
+- “用什么终端就长什么样”分两层：Mac 可见窗口支持 Ghostty/iTerm2/Terminal.app；iOS 端要靠真实 terminal renderer + 字体主题配置逼近 Mac 外观。
 
 ### 为什么不能直接接管任意现有 terminal
 
@@ -63,9 +65,12 @@ macOS 没有统一安全 API 让外部 app 可靠读取所有 terminal emulator 
 2. 发现所有 tmux sessions/windows/panes。
 3. 按 pane 粒度查看、输入、resize、detach、kill。
 4. iPhone 创建新 session/window/pane，指定 cwd 和启动 command。
-5. Mac visible terminal attach：创建后可自动打开 Terminal.app/iTerm2 窗口 attach 到同一 tmux pane（可选）。
+5. Mac visible terminal attach：创建后可自动打开 Ghostty/iTerm2/Terminal.app 窗口 attach 到同一 tmux pane（可选）。
 6. 保留 Codex mode；新增 Terminal mode，不复用 Codex thread/turn UI。
 7. E2EE 继续保护 terminal payload。
+8. 后续 MMS/OpenCode/Codex/Claude 启动入口可以选择进入 managed tmux，作为增项功能而不是强制替换。
+9. 支持动态加入：用户在 shell 里用 wrapper/命令加入 managed tmux 后，iOS Terminal 自动刷新并展示新 pane。
+10. iOS Terminal pane strip 支持横向滑动、pin、最近使用、拖拽排序。
 
 ### Out of Scope
 
@@ -221,7 +226,8 @@ terminal/status
 ### 当前落地状态（2026-05-15）
 
 - Phase 0/1/2 MVP 已落地：tmux adapter、bridge terminal RPC、iOS basic terminal hub、CLI smoke commands。
-- Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Terminal.app 窗口 attach 到同一 tmux session/pane；已有 pane 也可再打开到 Mac。
+- Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Ghostty/iTerm2/Terminal.app 窗口 attach 到同一 tmux session/pane；已有 pane 也可再打开到 Mac。
+- Mac visible terminal 选择支持 `auto|ghostty|iterm|terminal`，默认 auto 优先 Ghostty，再 iTerm2，再 Terminal.app。
 - 验收前 smoke 已落地：`mms-remote terminal smoke --json` 会创建 managed tmux session、验证 snapshot/input、自动清理。
 - 仍未完成 Full：真实 terminal renderer、MMS wrapper integration、多 iOS client hardening。
 
@@ -319,8 +325,11 @@ MVP input：
 - choose cwd
 - choose command: shell / codex / claude / custom command
 - optional macOS launcher:
-  - Terminal.app open new window attach tmux pane
-  - iTerm2 integration 后续可选
+  - `auto`: Ghostty -> iTerm2 -> Terminal.app
+  - `ghostty`: `open -na Ghostty.app --args ...`
+  - `iterm`: AppleScript 新建 iTerm2 window
+  - `terminal`: AppleScript 新建 Terminal.app window
+  - 可用 `MMS_REMOTE_VISIBLE_TERMINAL=ghostty|iterm|terminal` 固定默认
 
 验收：
 - iPhone 点 “New Terminal” 后，Mac tmux 有新 pane
@@ -329,15 +338,17 @@ MVP input：
 
 ### Phase 5: MMS Wrapper Integration
 
-目标：MMS/Claude/Codex 从入口处变成 discoverable managed terminal。
+目标：MMS/OpenCode/Claude/Codex 从入口处变成 discoverable managed terminal。
 
 功能：
 - `mms-remote terminal new --command codex --cwd <path>`
-- existing MMS launcher 可选择包进 tmux session/pane
+- existing MMS/OpenCode/Claude/Codex launcher 可选择包进 tmux session/pane
+- `!`/wrapper command 动态把当前 cwd/command 加入 Terminal Hub
+- 新 pane 出现后 iOS 自动刷新并可选自动选中/弹出
 - pane metadata 标记 provider/model/cwd/title
 
 验收：
-- 通过 MMS Remote 创建的 Codex/Claude session 都出现在 iPhone terminal list
+- 通过 MMS Remote 创建的 OpenCode/Codex/Claude session 都出现在 iPhone terminal list
 - model/provider 选择不受影响，因为 terminal hub 只管 PTY/tmux 层
 
 ### Phase 6: Multi-Client Hardening
@@ -399,10 +410,10 @@ node ./bin/mms-remote.js terminal list --json
 手工验收：
 1. Mac 先跑 `npm start` 或 `node ./bin/mms-remote.js up`，手机连上 bridge。
 2. 手机进 Terminal，确认能看到 managed pane list。
-3. 手机创建 terminal，默认不要打开 `Open Mac Terminal.app`；只有明确想弹 macOS Terminal.app 时再开启。
+3. 手机创建 terminal，默认不要打开 `Open Mac terminal app`；只有明确想弹 Mac terminal emulator 时再开启。
 4. 手机输入 `echo phone_ok`，Mac 同 pane 能看到；Mac 输入 `echo mac_ok`，手机 snapshot/poll 能看到。
 5. 想在当前 Ghostty 里看同一 pane，必须在 Ghostty 的真实交互 shell 里手动运行 `tmux attach -t mms-acceptance`；不要在非 TTY command runner 里跑。
-6. 顶部 display 按钮会打开 macOS Terminal.app；只在需要 Terminal.app 弹窗时使用。
+6. 顶部 display 按钮会打开 Mac terminal emulator；默认 auto 顺序是 Ghostty -> iTerm2 -> Terminal.app，可用 `MMS_REMOTE_VISIBLE_TERMINAL=ghostty|iterm|terminal` 固定。
 
 ### Full 验收
 

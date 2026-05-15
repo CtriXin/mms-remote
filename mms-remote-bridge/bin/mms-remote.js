@@ -249,7 +249,7 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible]|open|smoke|snapshot|input|key|kill> | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
@@ -305,6 +305,7 @@ async function runTerminalCliCommand({
           cols: parsePositiveInt(options.cols),
           rows: parsePositiveInt(options.rows),
           ...(hasTruthyTerminalOption(options, ["open-visible", "openVisible"]) ? { openVisible: true } : {}),
+          ...visibleAppParam(options),
         });
         emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalList });
         return;
@@ -331,7 +332,8 @@ async function runTerminalCliCommand({
       }
       case "open": {
         const paneId = terminalArgs[0];
-        const result = await hub.openVisible({ paneId });
+        const options = parseTerminalOptions(terminalArgs.slice(1));
+        const result = await hub.openVisible({ paneId, ...visibleAppParam(options) });
         emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: () => "[mms-remote] terminal opened on Mac." });
         return;
       }
@@ -369,6 +371,11 @@ function hasTruthyTerminalOption(options, keys) {
     const value = options[key];
     return value === true || value === "true" || value === "1" || value === "yes";
   });
+}
+
+function visibleAppParam(options = {}) {
+  const visibleApp = options["visible-app"] || options.visibleApp || options["terminal-app"] || options.terminalApp;
+  return visibleApp ? { visibleApp } : {};
 }
 
 function parseTerminalOptions(args) {
@@ -417,6 +424,7 @@ async function runTerminalSmoke({
       cols: parsePositiveInt(options.cols) || 96,
       rows: parsePositiveInt(options.rows) || 32,
       ...(openVisible ? { openVisible: true } : {}),
+      ...visibleAppParam(options),
     });
     createdSession = true;
     pane = findTerminalPane(createdList, sessionName);
@@ -565,4 +573,5 @@ module.exports = {
   parseTerminalOptions,
   runTerminalSmoke,
   runTerminalCliCommand,
+  visibleAppParam,
 };

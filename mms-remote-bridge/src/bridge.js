@@ -144,6 +144,9 @@ function startBridge({
     tmux: {
       socketName: config.terminalTmuxSocketName || "",
     },
+    visibleTerminal: {
+      visibleApp: config.visibleTerminalApp || "auto",
+    },
   });
 
   // Keep the local Codex runtime alive across transient relay disconnects.

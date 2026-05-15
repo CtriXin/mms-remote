@@ -64,6 +64,7 @@ function createTerminalHub(options = {}) {
       result.visibleTerminal = await openVisibleTerminalForCreatedPane({
         created,
         terminalList,
+        visibleApp: params.visibleApp || params.terminalApp,
       }).catch(formatVisibleTerminalFailure);
     }
 
@@ -115,7 +116,9 @@ function createTerminalHub(options = {}) {
 
   async function openVisible(params = {}) {
     const pane = await resolvePane(params.paneId || params.paneKey || params.target);
-    return visibleLauncher.openPane(pane);
+    return visibleLauncher.openPane(pane, {
+      visibleApp: params.visibleApp || params.terminalApp,
+    });
   }
 
   async function resolvePane(target) {
@@ -125,14 +128,14 @@ function createTerminalHub(options = {}) {
     return adapter.findPane(String(target));
   }
 
-  async function openVisibleTerminalForCreatedPane({ created, terminalList }) {
+  async function openVisibleTerminalForCreatedPane({ created, terminalList, visibleApp }) {
     const pane = findCreatedPane({ created, terminalList });
     if (!pane) {
       throw new TmuxAdapterError("Created terminal pane could not be resolved for visible launch", {
         code: "terminal_created_pane_not_found",
       });
     }
-    return visibleLauncher.openPane(pane);
+    return visibleLauncher.openPane(pane, { visibleApp });
   }
 
   async function handleMethod(method, params = {}) {

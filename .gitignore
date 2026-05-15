@@ -13,6 +13,7 @@ node_modules/
 # Xcode build
 DerivedData/
 build/
+.build/
 *.ipa
 
 # Environment / secrets

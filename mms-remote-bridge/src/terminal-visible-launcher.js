@@ -1,22 +1,47 @@
 // FILE: terminal-visible-launcher.js
-// Purpose: Opens a macOS Terminal.app window attached to a managed tmux pane.
+// Purpose: Opens a macOS terminal emulator attached to a managed tmux pane.
 // Layer: Service adapter
 // Exports: createTerminalVisibleLauncher, buildTerminalAttachShellCommand
-// Depends on: child_process
+// Depends on: child_process, fs
 
 const { execFile } = require("child_process");
+const fs = require("fs");
 
 const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_VISIBLE_TERMINAL = "auto";
+const VISIBLE_TERMINAL_APPS = {
+  ghostty: {
+    id: "ghostty",
+    appName: "Ghostty",
+    openAppName: "Ghostty.app",
+    candidates: ["/Applications/Ghostty.app"],
+  },
+  iterm: {
+    id: "iterm",
+    appName: "iTerm2",
+    candidates: ["/Applications/iTerm.app", "/Applications/iTerm2.app"],
+  },
+  terminal: {
+    id: "terminal",
+    appName: "Terminal",
+    candidates: ["/System/Applications/Utilities/Terminal.app", "/Applications/Utilities/Terminal.app"],
+  },
+};
+const AUTO_TERMINAL_ORDER = ["ghostty", "iterm", "terminal"];
 
 function createTerminalVisibleLauncher(options = {}) {
   const execFileImpl = options.execFile || execFile;
   const platform = options.platform || process.platform;
-  const terminalApp = options.terminalApp || "Terminal";
+  const env = options.env || process.env;
+  const appExists = options.appExists || defaultAppExists;
+  const preferredVisibleApp = normalizeVisibleTerminalApp(
+    options.visibleApp || options.terminalApp || env.MMS_REMOTE_VISIBLE_TERMINAL || DEFAULT_VISIBLE_TERMINAL
+  );
   const timeoutMs = Number.isInteger(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS;
   const tmuxBin = options.tmuxBin || "tmux";
   const socketName = normalizeOptionalString(options.socketName);
 
-  async function openPane(pane = {}) {
+  async function openPane(pane = {}, launchOptions = {}) {
     if (platform !== "darwin") {
       return {
         ok: false,
@@ -25,20 +50,22 @@ function createTerminalVisibleLauncher(options = {}) {
       };
     }
 
+    const visibleApp = resolveVisibleTerminalApp(
+      launchOptions.visibleApp || launchOptions.terminalApp || preferredVisibleApp,
+      { appExists }
+    );
     const command = buildTerminalAttachShellCommand({
       pane,
       socketName,
       tmuxBin,
     });
-    const script = buildTerminalAppleScript({
-      command,
-      terminalApp,
-    });
-    await runOsaScript(execFileImpl, script, timeoutMs);
+    const launch = buildVisibleTerminalLaunch({ command, visibleApp });
+    await runLaunchCommand(execFileImpl, launch, timeoutMs);
     return {
       ok: true,
       opened: true,
-      app: terminalApp,
+      app: visibleApp.id,
+      appName: visibleApp.appName,
       paneId: pane.paneId || pane.id || "",
       sessionName: pane.sessionName || "",
     };
@@ -84,6 +111,32 @@ function buildTerminalAttachShellCommand({
   return `cd ${shellQuote(cwd)} && ${attachCommand}`;
 }
 
+function buildVisibleTerminalLaunch({ command, visibleApp } = {}) {
+  switch (visibleApp?.id) {
+    case "ghostty":
+      return buildGhosttyLaunch({ command, visibleApp });
+    case "iterm":
+      return {
+        file: "osascript",
+        args: ["-e", buildITermAppleScript({ command })],
+      };
+    case "terminal":
+      return {
+        file: "osascript",
+        args: ["-e", buildTerminalAppleScript({ command, terminalApp: visibleApp.appName })],
+      };
+    default:
+      throw new Error(`Unsupported visible terminal app: ${visibleApp?.id || "unknown"}`);
+  }
+}
+
+function buildGhosttyLaunch({ command, visibleApp = VISIBLE_TERMINAL_APPS.ghostty } = {}) {
+  return {
+    file: "open",
+    args: ["-na", visibleApp.openAppName || "Ghostty.app", "--args", "-e", "/bin/zsh", "-lc", command],
+  };
+}
+
 function buildTerminalAppleScript({ command, terminalApp = "Terminal" } = {}) {
   return [
     `tell application ${appleScriptString(terminalApp)}`,
@@ -93,18 +146,70 @@ function buildTerminalAppleScript({ command, terminalApp = "Terminal" } = {}) {
   ].join("\n");
 }
 
-function runOsaScript(execFileImpl, script, timeoutMs) {
+function buildITermAppleScript({ command } = {}) {
+  return [
+    'tell application "iTerm2"',
+    "  activate",
+    "  set newWindow to (create window with default profile)",
+    "  tell current session of newWindow",
+    `    write text ${appleScriptString(command)}`,
+    "  end tell",
+    "end tell",
+  ].join("\n");
+}
+
+function resolveVisibleTerminalApp(value = DEFAULT_VISIBLE_TERMINAL, { appExists = defaultAppExists } = {}) {
+  const normalized = normalizeVisibleTerminalApp(value);
+  if (normalized !== "auto") {
+    return VISIBLE_TERMINAL_APPS[normalized];
+  }
+
+  for (const appId of AUTO_TERMINAL_ORDER) {
+    const app = VISIBLE_TERMINAL_APPS[appId];
+    if (app.candidates.some(appExists)) {
+      return app;
+    }
+  }
+
+  return VISIBLE_TERMINAL_APPS.terminal;
+}
+
+function normalizeVisibleTerminalApp(value) {
+  const normalized = normalizeOptionalString(value).toLowerCase();
+  const aliases = new Map([
+    ["", "auto"],
+    ["auto", "auto"],
+    ["ghostty", "ghostty"],
+    ["iterm", "iterm"],
+    ["iterm2", "iterm"],
+    ["iterm.app", "iterm"],
+    ["iterm2.app", "iterm"],
+    ["terminal", "terminal"],
+    ["terminal.app", "terminal"],
+  ]);
+  const appId = aliases.get(normalized);
+  if (!appId) {
+    throw new Error("Visible terminal app must be auto, ghostty, iterm, or terminal");
+  }
+  return appId;
+}
+
+function defaultAppExists(candidatePath) {
+  return fs.existsSync(candidatePath);
+}
+
+function runLaunchCommand(execFileImpl, launch, timeoutMs) {
   return new Promise((resolve, reject) => {
     execFileImpl(
-      "osascript",
-      ["-e", script],
+      launch.file,
+      launch.args,
       {
         timeout: timeoutMs,
         maxBuffer: 1024 * 1024,
       },
       (error, stdout, stderr) => {
         if (error) {
-          const message = stderr?.trim() || error.message || "Failed to open Terminal.app";
+          const message = stderr?.trim() || error.message || "Failed to open visible terminal";
           const launchError = new Error(message);
           launchError.code = error.code || "terminal_visible_launch_failed";
           launchError.stderr = stderr || "";
@@ -137,13 +242,18 @@ function shellQuote(value) {
 function appleScriptString(value) {
   return `"${String(value)
     .replace(/\\/g, "\\\\")
-    .replace(/"/g, "\\\"")
+    .replace(/"/g, '\\"')
     .replace(/\r/g, "\\r")
     .replace(/\n/g, "\\n")}"`;
 }
 
 module.exports = {
+  buildGhosttyLaunch,
+  buildITermAppleScript,
   buildTerminalAppleScript,
   buildTerminalAttachShellCommand,
+  buildVisibleTerminalLaunch,
   createTerminalVisibleLauncher,
+  normalizeVisibleTerminalApp,
+  resolveVisibleTerminalApp,
 };
