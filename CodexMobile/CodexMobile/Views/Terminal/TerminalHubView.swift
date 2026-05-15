@@ -491,7 +491,12 @@ struct TerminalHubView: View {
             let list = try await codex.refreshTerminalList()
             rememberTerminalList(list, source: "manual")
             if let target = selectedVisiblePaneTarget {
-                try await codex.refreshTerminalSnapshot(paneId: target)
+                do {
+                    try await codex.refreshTerminalSnapshot(paneId: target)
+                } catch {
+                    terminalDebugLine = "terminal/snapshot failed target=\(target): \(error.localizedDescription)"
+                    codex.terminalLastErrorMessage = nil
+                }
             }
         } catch {
             terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
@@ -526,7 +531,8 @@ struct TerminalHubView: View {
                 try await codex.refreshTerminalSnapshot(paneId: paneId)
             } catch {
                 if !Task.isCancelled {
-                    codex.terminalLastErrorMessage = error.localizedDescription
+                    terminalDebugLine = "terminal/snapshot failed target=\(paneId): \(error.localizedDescription)"
+                    codex.terminalLastErrorMessage = nil
                 }
                 return
             }
@@ -537,6 +543,8 @@ struct TerminalHubView: View {
     private func attachPane(_ pane: ManagedTerminalPane) {
         Task {
             do {
+                localErrorMessage = nil
+                codex.terminalLastErrorMessage = nil
                 guard let target = paneRequestTarget(pane) else {
                     localErrorMessage = "Terminal pane target is missing. Refresh terminals and try again."
                     return
