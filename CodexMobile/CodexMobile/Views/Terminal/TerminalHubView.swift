@@ -27,6 +27,7 @@ struct TerminalHubView: View {
     @State private var localErrorMessage: String?
     @State private var visibleTerminalPanes: [ManagedTerminalPane] = []
     @State private var localSelectedTerminalPaneTarget: String?
+    @State private var terminalDebugLine = "Terminal list not loaded yet."
 
     var body: some View {
         VStack(spacing: 0) {
@@ -310,6 +311,12 @@ struct TerminalHubView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
+            Text(terminalDebugLine)
+                .font(AppFont.mono(.caption2))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .textSelection(.enabled)
+                .frame(maxWidth: 340)
             createTerminalCard
                 .frame(maxWidth: 380)
             Spacer()
@@ -456,29 +463,34 @@ struct TerminalHubView: View {
         Task { await refreshTerminalsAsync() }
     }
 
+    @MainActor
     private func refreshTerminalsAsync() async {
         guard codex.isConnected else { return }
         isRefreshing = true
+        terminalDebugLine = "Refreshing terminal/list..."
         defer { isRefreshing = false }
         do {
             let list = try await codex.refreshTerminalList()
-            rememberTerminalList(list)
+            rememberTerminalList(list, source: "manual")
             if let pane = selectedVisiblePane {
                 try await codex.refreshTerminalSnapshot(paneId: pane.requestTarget)
             }
         } catch {
+            terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
             localErrorMessage = error.localizedDescription
         }
     }
 
+    @MainActor
     private func pollTerminalList() async {
         while !Task.isCancelled {
             guard codex.isConnected else { return }
             do {
                 let list = try await codex.refreshTerminalList(showLoading: false)
-                rememberTerminalList(list)
+                rememberTerminalList(list, source: "poll")
             } catch {
                 if !Task.isCancelled {
+                    terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
                     codex.terminalLastErrorMessage = error.localizedDescription
                 }
                 return
@@ -487,6 +499,7 @@ struct TerminalHubView: View {
         }
     }
 
+    @MainActor
     private func pollSelectedPaneSnapshot(paneId: String?) async {
         guard let paneId, !paneId.isEmpty else { return }
         while !Task.isCancelled {
@@ -585,7 +598,7 @@ struct TerminalHubView: View {
                 try await codex.killTerminalPane(pane.requestTarget)
                 try? await Task.sleep(nanoseconds: 200_000_000)
                 let list = try await codex.refreshTerminalList(showLoading: false)
-                rememberTerminalList(list)
+                rememberTerminalList(list, source: "close")
                 if let nextPane = selectedVisiblePane {
                     try await codex.attachTerminalPane(nextPane.requestTarget)
                 }
@@ -618,7 +631,7 @@ struct TerminalHubView: View {
                 )
                 newTerminalName = ""
                 isShowingCreateTerminalSheet = false
-                rememberTerminalList(list)
+                rememberTerminalList(list, source: "create")
                 if let pane = list.createdPane
                     ?? list.panes.first(where: { $0.sessionName == effectiveName && !$0.requestTarget.isEmpty })
                     ?? list.panes.first(where: { !$0.requestTarget.isEmpty }) {
@@ -631,8 +644,10 @@ struct TerminalHubView: View {
         }
     }
 
-    private func rememberTerminalList(_ list: ManagedTerminalList) {
+    @MainActor
+    private func rememberTerminalList(_ list: ManagedTerminalList, source: String) {
         visibleTerminalPanes = list.panes.filter { !$0.requestTarget.isEmpty }
+        terminalDebugLine = "\(source) terminal/list sessions=\(list.sessions.count) panes=\(list.panes.count) visible=\(visibleTerminalPanes.count)"
         if let target = localSelectedTerminalPaneTarget,
            visibleTerminalPanes.contains(where: { paneMatches($0, target: target) }) {
             return
