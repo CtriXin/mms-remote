@@ -381,6 +381,10 @@ struct TerminalHubView: View {
     }
 
     private var currentSnapshot: ManagedTerminalSnapshot? {
+        if let target = selectedVisiblePaneTarget,
+           let snapshot = codex.terminalSnapshotsByPaneId[target] {
+            return snapshot
+        }
         guard let pane = selectedVisiblePane else { return nil }
         return codex.terminalSnapshotsByPaneId[pane.requestTarget]
             ?? codex.terminalSnapshotsByPaneId[pane.paneId]

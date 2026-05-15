@@ -77,12 +77,7 @@ function createTerminalHub(options = {}) {
 
   async function snapshot(params = {}) {
     const pane = await resolvePane(params.paneId || params.paneKey || params.target);
-    const capture = await adapter.capturePane({
-      target: pane.paneId,
-      start: Number.isInteger(params.start) ? params.start : -2000,
-      preserveAnsi: Boolean(params.preserveAnsi),
-      joinWrapped: params.joinWrapped !== false,
-    });
+    const capture = await capturePaneSnapshot(pane, params);
     return {
       pane: decoratePane(pane),
       content: capture.content,
@@ -147,7 +142,7 @@ function createTerminalHub(options = {}) {
 
   async function newestPane() {
     const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
-    return tree.panes[0] || null;
+    return tree.panes.find((pane) => paneCaptureTarget(pane)) || tree.panes[0] || null;
   }
 
   async function resolveOrdinalFallbackPane(target) {
@@ -157,6 +152,39 @@ function createTerminalHub(options = {}) {
     }
     const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
     return tree.panes[ordinalIndex] || null;
+  }
+
+  async function capturePaneSnapshot(pane, params = {}) {
+    const captureTarget = paneCaptureTarget(pane);
+    if (!captureTarget) {
+      const fallbackPane = await newestPane();
+      const fallbackTarget = paneCaptureTarget(fallbackPane);
+      if (fallbackTarget) {
+        return captureWithTarget(fallbackTarget, params);
+      }
+    }
+    try {
+      return await captureWithTarget(captureTarget, params);
+    } catch (error) {
+      if (error?.code !== "invalid_terminal_target") {
+        throw error;
+      }
+      const fallbackPane = await newestPane();
+      const fallbackTarget = paneCaptureTarget(fallbackPane);
+      if (!fallbackTarget || fallbackTarget === captureTarget) {
+        throw error;
+      }
+      return captureWithTarget(fallbackTarget, params);
+    }
+  }
+
+  function captureWithTarget(target, params = {}) {
+    return adapter.capturePane({
+      target,
+      start: Number.isInteger(params.start) ? params.start : -2000,
+      preserveAnsi: Boolean(params.preserveAnsi),
+      joinWrapped: params.joinWrapped !== false,
+    });
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, createdPane, visibleApp }) {
@@ -314,6 +342,12 @@ function normalizePaneTarget(target) {
   return value;
 }
 
+function paneCaptureTarget(pane = {}) {
+  return normalizePaneTarget(
+    pane.paneId || pane.target || pane.requestTarget || pane.paneKey || pane.paneAddress || pane.id
+  );
+}
+
 function syntheticOrdinalPaneIndex(target) {
   const match = String(target || "").trim().match(/^mms-(\d+):\d+\.\d+$/);
   if (!match) {
@@ -375,6 +409,7 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
   }
 
   const logger = options.logger || console;
+  logTerminalRpcRequest(logger, message.method, message.params || {});
   handleTerminalMethod(message.method, message.params || {}, options)
     .then((result) => {
       logTerminalRpcResult(logger, message.method, result);
@@ -394,6 +429,14 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
       }));
     });
   return true;
+}
+
+function logTerminalRpcRequest(logger, method, params) {
+  if (!logger || typeof logger.log !== "function" || method === "terminal/list" || method === "terminal/status") {
+    return;
+  }
+  const target = normalizePaneTarget(params?.paneId || params?.paneKey || params?.target);
+  logger.log(`[mms-remote] ${method} request target=${target || "(empty)"}`);
 }
 
 function logTerminalRpcResult(logger, method, result) {

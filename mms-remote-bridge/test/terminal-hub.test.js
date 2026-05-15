@@ -239,6 +239,38 @@ test("terminal hub maps iOS synthetic ordinal pane targets to real panes", async
   assert.deepEqual(snapshotCalls, ["%2"]);
 });
 
+test("terminal hub snapshots with decorated fallback when paneId is empty", async () => {
+  const snapshotCalls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [],
+          windows: [],
+          panes: [
+            { id: "", paneId: "", target: "%9", paneKey: "fallback:0.0", sessionName: "fallback", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+      async findPane() {
+        throw new Error("not found");
+      },
+      async capturePane(params) {
+        snapshotCalls.push(params.target);
+        return { paneId: params.target, content: "fallback pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "" });
+
+  assert.equal(result.pane.requestTarget, "%9");
+  assert.deepEqual(snapshotCalls, ["%9"]);
+});
+
 test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !hasTmux }, async () => {
   const { adapter, hub } = makeHub();
   let response = "";

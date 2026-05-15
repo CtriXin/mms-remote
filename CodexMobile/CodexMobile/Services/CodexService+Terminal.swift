@@ -61,7 +61,7 @@ extension CodexService {
         )
         let snapshot = try ManagedTerminalSnapshot(json: response.result)
         selectedTerminalPaneId = snapshot.pane.requestTarget
-        storeTerminalSnapshot(snapshot)
+        storeTerminalSnapshot(snapshot, aliases: [paneId])
         upsertTerminalPane(snapshot.pane)
         terminalLastErrorMessage = nil
         return snapshot
@@ -83,7 +83,7 @@ extension CodexService {
             timeoutMessage: "Terminal snapshot timed out while reading the pane."
         )
         let snapshot = try ManagedTerminalSnapshot(json: response.result)
-        storeTerminalSnapshot(snapshot)
+        storeTerminalSnapshot(snapshot, aliases: [targetPaneId])
         upsertTerminalPane(snapshot.pane)
         terminalLastErrorMessage = nil
         return snapshot
@@ -262,14 +262,14 @@ extension CodexService {
         }
     }
 
-    private func storeTerminalSnapshot(_ snapshot: ManagedTerminalSnapshot) {
+    private func storeTerminalSnapshot(_ snapshot: ManagedTerminalSnapshot, aliases: [String] = []) {
         let keys = [
             snapshot.pane.paneId,
             snapshot.pane.paneKey,
             snapshot.pane.target,
             snapshot.pane.requestTarget,
             snapshot.pane.paneAddress,
-        ]
+        ] + aliases
         for key in keys.compactMap(normalizedTerminalTarget) {
             terminalSnapshotsByPaneId[key] = snapshot
         }
