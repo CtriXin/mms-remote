@@ -9,7 +9,9 @@ import Combine
 import Foundation
 
 private func codexLogVoiceRecording(_ message: String) {
+    #if DEBUG
     print("[VOICE] \(message)")
+    #endif
 }
 
 struct GPTVoiceRecordingClip: Sendable {

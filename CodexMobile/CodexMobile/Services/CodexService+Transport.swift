@@ -41,7 +41,9 @@ private struct CodexManualWebSocketEndpoint {
 }
 
 private func codexLogPairingTransport(_ message: String) {
+    #if DEBUG
     print("[PAIRING] \(message)")
+    #endif
 }
 
 extension CodexService {

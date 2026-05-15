@@ -164,6 +164,9 @@ final class ContentViewModel {
             )
         } catch {
             // Keep the saved pairing so temporary Mac/relay outages can recover on the next retry.
+            #if DEBUG
+            print("[ContentVM] manual reconnect failed: \(error)")
+            #endif
         }
     }
 

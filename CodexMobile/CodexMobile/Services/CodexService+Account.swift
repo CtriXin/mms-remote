@@ -223,6 +223,9 @@ extension CodexService {
             )
         } catch {
             // Keep the last-known bridge version info when the status read fails transiently.
+            #if DEBUG
+            print("[Account] bridge version status read failed: \(error)")
+            #endif
         }
     }
 
@@ -988,8 +991,9 @@ extension CodexService {
 
         guard let loginId = firstStringValue(in: payloadObject, keys: ["loginId", "login_id"]),
               let authURLString = firstStringValue(in: payloadObject, keys: ["authUrl", "auth_url"]),
-              let authURL = URL(string: authURLString) else {
-            throw CodexServiceError.invalidResponse("account/login/start response missing auth URL")
+              let authURL = URL(string: authURLString),
+              ["http", "https"].contains(authURL.scheme?.lowercased() ?? "") else {
+            throw CodexServiceError.invalidResponse("account/login/start response missing or invalid auth URL")
         }
 
         return CodexGPTLoginStartResult(

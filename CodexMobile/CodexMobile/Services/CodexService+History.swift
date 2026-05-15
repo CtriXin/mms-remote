@@ -1834,7 +1834,9 @@ extension CodexService {
             // Codex CLI sends singular top-level identity fields per event.
             return buildSyntheticAgentRefs(from: itemObject, fallbackThreadIds: fallbackThreadIds)
         }
-        let values = candidate!.arrayValue!
+        guard let values = candidate?.arrayValue else {
+            return buildSyntheticAgentRefs(from: itemObject, fallbackThreadIds: fallbackThreadIds)
+        }
 
         return values.enumerated().compactMap { index, value in
             guard let object = value.objectValue else { return nil }

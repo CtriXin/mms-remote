@@ -564,6 +564,7 @@ extension CodexService {
             !key.hasPrefix("\(threadId)|item:")
         }
 
+        let ownedTurnIDs = Set(threadIdByTurnID.filter { $0.value == threadId }.keys)
         if let turnId = activeTurnID(for: threadId) {
             setActiveTurnID(nil, for: threadId)
             threadIdByTurnID.removeValue(forKey: turnId)
@@ -572,6 +573,15 @@ extension CodexService {
         threadIdByTurnID = threadIdByTurnID.filter { $0.value != threadId }
 
         if activeThreadId == threadId { activeThreadId = nil }
+
+        // Prune per-turn / per-thread caches that would otherwise grow after local deletion.
+        assistantCompletionFingerprintByThread.removeValue(forKey: threadId)
+        recentActivityLineByThread.removeValue(forKey: threadId)
+        contextWindowUsageByThread.removeValue(forKey: threadId)
+        for turnID in ownedTurnIDs {
+            terminalStateByTurnID.removeValue(forKey: turnID)
+            aiChangeSetIDByTurnID.removeValue(forKey: turnID)
+        }
 
         removeLocallyArchivedThreadID(threadId)
         if pinnedThreadIDs.contains(threadId) {
@@ -758,6 +768,9 @@ extension CodexService {
                     didRunForcedResume: true
                 )
             } catch {
+                #if DEBUG
+                print("[Sync] catch-up resume failed for \(normalizedThreadID): \(error)")
+                #endif
                 return RunningThreadCatchupOutcome(
                     didRefreshTurnState: didRefresh,
                     isRunning: threadHasActiveOrRunningTurn(normalizedThreadID),

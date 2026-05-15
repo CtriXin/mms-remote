@@ -892,7 +892,8 @@ private extension CodexService {
         phoneIdentityPublicKey: String,
         phoneEphemeralPublicKey: String
     ) async throws -> SecureServerHello {
-        while true {
+        let maxIterations = 50
+        for _ in 0..<maxIterations {
             let raw = try await waitForSecureControlMessage(kind: "serverHello")
             let hello = try decodeSecureControl(SecureServerHello.self, from: raw)
             if let echoedNonce = hello.clientNonce, echoedNonce != expectedClientNonce {
@@ -915,6 +916,7 @@ private extension CodexService {
             }
             return hello
         }
+        throw CodexSecureTransportError.timedOut("Exhausted \(maxIterations) serverHello iterations without a matching response.")
     }
 
     // Falls back to transcript-signature matching for pre-echo serverHello payloads.
@@ -967,7 +969,8 @@ private extension CodexService {
         expectedKeyEpoch: Int,
         expectedMacDeviceId: String
     ) async throws -> SecureReadyMessage {
-        while true {
+        let maxIterations = 50
+        for _ in 0..<maxIterations {
             let raw = try await waitForSecureControlMessage(kind: "secureReady")
             let ready = try decodeSecureControl(SecureReadyMessage.self, from: raw)
             if ready.sessionId == expectedSessionId,
@@ -977,6 +980,7 @@ private extension CodexService {
             }
             debugSecureLog("discarding stale secureReady (keyEpoch=\(ready.keyEpoch) expected=\(expectedKeyEpoch))")
         }
+        throw CodexSecureTransportError.timedOut("Exhausted \(maxIterations) secureReady iterations without a matching response.")
     }
 
     func wireMessageKind(from rawText: String) -> String? {
@@ -1004,7 +1008,9 @@ private extension CodexService {
     }
 
     func debugSecureLog(_ message: String) {
+        #if DEBUG
         print("[CodexSecure] \(message)")
+        #endif
     }
 
     func shortSecureId(_ value: String) -> String {

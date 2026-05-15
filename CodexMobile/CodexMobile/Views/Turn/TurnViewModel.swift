@@ -2761,6 +2761,9 @@ final class TurnViewModel {
         do {
             return try await gitService.generateCommitMessage(model: model).fullMessage
         } catch {
+            #if DEBUG
+            print("[TurnVM] git commit message generation failed: \(error)")
+            #endif
             return nil
         }
     }

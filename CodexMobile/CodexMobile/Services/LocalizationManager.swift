@@ -1,0 +1,1428 @@
+// FILE: LocalizationManager.swift
+// Purpose: Centralized localization manager with in-app language switching.
+// Layer: Service
+// Exports: LocalizationManager, AppLanguage, Text+Localized, Button+Localized, Label+Localized
+
+import SwiftUI
+
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case chinese = "zh-Hans"
+    case english = "en"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .chinese: return "中文"
+        case .english: return "English"
+        }
+    }
+}
+
+@Observable
+final class LocalizationManager {
+    static let shared = LocalizationManager()
+
+    var currentLanguage: AppLanguage {
+        didSet {
+            UserDefaults.standard.set(currentLanguage.rawValue, forKey: "codex.appLanguage")
+            NotificationCenter.default.post(name: .languageChanged, object: nil)
+        }
+    }
+
+    private init() {
+        let stored = UserDefaults.standard.string(forKey: "codex.appLanguage") ?? ""
+        self.currentLanguage = AppLanguage(rawValue: stored) ?? .chinese
+    }
+
+    func localized(_ key: String) -> String {
+        Strings.table[currentLanguage]?[key]
+            ?? Strings.table[.english]?[key]
+            ?? key
+    }
+}
+
+extension Notification.Name {
+    static let languageChanged = Notification.Name("codex.languageChanged")
+}
+
+enum Strings {
+    static let table: [AppLanguage: [String: String]] = [
+        .chinese: [
+            // Settings
+            "settings.title": "设置",
+            "settings.archived_chats": "归档聊天",
+            "settings.archived_chats.count": "归档聊天 (%d)",
+            "settings.appearance": "外观",
+            "settings.font": "字体",
+            "settings.message_bubble": "消息气泡",
+            "settings.notifications": "通知",
+            "settings.gpt_account": "GPT 账户",
+            "settings.subscription": "订阅",
+            "settings.bridge_version": "Bridge 版本",
+            "settings.app_version": "App 版本",
+            "settings.runtime_defaults": "运行时默认值",
+            "settings.connection": "连接",
+            "settings.about": "关于",
+            "settings.chatgpt_voice_mode": "ChatGPT 语音模式",
+            "settings.model": "模型",
+            "settings.auto": "自动",
+            "settings.reasoning": "推理",
+            "settings.speed": "速度",
+            "settings.normal": "正常",
+            "settings.git_writer_model": "Git 写作模型",
+            "settings.git_writer_hint": "用于 AI 生成的提交信息和 PR 草稿。可用时默认使用 GPT-5.4 Mini。",
+            "settings.access": "访问权限",
+            "settings.local_build": "本地构建",
+            "settings.local_build_hint": "此源码构建未启用 App Store 订阅门槛。",
+            "settings.status": "状态",
+            "settings.installed_on_computer": "已安装在电脑",
+            "settings.latest_available": "最新可用",
+            "settings.current_build": "当前构建",
+            "settings.no_paired_computer": "未配对电脑",
+            "settings.saved_on_iphone": "保存在此 iPhone 上。下次桥接重新连接时会同步到配对的电脑。",
+            "settings.companion_pet": "陪伴宠物",
+            "settings.beta": "测试版",
+            "settings.pet": "宠物",
+            "settings.usage": "用量",
+            "settings.notifications_hint": "用于应用在后台时运行完成的本地提醒。",
+            "settings.allow_notifications": "允许通知",
+            "settings.disconnect": "断开连接",
+            "settings.forget_pair": "忘记配对",
+            "settings.open_ios_settings": "打开 iOS 设置",
+            "settings.refresh_pets": "刷新宠物",
+            "settings.language": "语言",
+            "settings.security": "安全",
+            "settings.security_hint": "聊天在 iPhone 和 Mac 之间端到端加密。中继在安全握手完成后只能看到密文和连接元数据。",
+            "settings.computer": "电脑",
+            "settings.computer_name": "电脑名称",
+            "settings.edit_computer_name": "编辑电脑名称",
+            "settings.computer_name_hint": "此昵称保留在此 iPhone 上，并出现在显示此电脑的任何位置。",
+            "settings.close": "关闭",
+            "settings.save": "保存",
+            "settings.use_default": "使用默认",
+            "settings.info": "信息",
+            "settings.up_to_date": "已是最新",
+            "settings.update_available": "有更新可用",
+            "settings.different_build": "不同构建",
+            "settings.unknown": "未知",
+            "settings.installed": "已安装",
+            "settings.liquid_glass": "Liquid Glass",
+            "settings.computer_system": "系统",
+            "settings.computer_status": "状态",
+
+            // Sidebar
+            "sidebar.title": "MMS Remote",
+            "sidebar.new_chat": "新聊天",
+            "sidebar.no_conversations": "没有对话",
+            "sidebar.no_matching_conversations": "没有匹配的对话",
+            "sidebar.connect_to_view": "连接以查看对话",
+            "sidebar.archived": "已归档",
+            "sidebar.stored_locally": "本地存储",
+            "sidebar.settings": "设置",
+            "sidebar.close_menu": "关闭菜单",
+            "sidebar.archive_project": "归档项目",
+            "sidebar.remove_from_phone": "从手机移除",
+            "sidebar.rename": "重命名",
+            "sidebar.pin": "固定",
+            "sidebar.unpin": "取消固定",
+            "sidebar.copy_session_id": "复制会话 ID",
+            "sidebar.show_more": "显示更多",
+            "sidebar.no_archived_chats": "没有归档聊天",
+            "sidebar.cancel": "取消",
+            "sidebar.remove": "移除",
+            "sidebar.archive": "归档",
+            "sidebar.unarchive": "取消归档",
+            "sidebar.remove_confirm": "这只会从 MMS Remote 手机端移除该聊天。电脑或 Codex 端不会被删除。",
+            "sidebar.conversation_diff_total": "对话差异总数",
+            "sidebar.show_more_count": "显示 %d 更多",
+
+            // Tabs
+            "tab.chats": "聊天",
+            "tab.terminal": "终端",
+            "tab.swift": "Swift",
+
+            // Terminal
+            "terminal.new_terminal": "新建终端",
+            "terminal.no_managed": "无托管终端",
+            "terminal.create_hint": "在 Mac 桥接上创建一个 tmux 托管终端，然后从此手机控制它。",
+            "terminal.keyboard": "键盘",
+            "swift_terminal.error_title": "Swift Terminal 错误",
+            "swift_terminal.panes": "窗格",
+            "swift_terminal.focus": "聚焦",
+            "swift_terminal.hide_keyboard": "收起",
+            "swift_terminal.bracketed_paste": "Bracketed paste",
+            "swift_terminal.font_size": "字号 %d",
+            "swift_terminal.no_pane": "没有 SwiftTerm 窗格",
+            "swift_terminal.no_pane_hint": "这里是新的 SwiftTerm stream 实验区，不影响现有 Terminal/CLI tab。",
+            "swift_terminal.create": "创建 Swift Terminal",
+            "swift_terminal.reset": "重置",
+            "swift_terminal.page_up": "上翻",
+            "swift_terminal.page_down": "下翻",
+            "swift_terminal.show_keys": "更多键",
+            "swift_terminal.hide_keys": "收起键",
+
+            // Common
+            "common.not_now": "暂不",
+            "common.start_new_chat": "开始新聊天",
+            "common.ok": "确定",
+            "common.new_qr_code": "新二维码",
+            "common.pair_with_code": "用代码配对",
+            "common.starting_new_chat": "正在开始新聊天...",
+            "common.preparing_conversation": "正在准备空对话。",
+            "common.new_chat": "新聊天",
+            "common.loading": "加载中...",
+            "alert.chat_deleted_message": "此聊天已不可用。改为开始新聊天？",
+            "alert.pairing_code_hint": "粘贴电脑上或手机 shell 中显示的配对代码。",
+            "common.loading_pricing": "加载定价中...",
+            "common.retry": "重试",
+            "common.retry_pricing": "重试定价",
+            "common.copied": "已复制",
+            "common.copy": "复制",
+
+            // QR Scanner
+            "qr.title.error": "配对错误",
+            "qr.message.invalid": "无效二维码",
+            "qr.steps.computer": "在电脑上执行以下步骤",
+            "qr.steps.iphone": "在 iPhone 上执行以下步骤",
+            "qr.step.update": "更新 MMS Remote",
+            "qr.step.start": "重新启动",
+            "qr.step.new_qr": "生成新二维码",
+            "qr.step.come_back": "返回此处",
+            "qr.detail.update_command": "使用终端中显示的新二维码",
+            "qr.detail.run_up": "运行 mms-remote up",
+            "qr.detail.scan_new": "然后使用 iPhone 扫描新二维码",
+            "qr.detail.install_latest": "在 iPhone 上安装最新的 MMS Remote 版本。",
+            "qr.detail.retry_or_scan": "然后重试连接或扫描新二维码。",
+            "qr.button.updated": "我已更新",
+            "qr.scan_prompt": "扫描 MMS Remote 二维码",
+            "qr.camera.title": "需要相机权限",
+            "qr.camera.message": "打开设置并允许相机权限以扫描配对二维码。",
+            "qr.button.open_settings": "打开设置",
+            "qr.button.back": "返回",
+            "qr.error.use_pair_with_code": "请使用上一屏幕中的代码配对。",
+
+            // Whats New
+            "whatsnew.title": "新功能",
+            "whatsnew.subtitle": "此版本更新内容如下。",
+            "whatsnew.note": "每个版本仅显示一次。",
+            "whatsnew.button.got_it": "知道了",
+
+            // Bridge Update
+            "bridgeupdate.run_on_computer": "在电脑上运行此命令",
+            "bridgeupdate.message.install_latest": "在 iPhone 上安装最新版本，然后返回此处重新连接。",
+            "bridgeupdate.after.app_update": "iPhone 应用更新完成后，重新连接电脑桥接。",
+            "bridgeupdate.after.package_update": "包更新完成后，在电脑上重新启动桥接并返回此处。",
+            "bridgeupdate.button.reconnecting": "重新连接中...",
+            "bridgeupdate.button.i_updated": "我已更新",
+            "bridgeupdate.button.scan_new_qr": "扫描新二维码",
+            "bridgeupdate.accessibility.copy_command": "复制桥接更新命令",
+
+            // Sidebar Alerts
+            "sidebar.alert.archive_project_title": "归档 \"%@\"?",
+            "sidebar.alert.archive_project_message": "此项目中的所有活跃聊天将被归档。",
+            "sidebar.alert.archive_project_button": "归档项目",
+            "sidebar.alert.remove_project_title": "从本机移除 \"%@\"?",
+            "sidebar.alert.remove_project_message": "此项目的聊天将仅从本机的 MMS Remote 中删除。电脑或 Codex 端不会被删除。",
+            "sidebar.alert.remove_chat_title": "从本机移除 \"%@\"?",
+            "sidebar.alert.action_failed": "操作失败",
+            "sidebar.alert.try_again": "请重试。",
+            "sidebar.syncing": "同步聊天中",
+
+            // Terminal Additional
+            "terminal.toolbar.chats": "聊天",
+            "terminal.accessibility.new_terminal": "新建终端",
+            "terminal.accessibility.close_terminal": "关闭选中终端",
+            "terminal.accessibility.open_on_mac": "在 Mac 上打开选中终端",
+            "terminal.accessibility.refresh": "刷新终端",
+            "terminal.alert.error_title": "终端错误",
+            "terminal.alert.error_message": "终端请求失败。",
+            "terminal.dialog.close_title": "关闭终端？",
+            "terminal.dialog.close_message": "在 Mac 和手机端关闭 tmux 面板 %@。",
+            "terminal.close_pane": "关闭 %@",
+            "terminal.context.copy_join": "复制加入命令",
+            "terminal.context.copy_address": "复制面板地址",
+            "terminal.context.open_mac": "在 Mac 上打开",
+            "terminal.context.close": "关闭终端",
+            "terminal.button.copy": "复制",
+            "terminal.button.paste": "粘贴",
+            "terminal.button.ctrl": "Ctrl…",
+            "terminal.button.alt": "Alt…",
+            "terminal.button.cmd_c": "⌘C",
+            "terminal.button.cmd_v": "⌘V",
+            "terminal.placeholder.command": "命令",
+            "terminal.status.no_pane": "无面板",
+            "terminal.status.live": "在线",
+            "terminal.placeholder.name": "名称",
+            "terminal.placeholder.cwd": "Mac 工作目录，例如 /Users/me/project",
+            "terminal.placeholder.command_optional": "命令（可选）",
+            "terminal.toggle.open_mac_app": "打开 Mac 终端应用",
+            "terminal.button.create": "创建托管终端",
+            "terminal.offline_banner": "使用托管终端前请先连接 Mac 桥接。",
+            "terminal.snapshot.select_hint": "选择一个面板，然后使用刷新或输入加载输出。",
+            "terminal.snapshot.loading": "正在加载终端输出...",
+
+            // Subscription
+            "sub.title.required": "需要 MMS Remote Pro",
+            "sub.subtitle.unlock": "解锁按月、按年或终身访问，将 iPhone 连接到电脑上运行的 Codex。",
+            "sub.feature_list_title": "你将获得",
+            "sub.pricing.title": "定价",
+            "sub.pricing.loading": "正在加载定价...",
+            "sub.pricing.loading_hint": "按月、按年和终身计划即将显示。",
+            "sub.pricing.unavailable": "定价当前不可用。",
+            "sub.pricing.unavailable_hint": "暂时无法加载可用计划。请稍后重试。",
+            "sub.button.retry_pricing": "重试定价",
+            "sub.placeholder.pro": "MMS Remote Pro",
+            "sub.button.unlock_now": "立即解锁",
+            "sub.button.restore": "恢复购买",
+            "sub.button.restoring": "恢复中...",
+            "sub.button.redeem": "兑换代码",
+            "sub.button.privacy": "隐私政策",
+            "sub.button.terms": "服务条款",
+            "sub.error.load_status": "无法加载订阅状态",
+            "sub.error.load_status_hint": "MMS Remote 暂时无法确认您的 Pro 权限。请检查连接、重试或恢复 App Store 购买。",
+            "sub.button.retry": "重试",
+            "sub.button.restore_purchases": "恢复购买",
+            "sub.info.computer_login": "MMS Remote 连接至您电脑上运行的 Codex。购买 Pro 可解锁应用，但您仍需先在电脑上登录 Codex。",
+            "sub.info.nav_title": "与电脑配合使用",
+            "sub.button.done": "完成",
+            "sub.info.step1_title": "在电脑上打开 Codex",
+            "sub.info.step1_body": "在您要配对的电脑上使用 Codex 桌面应用或 Codex CLI。",
+            "sub.info.step2_title": "先在那里登录",
+            "sub.info.step2_body": "在从 iPhone 配对之前，先在电脑上完成账户登录流程。",
+            "sub.info.step3_title": "运行 mms-remote up",
+            "sub.info.step3_body": "桥接会打印一个二维码。获得 Pro 权限后，从 iPhone 应用扫描该二维码。",
+
+            // Paywall
+            "paywall.title": "解锁 MMS Remote Pro",
+            "paywall.subtitle": "一切都在您的电脑上运行。手机是遥控器。",
+            "paywall.features_title": "您将获得以下功能",
+            "paywall.active": "此账户已激活 Pro。",
+            "paywall.cta_fallback": "解锁 MMS Remote Pro",
+            "paywall.discount": "37% 折扣",
+
+            // Folder Browser
+            "folder.nav_title": "添加本地文件夹",
+            "folder.search_prompt": "搜索文件夹",
+            "folder.button.close": "关闭",
+            "folder.button.use": "使用",
+            "folder.alert.new_folder": "新建文件夹",
+            "folder.placeholder.folder_name": "文件夹名称",
+            "folder.button.create": "创建",
+            "folder.alert.message": "在 Mac 上创建此文件夹并在其中开始聊天。",
+            "folder.section.locations": "位置",
+            "folder.section.current": "当前文件夹",
+            "folder.loading": "正在加载文件夹...",
+            "folder.section.folders": "文件夹",
+            "folder.section.matching": "匹配的文件夹",
+            "folder.row.parent": "上级文件夹",
+            "folder.loading_short": "加载中",
+            "folder.empty": "此处没有子文件夹。",
+            "folder.searching": "正在搜索文件夹...",
+            "folder.empty_search": "此文件夹下没有匹配的文件夹。",
+            "folder.error.no_folders": "此 Mac 没有可用的本地文件夹。",
+
+            // Project Picker
+            "picker.header": "为此聊天选择一个项目",
+            "picker.add_local": "添加本地文件夹",
+            "picker.add_local_hint": "在 Mac 上浏览或创建文件夹。",
+            "picker.section.local": "本地",
+            "picker.section.worktree": "工作树",
+            "picker.cloud": "云端",
+            "picker.cloud_hint": "在没有工作目录的情况下开始聊天。",
+            "picker.nav_title": "开始新聊天",
+            "picker.button.close": "关闭",
+
+            // Search
+            "search.placeholder": "搜索对话",
+            "search.button.done": "完成",
+            "search.button.cancel": "取消",
+
+            // Rename
+            "rename.title": "重命名对话",
+            "rename.placeholder": "名称",
+            "rename.button.rename": "重命名",
+            "rename.button.cancel": "取消",
+
+            // Open Source
+            "opensource.badge": "开源",
+            "opensource.accessibility": "GitHub 上的开源项目",
+
+            // Usage
+            "usage.rate_limits": "速率限制",
+            "usage.loading": "正在加载当前限制...",
+            "usage.unavailable": "此账户的速率限制不可用。",
+            "usage.context_window": "上下文窗口",
+            "usage.context": "上下文",
+            "usage.left": "%@ 剩余",
+            "usage.used": "已使用 0",
+            "usage.resets": "重置于",
+
+            // Turn / Composer
+            "composer.mode.plan": "计划模式",
+            "composer.mode.fast": "快速模式",
+            "composer.mode.normal": "正常",
+            "composer.cloud": "云端",
+            "composer.placeholder.command": "命令",
+            "composer.accessibility.resume": "恢复排队消息",
+            "composer.accessibility.starting": "正在开始运行",
+            "composer.accessibility.stop": "停止当前运行",
+            "composer.accessibility.options": "编辑器选项",
+            "composer.photo_library": "照片库",
+            "composer.take_photo": "拍照",
+            "composer.plan_indicator": "计划",
+            "composer.effort": "推理强度",
+            "composer.no_reasoning": "无推理选项",
+            "composer.change_model": "切换模型",
+            "composer.loading_models": "正在加载模型...",
+            "composer.no_models": "无可用模型",
+            "composer.no_models_description": "重新连接本地 Codex 桥接以刷新模型列表。",
+            "composer.other_models": "其他模型",
+            "composer.speed": "速度",
+            "composer.choose_model": "选择模型",
+            "composer.done": "完成",
+            "composer.continue_in": "继续在",
+            "composer.preparing_worktree": "准备工作树...",
+            "composer.handoff_local": "移交到本地",
+            "composer.new_worktree": "新工作树",
+            "composer.handoff_worktree": "移交到工作树",
+            "composer.local": "本地",
+            "command.directory": "目录",
+            "command.exit_code": "退出码",
+            "command.duration": "持续时间",
+            "command.status": "状态",
+            "command.output": "输出（最后 %d 行）",
+            "draft.move": "将草稿移入输入框",
+            "draft.steer": "引导",
+            "thinking": "MMS Remote 正在思考",
+            "thinking_dots": "MMS Remote 正在思考...",
+            "voice.cancel": "取消语音录制",
+            "voice.ask_anything": "随便问... @plugins, $skills, /commands",
+            "voice.model_name": "GPT-5.3-Codex",
+            "voice.setup.title": "GPT 语音工作原理",
+            "voice.setup.header": "GPT 语音使用您电脑上的 ChatGPT 会话",
+            "voice.setup.subtitle": "MMS Remote 不在 iPhone 上保留单独的 GPT 语音登录。它使用您已配对电脑上已激活的 ChatGPT 会话。",
+            "voice.step.1.title": "在 iPhone 上说话",
+            "voice.step.1.detail": "按住说话时，MMS Remote 会在手机上本地录制语音片段。",
+            "voice.step.2.title": "手机检查您配对的电脑",
+            "voice.step.2.detail": "MMS Remote 向配对的电脑桥接请求已连接的活动 ChatGPT 会话。",
+            "voice.step.3.title": "GPT 转录片段",
+            "voice.step.3.detail": "语音片段通过该电脑支持的 GPT 会话发送，以便 GPT 将其转换为文本。",
+            "voice.step.4.title": "文本返回 MMS Remote",
+            "voice.step.4.detail": "转录文本返回到应用并放入您的消息编辑器中。",
+            "voice.setup.summary": "简而言之：iPhone 语音输入，电脑 ChatGPT 会话认证，GPT 转录返回 iPhone。",
+            "git.actions": "Git 操作",
+            "issue.report": "报告问题",
+            "issue.dismiss": "忽略问题",
+            "scroll.latest": "滚动到最新消息",
+            "plan.open": "打开活跃计划",
+            "context.window_accessibility": "上下文窗口",
+            "revert.clean": "此回复可以干净地撤销。",
+            "revert.partial": "撤销看起来干净，但其他聊天修改了其中一些文件。",
+            "revert.unsafe": "无法安全撤销此回复。",
+
+            // Git Actions
+            "git.setup": "设置",
+            "git.update": "更新",
+            "git.write": "写入",
+            "git.recovery": "恢复",
+            "git.not_initialized": "Git 未初始化",
+            "git.up_to_date": "仓库已是最新",
+            "git.ahead": "本地分支领先远程",
+            "git.behind": "远程分支领先本地",
+            "git.diverged": "本地和远程分支已分叉",
+            "git.dirty": "本地有未提交更改",
+            "git.dirty_and_behind": "本地有更改且远程分支已更新",
+            "git.no_upstream": "分支尚未发布",
+            "git.detached": "当前分支不可用",
+            "git.status_unavailable": "仓库状态不可用",
+
+            // Issue
+            "issue.report_short": "报告",
+
+            // Timeline
+            "timeline.loading_recent": "正在加载最近消息...",
+            "timeline.loading_earlier": "正在加载更早消息...",
+            "timeline.load_earlier": "加载更早消息",
+            "timeline.working": "正在处理...",
+            "timeline.run_active": "运行仍在进行中。如需停止，请在下方操作。",
+            "timeline.loading_chat": "正在加载聊天...",
+            "timeline.preparing": "正在准备此对话的最近消息。",
+            "timeline.collapse": "收起先前消息",
+            "timeline.expand": "展开先前消息",
+            "timeline.tool_call": "工具调用",
+            "timeline.tool_calls": "工具调用",
+            "timeline.previous_message": "1 条先前消息",
+            "timeline.previous_messages": "%d 条先前消息",
+
+            // Plan
+            "plan.pending": "待处理",
+            "plan.in_progress": "进行中",
+            "plan.completed": "已完成",
+            "plan.open_details": "打开计划详情",
+            "plan.progress": "%d / %d 已完成",
+            "plan.hint": "在面板中显示当前计划步骤",
+            "plan.ask_continue": "让 Codex 继续...",
+
+            // Context / Revert / Branch
+            "context.percent_used": "已使用 %d%%",
+            "button.refresh": "刷新",
+            "revert.title": "撤销此回复",
+            "revert.undoing": "正在撤销...",
+            "revert.undo": "撤销",
+            "revert.description": "此操作仅尝试撤销此回复中的更改。除非有重叠，否则之后的本地编辑不受影响。",
+            "revert.files": "%d 个文件",
+            "revert.checking": "正在检查反向补丁是否能干净应用...",
+            "revert.staged_files": "已暂存文件",
+            "revert.unsupported": "不支持",
+            "revert.conflicts": "冲突",
+            "revert.needs_review": "需要检查",
+            "revert.error": "错误",
+
+            // Branch
+            "branch.title.current": "当前分支",
+            "branch.title.base": "基础分支",
+            "branch.section": "分支",
+            "branch.default_fallback": "分支",
+            "branch.open_worktree": "打开工作树",
+            "branch.open_elsewhere": "在其他地方打开",
+            "branch.no_results": "未找到分支",
+            "branch.search_hint": "尝试其他搜索或刷新分支列表。",
+            "branch.create_checkout": "创建并检出 '%@'",
+            "branch.new_branch": "新分支...",
+            "branch.switching": "正在切换...",
+            "branch.refreshing": "正在刷新...",
+            "branch.reload": "重新加载分支列表",
+            "branch.search_prompt": "搜索分支",
+            "branch.alert.new": "新分支",
+            "branch.button.create": "创建",
+            "branch.alert.message": "分支将在本地创建并检出。未提交的更改将保留在当前工作副本中。",
+            "branch.badge.current": "当前",
+            "branch.badge.default": "默认",
+
+            // Common Actions
+            "common.done": "完成",
+            "common.close": "关闭",
+            "common.clear": "清空",
+            "common.back": "返回",
+            "common.next": "下一步",
+            "common.open": "打开",
+            "common.manage": "管理",
+            "common.approve": "批准",
+            "common.decline": "拒绝",
+            "common.select_text": "选择文本",
+            "common.save": "保存",
+            "common.remove": "移除",
+            "common.questions": "问题",
+            "common.status": "状态",
+            "common.cancel": "取消",
+            "common.send": "发送",
+            "common.sending": "发送中...",
+
+            // Composer / Turn
+            "composer.loading_chat": "正在加载聊天...",
+            "composer.hi_help": "你好！我能帮你什么？",
+            "composer.what_do": "我们在",
+            "composer.creating_fork": "正在创建分叉...",
+            "composer.opening_chat": "正在打开新聊天",
+            "composer.starting_chat": "正在开始新聊天...",
+            "composer.subagent": "子代理",
+            "composer.back_to": "返回 %@",
+            "composer.plan_rpc_hint": "开始计划模式运行，RPC 事件将显示在此处。",
+            "composer.runtime_logs": "运行时日志",
+            "composer.no_runtime_logs": "尚无运行时日志",
+            "composer.e2e_encrypted": "聊天采用端到端加密",
+
+            // Alert
+            "alert.no_changes": "没有可提交的更改。",
+            "alert.force_close_body": "MMS Remote 将强制关闭并重新打开此电脑上的 Codex.app。任何正在运行的桌面任务将被停止，且未保存的草稿文本可能会丢失。",
+            "alert.force_close_button": "强制关闭并继续",
+            "alert.open_chat": "打开聊天",
+            "alert.branch_open_elsewhere": "分支已在别处打开",
+            "alert.image_preview": "图片预览",
+            "alert.nothing_to_commit": "没有可提交的更改",
+            "alert.desktop_handoff_failed": "无法继续在桌面应用",
+            "alert.desktop_handoff_failed_message": "无法在此桌面应用中继续此聊天。",
+
+            // Plan Mode
+            "plan.proposed": "提议的计划",
+            "plan.review_prompt": "打开提示以查看计划并回复。",
+            "plan.nav_title": "活跃计划",
+            "plan.input_needed": "需要输入",
+            "plan.needs_one_answer": "Codex 需要一个答案",
+            "plan.needs_answers": "Codex 需要 %d 个答案",
+            "plan.implement": "执行计划",
+            "plan.starting_implementation": "开始执行…",
+
+            // Autocomplete
+            "autocomplete.no_files": "没有 @%@ 的文件或插件",
+            "autocomplete.searching_skills": "正在搜索技能...",
+            "autocomplete.no_skills": "没有 $%@ 的技能",
+            "autocomplete.no_commands": "没有 /%@ 的命令",
+
+            // Worktree
+            "worktree.branch_name": "分支名称",
+            "worktree.base_branch": "基础分支",
+            "worktree.starts_from": "从此基础分支开始。",
+
+            // Subagent
+            "subagent.no_details": "暂无更多详情。",
+            "subagent.open_child": "打开子线程",
+
+            // Toolbar
+            "toolbar.continue_desktop": "在桌面应用继续",
+            "toolbar.new_chat": "新聊天",
+            "toolbar.thread_actions": "线程操作",
+            "toolbar.diff_total": "仓库差异总数",
+            "toolbar.rename": "重命名对话",
+
+            // Diff
+            "diff.thread": "线程",
+            "diff.path": "路径",
+            "diff.changes": "更改",
+            "diff.file_changed": "%d 个文件已更改",
+            "diff.files_changed": "%d 个文件已更改",
+
+            // Message
+            "message.approval_request": "批准请求",
+            "message.save_diagram": "保存图表",
+            "message.copy_response": "复制回复",
+            "message.remove_image": "移除图片",
+            "message.remove_file": "移除文件引用",
+            "message.remove_skill": "移除技能引用",
+            "message.remove_plugin": "移除插件引用",
+            "message.image": "图片",
+            "message.diff": "差异",
+            "diagram.rendering": "正在渲染图表…",
+
+            // Notification
+            "banner.dismiss": "关闭通知",
+
+            // Connection Status
+            "connection.offline": "离线",
+            "connection.connecting": "连接中",
+            "connection.loading_chats": "加载聊天中",
+            "connection.syncing": "同步中",
+            "connection.connected": "已连接",
+            "connection.connecting_relay": "正在连接中继...",
+            "connection.loading_chats_progress": "正在加载聊天...",
+            "connection.syncing_workspace": "正在同步工作区...",
+            "connection.reconnecting": "重新连接中...",
+            "connection.disconnect": "断开连接",
+
+            // Bridge Version
+            "bridge.version.installed_on_computer": "已安装在电脑",
+            "bridge.version.latest_available": "最新可用",
+            "bridge.version.connect_first": "先连接电脑桥接以查看已安装的包版本。",
+            "bridge.version.installed_detected": "检测到已安装版本。最新的已发布包当前不可用。",
+            "bridge.version.up_to_date": "已安装的桥接与最新发布的包匹配。",
+            "bridge.version.newer_available": "npm 上有更新的 MMS Remote 包可用。",
+            "bridge.version.different_build": "此 Mac 运行的构建与当前 npm 最新版本不同。",
+            "bridge.version.status_unknown": "未知",
+            "bridge.version.status_installed": "已安装",
+            "bridge.version.status_up_to_date": "已是最新",
+            "bridge.version.status_update_available": "有更新可用",
+            "bridge.version.status_different_build": "不同构建",
+
+            // Local Pets
+            "pets.loading": "正在加载本地 Codex 宠物...",
+            "pets.not_found": "在 ~/.codex/pets 中未找到本地 Codex 宠物。",
+
+            // Settings Keep Awake
+            "settings.keep_awake": "保持电脑可连接",
+            "settings.keep_awake_hint": "桥接运行时使用主机电脑的保持唤醒支持，即使显示器关闭电脑也可连接。建议充电时使用。",
+            "settings.keep_awake_idle_hint": "桥接空闲时电脑可正常恢复睡眠。",
+
+            // Settings Notifications Status
+            "settings.notif_status.authorized": "已授权",
+            "settings.notif_status.denied": "已拒绝",
+            "settings.notif_status.provisional": "临时",
+            "settings.notif_status.ephemeral": "临时",
+            "settings.notif_status.not_requested": "未请求",
+            "settings.notif_status.unknown": "未知",
+
+            // Settings Accessory Rows
+            "settings.how_it_works": "MMS Remote 工作原理",
+            "settings.send_feedback": "发送反馈",
+            "settings.privacy_policy": "隐私政策",
+            "settings.terms_of_use": "使用条款",
+
+            // Paywall Features
+            "paywall.feature.fast.title": "快速模式",
+            "paywall.feature.git.title": "用手机操作 Git",
+            "paywall.feature.e2ee.title": "端到端加密",
+            "paywall.feature.voice.title": "语音模式，支持语音转文字",
+            "paywall.feature.subagents.title": "子代理",
+            "paywall.feature.skills.title": "$skills、/commands 和 @file 引用",
+            "paywall.feature.relay.title": "包含托管中继",
+            "paywall.feature.support.title": "支持开发",
+            "paywall.footer.recurring": "按周期计费。随时可取消。",
+            "paywall.footer.one_time": "一次性",
+
+            // Subscription Gate Features
+            "gate.feature.fast.title": "快速模式",
+            "gate.feature.fast.subtitle": "更低延迟的对话轮次",
+            "gate.feature.git.title": "用手机操作 Git",
+            "gate.feature.git.subtitle": "提交、推送、拉取和切换分支",
+            "gate.feature.e2ee.title": "端到端加密",
+            "gate.feature.e2ee.subtitle": "中继永远看不到你的提示词或代码",
+            "gate.feature.voice.title": "语音模式",
+            "gate.feature.voice.subtitle": "语音转文字转录你的消息",
+            "gate.feature.subagents.title": "子代理",
+            "gate.feature.subagents.subtitle": "将复杂任务委派给专业子代理",
+            "gate.feature.skills.title": "$skills /cmds @files",
+            "gate.feature.skills.subtitle": "调用技能、运行斜杠命令和内联引用文件",
+            "gate.feature.relay.title": "托管中继",
+            "gate.feature.relay.subtitle": "你付费购买产品和托管路径",
+            "gate.feature.support.title": "支持开发",
+            "gate.feature.support.subtitle": "帮助 MMS Remote 保持独立和开源",
+            "gate.placeholder.pricing": "$0.00 / 月",
+
+            // Onboarding
+            "onboarding.stay": "留在这里",
+            "onboarding.continue": "仍继续",
+            "onboarding.step": "第 %d 步",
+            "onboarding.step1.title": "安装 Codex CLI",
+            "onboarding.step1.desc": "AI 编程代理，驻留在终端中。MMS Remote 从您的 iPhone 连接到它。",
+            "onboarding.step2.title": "安装桥接",
+            "onboarding.step2.desc": "轻量级中继，安全连接您的 Mac 和 iPhone。",
+            "onboarding.step2.caption": "MMS Remote 可在桥接运行时通过 macOS caffeinate 保持 Mac 唤醒，但默认禁用。您可以稍后在设置中启用。",
+            "onboarding.step3.title": "开始配对",
+            "onboarding.step3.desc": "在电脑上运行此命令。终端会显示二维码，接下来扫描它。",
+            "onboarding.alert.title": "请先安装 Codex CLI",
+            "onboarding.alert.message": "请先在电脑上复制粘贴 \"%@\"。Codex CLI 未安装且不在 PATH 中时，MMS Remote 无法工作。",
+            "onboarding.scan_qr": "扫描二维码",
+            "onboarding.pair_code": "用代码配对",
+            "onboarding.button.get_started": "开始使用",
+            "onboarding.button.setup": "设置",
+            "onboarding.features.title": "功能一览",
+            "onboarding.features.subtitle": "一切都在电脑上运行。\n手机就是遥控器。",
+            "onboarding.features.fast.title": "快速模式",
+            "onboarding.features.fast.subtitle": "更低延迟的对话轮次",
+            "onboarding.features.git.title": "用手机操作 Git",
+            "onboarding.features.git.subtitle": "提交、推送、拉取和切换分支",
+            "onboarding.features.e2ee.title": "端到端加密",
+            "onboarding.features.e2ee.subtitle": "中继永远看不到你的提示词或代码",
+            "onboarding.features.voice.title": "语音模式",
+            "onboarding.features.voice.subtitle": "通过语音转文字与 Codex 对话",
+            "onboarding.features.subagents.title": "子代理、技能和命令",
+            "onboarding.features.subagents.subtitle": "从手机生成和监控并行代理",
+            "onboarding.welcome.subtitle": "从 iPhone 控制 Codex。",
+            "onboarding.welcome.e2ee": "端到端加密",
+        ],
+        .english: [
+            // Settings
+            "settings.title": "Settings",
+            "settings.archived_chats": "Archived Chats",
+            "settings.archived_chats.count": "Archived Chats (%d)",
+            "settings.appearance": "Appearance",
+            "settings.font": "Font",
+            "settings.message_bubble": "Message Bubble",
+            "settings.notifications": "Notifications",
+            "settings.gpt_account": "GPT Account",
+            "settings.subscription": "Subscription",
+            "settings.bridge_version": "Bridge Version",
+            "settings.app_version": "App Version",
+            "settings.runtime_defaults": "Runtime Defaults",
+            "settings.connection": "Connection",
+            "settings.about": "About",
+            "settings.chatgpt_voice_mode": "ChatGPT voice mode",
+            "settings.model": "Model",
+            "settings.auto": "Auto",
+            "settings.reasoning": "Reasoning",
+            "settings.speed": "Speed",
+            "settings.normal": "Normal",
+            "settings.git_writer_model": "Git writer model",
+            "settings.git_writer_hint": "Used for AI-generated commit messages and PR drafts. Defaults to GPT-5.4 Mini when available.",
+            "settings.access": "Access",
+            "settings.local_build": "Local build",
+            "settings.local_build_hint": "This source build does not enable an App Store subscription gate.",
+            "settings.status": "Status",
+            "settings.installed_on_computer": "Installed on Computer",
+            "settings.latest_available": "Latest available",
+            "settings.current_build": "Current Build",
+            "settings.no_paired_computer": "No paired computer",
+            "settings.saved_on_iphone": "Saved on this iPhone. It will sync to the paired computer the next time the bridge reconnects.",
+            "settings.companion_pet": "Companion Pet",
+            "settings.beta": "BETA",
+            "settings.pet": "Pet",
+            "settings.usage": "Usage",
+            "settings.notifications_hint": "Used for local alerts when a run finishes while the app is in background.",
+            "settings.allow_notifications": "Allow notifications",
+            "settings.disconnect": "Disconnect",
+            "settings.forget_pair": "Forget Pair",
+            "settings.open_ios_settings": "Open iOS Settings",
+            "settings.refresh_pets": "Refresh Pets",
+            "settings.language": "Language",
+            "settings.security": "Security",
+            "settings.security_hint": "Chats are End-to-end encrypted between your iPhone and Mac. The relay only sees ciphertext and connection metadata after the secure handshake completes.",
+            "settings.computer": "Computer",
+            "settings.computer_name": "Computer name",
+            "settings.edit_computer_name": "Edit Computer Name",
+            "settings.computer_name_hint": "This nickname stays on this iPhone and appears anywhere this computer is shown.",
+            "settings.close": "Close",
+            "settings.save": "Save",
+            "settings.use_default": "Use Default",
+            "settings.info": "Info",
+            "settings.up_to_date": "Up to date",
+            "settings.update_available": "Update available",
+            "settings.different_build": "Different build",
+            "settings.unknown": "Unknown",
+            "settings.installed": "Installed",
+            "settings.liquid_glass": "Liquid Glass",
+            "settings.computer_system": "System",
+            "settings.computer_status": "Status",
+
+            // Sidebar
+            "sidebar.title": "MMS Remote",
+            "sidebar.new_chat": "New Chat",
+            "sidebar.no_conversations": "No conversations",
+            "sidebar.no_matching_conversations": "No matching conversations",
+            "sidebar.connect_to_view": "Connect to view conversations",
+            "sidebar.archived": "Archived",
+            "sidebar.stored_locally": "Stored locally",
+            "sidebar.settings": "Settings",
+            "sidebar.close_menu": "Close menu",
+            "sidebar.archive_project": "Archive Project",
+            "sidebar.remove_from_phone": "Remove from Phone",
+            "sidebar.rename": "Rename",
+            "sidebar.pin": "Pin",
+            "sidebar.unpin": "Unpin",
+            "sidebar.copy_session_id": "Copy sessionId",
+            "sidebar.show_more": "Show more",
+            "sidebar.no_archived_chats": "No archived chats",
+            "sidebar.cancel": "Cancel",
+            "sidebar.remove": "Remove",
+            "sidebar.archive": "Archive",
+            "sidebar.unarchive": "Unarchive",
+            "sidebar.remove_confirm": "This only removes the chat from MMS Remote on this phone. Nothing is removed from your computer or Codex observer.",
+            "sidebar.conversation_diff_total": "Conversation diff total",
+            "sidebar.show_more_count": "Show %d more",
+
+            // Tabs
+            "tab.chats": "Chats",
+            "tab.terminal": "Terminal",
+            "tab.swift": "Swift",
+
+            // Terminal
+            "terminal.new_terminal": "New Terminal",
+            "terminal.no_managed": "No managed terminals",
+            "terminal.create_hint": "Create a tmux-managed terminal on your Mac bridge, then control it from this phone.",
+            "terminal.keyboard": "Keyboard",
+            "swift_terminal.error_title": "Swift Terminal Error",
+            "swift_terminal.panes": "Panes",
+            "swift_terminal.focus": "Focus",
+            "swift_terminal.hide_keyboard": "Hide",
+            "swift_terminal.bracketed_paste": "Bracketed paste",
+            "swift_terminal.font_size": "Size %d",
+            "swift_terminal.no_pane": "No SwiftTerm pane",
+            "swift_terminal.no_pane_hint": "This is the new SwiftTerm stream lab. Existing Terminal/CLI tab stays unchanged.",
+            "swift_terminal.create": "Create Swift Terminal",
+            "swift_terminal.reset": "Reset",
+            "swift_terminal.page_up": "PgUp",
+            "swift_terminal.page_down": "PgDn",
+            "swift_terminal.show_keys": "More",
+            "swift_terminal.hide_keys": "Less",
+
+            // Common
+            "common.not_now": "Not Now",
+            "common.start_new_chat": "Start New Chat",
+            "common.ok": "OK",
+            "common.new_qr_code": "New QR Code",
+            "common.pair_with_code": "Pair with Code",
+            "common.starting_new_chat": "Starting new chat...",
+            "common.preparing_conversation": "Preparing an empty conversation.",
+            "common.new_chat": "New Chat",
+            "common.loading": "Loading...",
+            "alert.chat_deleted_message": "This chat is no longer available. Start a new chat instead?",
+            "alert.pairing_code_hint": "Paste the pairing code shown in the terminal on your computer or in your phone shell.",
+            "common.loading_pricing": "Loading pricing...",
+            "common.retry": "Retry",
+            "common.retry_pricing": "Retry pricing",
+            "common.copied": "Copied",
+            "common.copy": "Copy",
+
+            // QR Scanner
+            "qr.title.error": "Pairing Error",
+            "qr.message.invalid": "Invalid QR code",
+            "qr.steps.computer": "Do these steps on your computer",
+            "qr.steps.iphone": "Do these steps on your iPhone",
+            "qr.step.update": "Update MMS Remote",
+            "qr.step.start": "Start it again",
+            "qr.step.new_qr": "Make a new QR code",
+            "qr.step.come_back": "Come back here",
+            "qr.detail.update_command": "Use the new QR shown in the terminal",
+            "qr.detail.run_up": "Run mms-remote up",
+            "qr.detail.scan_new": "Then scan the new QR code from the iPhone",
+            "qr.detail.install_latest": "Install the latest MMS Remote build on this iPhone.",
+            "qr.detail.retry_or_scan": "Then retry the connection or scan a fresh QR code.",
+            "qr.button.updated": "I Updated It",
+            "qr.scan_prompt": "Scan the MMS Remote QR code",
+            "qr.camera.title": "Camera access needed",
+            "qr.camera.message": "Open Settings and allow camera access to scan the pairing QR code.",
+            "qr.button.open_settings": "Open Settings",
+            "qr.button.back": "Back",
+            "qr.error.use_pair_with_code": "Use Pair with Code from the previous screen.",
+
+            // Whats New
+            "whatsnew.title": "What's New",
+            "whatsnew.subtitle": "Here's what changed in this build.",
+            "whatsnew.note": "We'll only show this once for each app version.",
+            "whatsnew.button.got_it": "Got It",
+
+            // Bridge Update
+            "bridgeupdate.run_on_computer": "Run this on your computer",
+            "bridgeupdate.message.install_latest": "Install the latest MMS Remote build on this iPhone, then come back here and reconnect.",
+            "bridgeupdate.after.app_update": "After the app finishes updating on your iPhone, reconnect to the computer bridge.",
+            "bridgeupdate.after.package_update": "After the package finishes updating, restart the bridge on your computer and come back here.",
+            "bridgeupdate.button.reconnecting": "Reconnecting...",
+            "bridgeupdate.button.i_updated": "I Updated It",
+            "bridgeupdate.button.scan_new_qr": "Scan New QR Code",
+            "bridgeupdate.accessibility.copy_command": "Copy bridge update command",
+
+            // Sidebar Alerts
+            "sidebar.alert.archive_project_title": "Archive \"%@\"?",
+            "sidebar.alert.archive_project_message": "All active chats in this project will be archived.",
+            "sidebar.alert.archive_project_button": "Archive Project",
+            "sidebar.alert.remove_project_title": "Remove \"%@\" from this phone?",
+            "sidebar.alert.remove_project_message": "Chats for this project will be deleted only from MMS Remote on this phone. Nothing is removed from your computer or Codex observer.",
+            "sidebar.alert.remove_chat_title": "Remove \"%@\" from this phone?",
+            "sidebar.alert.action_failed": "Action failed",
+            "sidebar.alert.try_again": "Please try again.",
+            "sidebar.syncing": "Syncing chats",
+
+            // Terminal Additional
+            "terminal.toolbar.chats": "Chats",
+            "terminal.accessibility.new_terminal": "New terminal",
+            "terminal.accessibility.close_terminal": "Close selected terminal",
+            "terminal.accessibility.open_on_mac": "Open selected terminal on Mac",
+            "terminal.accessibility.refresh": "Refresh terminals",
+            "terminal.alert.error_title": "Terminal Error",
+            "terminal.alert.error_message": "Terminal request failed.",
+            "terminal.dialog.close_title": "Close Terminal?",
+            "terminal.dialog.close_message": "Kills tmux pane %@ on Mac and phone.",
+            "terminal.close_pane": "Close %@",
+            "terminal.context.copy_join": "Copy Join Command",
+            "terminal.context.copy_address": "Copy Pane Address",
+            "terminal.context.open_mac": "Open on Mac",
+            "terminal.context.close": "Close Terminal",
+            "terminal.button.copy": "Copy",
+            "terminal.button.paste": "Paste",
+            "terminal.button.ctrl": "Ctrl…",
+            "terminal.button.alt": "Alt…",
+            "terminal.button.cmd_c": "⌘C",
+            "terminal.button.cmd_v": "⌘V",
+            "terminal.placeholder.command": "Command",
+            "terminal.status.no_pane": "No pane",
+            "terminal.status.live": "Live",
+            "terminal.placeholder.name": "Name",
+            "terminal.placeholder.cwd": "Mac cwd, e.g. /Users/me/project",
+            "terminal.placeholder.command_optional": "Command (optional)",
+            "terminal.toggle.open_mac_app": "Open Mac terminal app",
+            "terminal.button.create": "Create Managed Terminal",
+            "terminal.offline_banner": "Connect to your Mac bridge before using managed terminals.",
+            "terminal.snapshot.select_hint": "Select a pane, then use refresh or input to load output.",
+            "terminal.snapshot.loading": "Loading terminal output...",
+
+            // Subscription
+            "sub.title.required": "MMS Remote Pro Required",
+            "sub.subtitle.unlock": "Unlock monthly, yearly, or lifetime access to connect your iPhone to Codex running on your computer.",
+            "sub.feature_list_title": "What you get",
+            "sub.pricing.title": "Pricing",
+            "sub.pricing.loading": "Loading pricing...",
+            "sub.pricing.loading_hint": "Monthly, yearly, and lifetime plans will appear here in a moment.",
+            "sub.pricing.unavailable": "Pricing is unavailable right now.",
+            "sub.pricing.unavailable_hint": "We couldn't load the available plans yet. Try again in a moment.",
+            "sub.button.retry_pricing": "Retry pricing",
+            "sub.placeholder.pro": "MMS Remote Pro",
+            "sub.button.unlock_now": "Unlock Now",
+            "sub.button.restore": "Restore Purchase",
+            "sub.button.restoring": "Restoring...",
+            "sub.button.redeem": "Redeem Code",
+            "sub.button.privacy": "Privacy",
+            "sub.button.terms": "Terms",
+            "sub.error.load_status": "Couldn’t load subscription status",
+            "sub.error.load_status_hint": "MMS Remote couldn’t confirm your Pro access yet. Check your connection, retry, or restore your App Store purchases.",
+            "sub.button.retry": "Retry",
+            "sub.button.restore_purchases": "Restore Purchases",
+            "sub.info.computer_login": "MMS Remote connects to Codex running on your computer. Buying Pro unlocks the app, but you still need Codex already logged in on that computer.",
+            "sub.info.nav_title": "Use with Your Computer",
+            "sub.button.done": "Done",
+            "sub.info.step1_title": "Open Codex on your computer",
+            "sub.info.step1_body": "Use the Codex desktop app or the Codex CLI on the computer you want to pair.",
+            "sub.info.step2_title": "Log in there first",
+            "sub.info.step2_body": "Finish the account login flow on the computer before pairing from iPhone.",
+            "sub.info.step3_title": "Run mms-remote up",
+            "sub.info.step3_body": "The bridge prints a QR code. Scan that QR from the iPhone app after you have Pro access.",
+
+            // Paywall
+            "paywall.title": "Unlock MMS Remote Pro",
+            "paywall.subtitle": "Everything runs on your computer. Your phone is the remote.",
+            "paywall.features_title": "Here's what you'll get",
+            "paywall.active": "Pro is already active on this account.",
+            "paywall.cta_fallback": "Unlock MMS Remote Pro",
+            "paywall.discount": "37% OFF",
+
+            // Folder Browser
+            "folder.nav_title": "Add Local Folder",
+            "folder.search_prompt": "Search folders",
+            "folder.button.close": "Close",
+            "folder.button.use": "Use",
+            "folder.alert.new_folder": "New Folder",
+            "folder.placeholder.folder_name": "Folder name",
+            "folder.button.create": "Create",
+            "folder.alert.message": "Create this folder on your Mac and start a chat there.",
+            "folder.section.locations": "Locations",
+            "folder.section.current": "Current Folder",
+            "folder.loading": "Loading folders...",
+            "folder.section.folders": "Folders",
+            "folder.section.matching": "Matching Folders",
+            "folder.row.parent": "Parent Folder",
+            "folder.loading_short": "Loading",
+            "folder.empty": "No child folders here.",
+            "folder.searching": "Searching folders...",
+            "folder.empty_search": "No matching folders under this folder.",
+            "folder.error.no_folders": "No local folders are available from this Mac.",
+
+            // Project Picker
+            "picker.header": "Choose a project for this chat",
+            "picker.add_local": "Add Local Folder",
+            "picker.add_local_hint": "Browse or create a folder on your Mac.",
+            "picker.section.local": "Local",
+            "picker.section.worktree": "Worktree",
+            "picker.cloud": "Cloud",
+            "picker.cloud_hint": "Start a chat without a working directory.",
+            "picker.nav_title": "Start new chat",
+            "picker.button.close": "Close",
+
+            // Search
+            "search.placeholder": "Search conversations",
+            "search.button.done": "Done",
+            "search.button.cancel": "Cancel",
+
+            // Rename
+            "rename.title": "Rename Conversation",
+            "rename.placeholder": "Name",
+            "rename.button.rename": "Rename",
+            "rename.button.cancel": "Cancel",
+
+            // Open Source
+            "opensource.badge": "Open source",
+            "opensource.accessibility": "Open source on GitHub",
+
+            // Usage
+            "usage.rate_limits": "Rate limits",
+            "usage.loading": "Loading current limits...",
+            "usage.unavailable": "Rate limits are unavailable for this account.",
+            "usage.context_window": "Context window",
+            "usage.context": "Context",
+            "usage.left": "%@ left",
+            "usage.used": "0 used",
+            "usage.resets": "resets",
+
+            // Turn / Composer
+            "composer.mode.plan": "Plan mode",
+            "composer.mode.fast": "Fast Mode",
+            "composer.mode.normal": "Normal",
+            "composer.cloud": "Cloud",
+            "composer.placeholder.command": "Command",
+            "composer.accessibility.resume": "Resume queued messages",
+            "composer.accessibility.starting": "Starting run",
+            "composer.accessibility.stop": "Stop current run",
+            "composer.accessibility.options": "Composer options",
+            "composer.photo_library": "Photo library",
+            "composer.take_photo": "Take a photo",
+            "composer.plan_indicator": "Plan",
+            "composer.effort": "Effort",
+            "composer.no_reasoning": "No reasoning options",
+            "composer.change_model": "Change model",
+            "composer.loading_models": "Loading models...",
+            "composer.no_models": "No models available",
+            "composer.no_models_description": "Reconnect to your local Codex bridge to refresh the model list.",
+            "composer.other_models": "Other models",
+            "composer.speed": "Speed",
+            "composer.choose_model": "Choose model",
+            "composer.done": "Done",
+            "composer.continue_in": "Continue in",
+            "composer.preparing_worktree": "Preparing worktree...",
+            "composer.handoff_local": "Hand off to Local",
+            "composer.new_worktree": "New worktree",
+            "composer.handoff_worktree": "Hand off to Worktree",
+            "composer.local": "Local",
+            "command.directory": "Directory",
+            "command.exit_code": "Exit code",
+            "command.duration": "Duration",
+            "command.status": "Status",
+            "command.output": "Output (last %d lines)",
+            "draft.move": "Move draft into input",
+            "draft.steer": "Steer",
+            "thinking": "MMS Remote is thinking",
+            "thinking_dots": "MMS Remote is thinking...",
+            "voice.cancel": "Cancel voice recording",
+            "voice.ask_anything": "Ask anything... @plugins, $skills, /commands",
+            "voice.model_name": "GPT-5.3-Codex",
+            "voice.setup.title": "How GPT Voice Works",
+            "voice.setup.header": "GPT voice uses the ChatGPT session on your computer",
+            "voice.setup.subtitle": "MMS Remote does not keep a separate GPT voice login on the iPhone. It uses the ChatGPT session already active on your paired computer.",
+            "voice.step.1.title": "You speak on the iPhone",
+            "voice.step.1.detail": "MMS Remote records the voice clip locally on the phone when you hold to talk.",
+            "voice.step.2.title": "The phone checks your paired computer",
+            "voice.step.2.detail": "MMS Remote asks the paired computer bridge for the active ChatGPT session that is already connected there.",
+            "voice.step.3.title": "GPT transcribes the clip",
+            "voice.step.3.detail": "The voice clip is sent with that computer-backed GPT session so GPT can turn it into text.",
+            "voice.step.4.title": "The text comes back to MMS Remote",
+            "voice.step.4.detail": "The transcript returns to the app and gets dropped into your message composer.",
+            "voice.setup.summary": "In short: iPhone voice in, computer ChatGPT session for auth, GPT transcript back to the iPhone.",
+            "git.actions": "Git actions",
+            "issue.report": "Report issue",
+            "issue.dismiss": "Dismiss issue",
+            "scroll.latest": "Scroll to latest message",
+            "plan.open": "Open active plan",
+            "context.window_accessibility": "Context window",
+            "revert.clean": "This response can be undone cleanly.",
+            "revert.partial": "Undo looks clean, but other chats touched some of these files.",
+            "revert.unsafe": "Could not safely undo this response.",
+
+            // Git Actions
+            "git.setup": "Setup",
+            "git.update": "Update",
+            "git.write": "Write",
+            "git.recovery": "Recovery",
+            "git.not_initialized": "Git is not initialized",
+            "git.up_to_date": "Repository up to date",
+            "git.ahead": "Local branch ahead of remote",
+            "git.behind": "Remote branch ahead of local branch",
+            "git.diverged": "Local and remote branches diverged",
+            "git.dirty": "Local repository has uncommitted changes",
+            "git.dirty_and_behind": "Local changes exist and remote branch moved ahead",
+            "git.no_upstream": "Branch not published yet",
+            "git.detached": "Current branch unavailable",
+            "git.status_unavailable": "Repository status unavailable",
+
+            // Issue
+            "issue.report_short": "Report",
+
+            // Timeline
+            "timeline.loading_recent": "Loading recent messages...",
+            "timeline.loading_earlier": "Loading earlier messages...",
+            "timeline.load_earlier": "Load earlier messages",
+            "timeline.working": "Working on it...",
+            "timeline.run_active": "The run is still active. You can stop it below if needed.",
+            "timeline.loading_chat": "Loading chat...",
+            "timeline.preparing": "Preparing recent messages for this conversation.",
+            "timeline.collapse": "Collapse previous messages",
+            "timeline.expand": "Expand previous messages",
+            "timeline.tool_call": "tool call",
+            "timeline.tool_calls": "tool calls",
+            "timeline.previous_message": "1 previous message",
+            "timeline.previous_messages": "%d previous messages",
+
+            // Plan
+            "plan.pending": "Pending",
+            "plan.in_progress": "In progress",
+            "plan.completed": "Completed",
+            "plan.open_details": "Open plan details",
+            "plan.progress": "%d of %d complete",
+            "plan.hint": "Shows the current plan steps in a sheet",
+            "plan.ask_continue": "Ask Codex to continue...",
+
+            // Context / Revert / Branch
+            "context.percent_used": "%d percent used",
+            "button.refresh": "Refresh",
+            "revert.title": "Undo this response",
+            "revert.undoing": "Undoing...",
+            "revert.undo": "Undo",
+            "revert.description": "This action will try to undo only the changes from this response. Later local edits stay untouched unless they overlap.",
+            "revert.files": "%d files",
+            "revert.checking": "Checking whether the reverse patch applies cleanly...",
+            "revert.staged_files": "Staged files",
+            "revert.unsupported": "Unsupported",
+            "revert.conflicts": "Conflicts",
+            "revert.needs_review": "Needs review",
+            "revert.error": "Error",
+
+            // Branch
+            "branch.title.current": "Current Branch",
+            "branch.title.base": "Base Branch",
+            "branch.section": "Branches",
+            "branch.default_fallback": "Branch",
+            "branch.open_worktree": "Open worktree",
+            "branch.open_elsewhere": "Open elsewhere",
+            "branch.no_results": "No branches found",
+            "branch.search_hint": "Try a different search or refresh the branch list.",
+            "branch.create_checkout": "Create and checkout '%@'",
+            "branch.new_branch": "New branch...",
+            "branch.switching": "Switching...",
+            "branch.refreshing": "Refreshing...",
+            "branch.reload": "Reload branch list",
+            "branch.search_prompt": "Search branches",
+            "branch.alert.new": "New branch",
+            "branch.button.create": "Create",
+            "branch.alert.message": "Branch will be created locally and checked out. Uncommitted changes stay with this working copy.",
+            "branch.badge.current": "Current",
+            "branch.badge.default": "Default",
+
+            // Common Actions
+            "common.done": "Done",
+            "common.close": "Close",
+            "common.clear": "Clear",
+            "common.back": "Back",
+            "common.next": "Next",
+            "common.open": "Open",
+            "common.manage": "Manage",
+            "common.approve": "Approve",
+            "common.decline": "Decline",
+            "common.select_text": "Select Text",
+            "common.save": "Save",
+            "common.remove": "Remove",
+            "common.questions": "Questions",
+            "common.status": "Status",
+            "common.cancel": "Cancel",
+            "common.send": "Send",
+            "common.sending": "Sending...",
+
+            // Composer / Turn
+            "composer.loading_chat": "Loading chat...",
+            "composer.hi_help": "Hi! How can I help you?",
+            "composer.what_do": "What should we do in ",
+            "composer.creating_fork": "Creating fork...",
+            "composer.opening_chat": "Opening the new chat",
+            "composer.starting_chat": "Starting new chat...",
+            "composer.subagent": "Subagent",
+            "composer.back_to": "Back to %@",
+            "composer.plan_rpc_hint": "Start a Plan Mode turn and the RPC events will appear here.",
+            "composer.runtime_logs": "Runtime Logs",
+            "composer.no_runtime_logs": "No Runtime Logs Yet",
+            "composer.e2e_encrypted": "Chats are End-to-end encrypted",
+
+            // Alert
+            "alert.no_changes": "There are no changes to commit.",
+            "alert.force_close_body": "MMS Remote will force close and reopen Codex.app on this computer. Any desktop runs in progress will be stopped, and unsaved draft text there may be lost before this chat is opened.",
+            "alert.force_close_button": "Force Close & Continue",
+            "alert.open_chat": "Open Chat",
+            "alert.branch_open_elsewhere": "Branch already open elsewhere",
+            "alert.image_preview": "Image Preview",
+            "alert.nothing_to_commit": "Nothing to Commit",
+            "alert.desktop_handoff_failed": "Couldn't continue on desktop app",
+            "alert.desktop_handoff_failed_message": "Could not continue this chat on the desktop app.",
+
+            // Plan Mode
+            "plan.proposed": "Proposed plan",
+            "plan.review_prompt": "Open the prompt to review the plan and respond.",
+            "plan.nav_title": "Active plan",
+            "plan.input_needed": "Input needed",
+            "plan.needs_one_answer": "Codex needs one answer",
+            "plan.needs_answers": "Codex needs %d answers",
+            "plan.implement": "Implement plan",
+            "plan.starting_implementation": "Starting implementation…",
+
+            // Autocomplete
+            "autocomplete.no_files": "No files or plugins for @%@",
+            "autocomplete.searching_skills": "Searching skills...",
+            "autocomplete.no_skills": "No skills for $%@",
+            "autocomplete.no_commands": "No commands for /%@",
+
+            // Worktree
+            "worktree.branch_name": "Branch name",
+            "worktree.base_branch": "Base branch",
+            "worktree.starts_from": "Starts from this base branch.",
+
+            // Subagent
+            "subagent.no_details": "No extra details yet.",
+            "subagent.open_child": "Open child thread",
+
+            // Toolbar
+            "toolbar.continue_desktop": "Continue on Desktop App",
+            "toolbar.new_chat": "New chat",
+            "toolbar.thread_actions": "Thread actions",
+            "toolbar.diff_total": "Repository diff total",
+            "toolbar.rename": "Rename conversation",
+
+            // Diff
+            "diff.thread": "Thread",
+            "diff.path": "Path",
+            "diff.changes": "Changes",
+            "diff.file_changed": "%d file changed",
+            "diff.files_changed": "%d files changed",
+
+            // Message
+            "message.approval_request": "Approval request",
+            "message.save_diagram": "Save diagram",
+            "message.copy_response": "Copy response",
+            "message.remove_image": "Remove image",
+            "message.remove_file": "Remove file mention",
+            "message.remove_skill": "Remove skill mention",
+            "message.remove_plugin": "Remove plugin mention",
+            "message.image": "Image",
+            "message.diff": "Diff",
+            "diagram.rendering": "Rendering diagram…",
+
+            // Notification
+            "banner.dismiss": "Dismiss notification",
+
+            // Connection Status
+            "connection.offline": "Offline",
+            "connection.connecting": "Connecting",
+            "connection.loading_chats": "Loading chats",
+            "connection.syncing": "Syncing",
+            "connection.connected": "Connected",
+            "connection.connecting_relay": "Connecting to relay...",
+            "connection.loading_chats_progress": "Loading chats...",
+            "connection.syncing_workspace": "Syncing workspace...",
+            "connection.reconnecting": "Reconnecting...",
+            "connection.disconnect": "Disconnect",
+
+            // Bridge Version
+            "bridge.version.installed_on_computer": "Installed on Computer",
+            "bridge.version.latest_available": "Latest available",
+            "bridge.version.connect_first": "Connect to a computer bridge to read the installed package version.",
+            "bridge.version.installed_detected": "Installed version detected. The latest published package is unavailable right now.",
+            "bridge.version.up_to_date": "The installed bridge matches the latest published package.",
+            "bridge.version.newer_available": "A newer MMS Remote package is available on npm.",
+            "bridge.version.different_build": "This Mac is running a different build than the current npm latest.",
+            "bridge.version.status_unknown": "Unknown",
+            "bridge.version.status_installed": "Installed",
+            "bridge.version.status_up_to_date": "Up to date",
+            "bridge.version.status_update_available": "Update available",
+            "bridge.version.status_different_build": "Different build",
+
+            // Local Pets
+            "pets.loading": "Loading local Codex pets from your Mac...",
+            "pets.not_found": "No local Codex pets found in ~/.codex/pets.",
+
+            // Settings Keep Awake
+            "settings.keep_awake": "Keep computer reachable",
+            "settings.keep_awake_hint": "Uses the host computer's keep-awake support while the bridge is running so the computer stays reachable even if the display turns off. Best while charging.",
+            "settings.keep_awake_idle_hint": "The computer can go back to sleeping normally when the bridge is idle.",
+
+            // Settings Notifications Status
+            "settings.notif_status.authorized": "Authorized",
+            "settings.notif_status.denied": "Denied",
+            "settings.notif_status.provisional": "Provisional",
+            "settings.notif_status.ephemeral": "Ephemeral",
+            "settings.notif_status.not_requested": "Not requested",
+            "settings.notif_status.unknown": "Unknown",
+
+            // Settings Accessory Rows
+            "settings.how_it_works": "How MMS Remote Works",
+            "settings.send_feedback": "Send Feedback",
+            "settings.privacy_policy": "Privacy Policy",
+            "settings.terms_of_use": "Terms of Use",
+
+            // Paywall Features
+            "paywall.feature.fast.title": "Fast mode",
+            "paywall.feature.git.title": "Git from your phone",
+            "paywall.feature.e2ee.title": "End-to-end encrypted",
+            "paywall.feature.voice.title": "Voice mode with speech-to-text",
+            "paywall.feature.subagents.title": "Subagents",
+            "paywall.feature.skills.title": "$skills, /commands & @file mentions",
+            "paywall.feature.relay.title": "Hosted relay included",
+            "paywall.feature.support.title": "Support development",
+            "paywall.footer.recurring": "Recurring billing. Cancel anytime.",
+            "paywall.footer.one_time": "one-time",
+
+            // Subscription Gate Features
+            "gate.feature.fast.title": "Fast mode",
+            "gate.feature.fast.subtitle": "Lower-latency turns for quick interactions",
+            "gate.feature.git.title": "Git from your phone",
+            "gate.feature.git.subtitle": "Commit, push, pull, and switch branches",
+            "gate.feature.e2ee.title": "E2EE",
+            "gate.feature.e2ee.subtitle": "The relay never sees your prompts or code",
+            "gate.feature.voice.title": "Voice mode",
+            "gate.feature.voice.subtitle": "Speech-to-text transcription for your messages",
+            "gate.feature.subagents.title": "Subagents",
+            "gate.feature.subagents.subtitle": "Delegate complex tasks to specialized sub-agents",
+            "gate.feature.skills.title": "$skills /cmds @files",
+            "gate.feature.skills.subtitle": "Invoke skills, run slash commands, and mention files inline",
+            "gate.feature.relay.title": "Hosted relay",
+            "gate.feature.relay.subtitle": "You are paying for the product and the hosted path",
+            "gate.feature.support.title": "Support development",
+            "gate.feature.support.subtitle": "Help keep MMS Remote independent and open source",
+            "gate.placeholder.pricing": "$0.00 / month",
+
+            // Onboarding
+            "onboarding.stay": "Stay Here",
+            "onboarding.continue": "Continue Anyway",
+            "onboarding.step": "STEP %d",
+            "onboarding.step1.title": "Install Codex CLI",
+            "onboarding.step1.desc": "The AI coding agent that lives in your terminal. MMS Remote connects to it from your iPhone.",
+            "onboarding.step2.title": "Install the Bridge",
+            "onboarding.step2.desc": "A lightweight relay that securely connects your Mac to your iPhone.",
+            "onboarding.step2.caption": "MMS Remote can keep your Mac awake with macOS caffeinate while the bridge is running, but it starts disabled by default. You can enable it later in Settings if you want.",
+            "onboarding.step3.title": "Start Pairing",
+            "onboarding.step3.desc": "Run this on your computer. A QR code will appear in your terminal - scan it next.",
+            "onboarding.alert.title": "Install Codex CLI First",
+            "onboarding.alert.message": "Copy and paste \"%@\" on your computer before moving on. MMS Remote will not work until Codex CLI is installed and available in your PATH.",
+            "onboarding.scan_qr": "Scan with QR Code",
+            "onboarding.pair_code": "Pair with Code",
+            "onboarding.button.get_started": "Get Started",
+            "onboarding.button.setup": "Set Up",
+            "onboarding.features.title": "What you get",
+            "onboarding.features.subtitle": "Everything runs on your computer.\nYour phone is the remote.",
+            "onboarding.features.fast.title": "Fast mode",
+            "onboarding.features.fast.subtitle": "Lower-latency turns for quick interactions",
+            "onboarding.features.git.title": "Git from your phone",
+            "onboarding.features.git.subtitle": "Commit, push, pull, and switch branches",
+            "onboarding.features.e2ee.title": "End-to-end encrypted",
+            "onboarding.features.e2ee.subtitle": "The relay never sees your prompts or code",
+            "onboarding.features.voice.title": "Voice mode",
+            "onboarding.features.voice.subtitle": "Talk to Codex with speech-to-text",
+            "onboarding.features.subagents.title": "Subagents, skills and /commands",
+            "onboarding.features.subagents.subtitle": "Spawn and monitor parallel agents from your phone",
+            "onboarding.welcome.subtitle": "Control Codex from your iPhone.",
+            "onboarding.welcome.e2ee": "End-to-end encrypted",
+        ]
+    ]
+}
+
+// MARK: - SwiftUI Extensions
+
+extension Text {
+    init(localized key: String) {
+        self.init(LocalizationManager.shared.localized(key))
+    }
+}
+
+struct LocalizedButton: View {
+    let key: String
+    let role: ButtonRole?
+    let isLoading: Bool
+    let action: () -> Void
+
+    init(_ key: String, role: ButtonRole? = nil, isLoading: Bool = false, action: @escaping () -> Void) {
+        self.key = key
+        self.role = role
+        self.isLoading = isLoading
+        self.action = action
+    }
+
+    var body: some View {
+        Button(role: role, action: action) {
+            HStack(spacing: 6) {
+                Text(localized: key)
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            }
+        }
+    }
+}
+
+struct LocalizedLabel: View {
+    let key: String
+    let systemImage: String
+
+    init(_ key: String, systemImage: String) {
+        self.key = key
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        Label {
+            Text(localized: key)
+        } icon: {
+            Image(systemName: systemImage)
+        }
+    }
+}
