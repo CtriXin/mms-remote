@@ -1,5 +1,26 @@
 # Handoff Log
 
+## 2026-05-15 16:47 +0800 — Main Adopted Running Terminal Branch
+
+- agent: Codex
+- CLI: codex
+- model: GPT-5
+- task_id: main-adopt-ios-terminal-running-branch
+- status: merged to `main`; branch-wins merge complete
+- next_action: continue from `main`, clean runtime verify, then integrate SwiftTerm renderer
+
+### TL;DR
+
+`main` now contains the user-tested running terminal branch. Merge commit: `98072a8 merge: adopt ios terminal running branch`. Source commit: `b7196688f9c26c9ed23407d8fd19c00143a0255f`. Old main was preserved at `codex/backup-main-before-ios-terminal-merge-20260515`.
+
+### Merge Rule Used
+
+Branch wins. During merge conflicts, main tree was reset to `b7196688...` so failed rescue code from old main does not remain mixed into the final code tree. Treat `main` as the source of truth for future agents.
+
+### Next Agent Prompt
+
+Use `.ai/plan/next-agent-prompt.md`.
+
 ## 2026-05-15 16:34 +0800 — iOS Terminal Running Branch
 
 - agent: Codex

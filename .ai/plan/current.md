@@ -1,12 +1,12 @@
 # Current Handoff — MMS Remote Terminal
 
-- timestamp: 2026-05-15 16:40 +0800
+- timestamp: 2026-05-15 16:47 +0800
 - owner: Codex
 - CLI: codex
 - model: GPT-5
 - task_id: ios-terminal-running-branch
-- status: running branch verified by user; local terminal hardening pending merge
-- next_action: merge `codex/ios-remote-22e6243` as the code truth, then run clean bridge/iPhone acceptance before stacking new planner work
+- status: merged to `main`; branch-wins merge complete
+- next_action: start next task from `main` and integrate SwiftTerm as the iOS Terminal renderer
 
 ## Goal
 
@@ -14,9 +14,13 @@ Phone Terminal controls Mac tmux-managed terminal panes while Codex Chat remains
 
 ## Current Truth
 
-- active worktree: `/Users/xin/auto-skills/CtriXin-repo/mms-remote-ios-22e6243`
-- branch: `codex/ios-remote-22e6243`
+- active worktree: `/Users/xin/auto-skills/CtriXin-repo/mms-remote`
+- branch: `main`
+- merge commit: `98072a8 merge: adopt ios terminal running branch`
+- merged running branch: `codex/ios-remote-22e6243`
+- merged running commit: `b7196688f9c26c9ed23407d8fd19c00143a0255f`
 - base: `22e624367783234245d0b0724c34212f79722e84`
+- backup of old main before merge: `codex/backup-main-before-ios-terminal-merge-20260515`
 - user-tested status: real phone no longer stuck on `Terminal Error`
 - known-good anchor from previous rescue: `3fa85e4bcb8189636fa044832f2558beb85627c7`
 
