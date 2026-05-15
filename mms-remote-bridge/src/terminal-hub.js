@@ -113,6 +113,11 @@ function createTerminalHub(options = {}) {
     return { ok: true, paneId: pane.paneId };
   }
 
+  async function openVisible(params = {}) {
+    const pane = await resolvePane(params.paneId || params.paneKey || params.target);
+    return visibleLauncher.openPane(pane);
+  }
+
   async function resolvePane(target) {
     if (!target) {
       throw new TmuxAdapterError("Terminal pane id is required", { code: "terminal_pane_required" });
@@ -142,6 +147,8 @@ function createTerminalHub(options = {}) {
         return attach(params);
       case "terminal/detach":
         return detach(params);
+      case "terminal/openVisible":
+        return openVisible(params);
       case "terminal/input":
         return input(params);
       case "terminal/resize":
@@ -164,6 +171,7 @@ function createTerminalHub(options = {}) {
     input,
     kill,
     list,
+    openVisible,
     resize,
     snapshot,
     visibleLauncher,

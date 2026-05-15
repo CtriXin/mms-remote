@@ -247,7 +247,7 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible]|snapshot|input|key|kill> | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible]|open|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
@@ -315,6 +315,12 @@ async function runTerminalCliCommand({
         } else {
           consoleImpl.log(result.content);
         }
+        return;
+      }
+      case "open": {
+        const paneId = terminalArgs[0];
+        const result = await hub.openVisible({ paneId });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: () => "[mms-remote] terminal opened on Mac." });
         return;
       }
       case "input": {

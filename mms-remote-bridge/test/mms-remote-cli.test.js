@@ -268,3 +268,30 @@ test("mms-remote terminal create forwards visible terminal request", async () =>
 
   assert.equal(capturedParams.openVisible, true);
 });
+
+test("mms-remote terminal open forwards the selected pane", async () => {
+  let capturedParams;
+  const messages = [];
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "open", "%1"],
+    consoleImpl: {
+      log(message) { messages.push(message); },
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {
+          async openVisible(params) {
+            capturedParams = params;
+            return { ok: true, opened: true, paneId: "%1" };
+          },
+        };
+      },
+    },
+  });
+
+  assert.deepEqual(capturedParams, { paneId: "%1" });
+  assert.deepEqual(messages, ["[mms-remote] terminal opened on Mac."]);
+});

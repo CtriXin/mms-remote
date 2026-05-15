@@ -19,6 +19,7 @@ struct TerminalHubView: View {
     @State private var isRefreshing = false
     @State private var isSendingInput = false
     @State private var isCreatingTerminal = false
+    @State private var isOpeningVisibleTerminal = false
     @State private var localErrorMessage: String?
 
     var body: some View {
@@ -39,7 +40,19 @@ struct TerminalHubView: View {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Chats", action: onClose)
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    openSelectedPaneOnMac()
+                } label: {
+                    if isOpeningVisibleTerminal {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "display")
+                    }
+                }
+                .disabled(!codex.isConnected || codex.selectedTerminalPaneId == nil || isOpeningVisibleTerminal)
+                .accessibilityLabel("Open selected terminal on Mac")
+
                 Button {
                     refreshTerminals()
                 } label: {
@@ -374,6 +387,18 @@ struct TerminalHubView: View {
                 try await codex.sendTerminalKey(key)
                 try? await Task.sleep(nanoseconds: 120_000_000)
                 try await codex.refreshTerminalSnapshot()
+            } catch {
+                localErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func openSelectedPaneOnMac() {
+        Task {
+            isOpeningVisibleTerminal = true
+            defer { isOpeningVisibleTerminal = false }
+            do {
+                try await codex.openVisibleTerminalPane()
             } catch {
                 localErrorMessage = error.localizedDescription
             }

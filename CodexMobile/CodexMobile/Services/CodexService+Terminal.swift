@@ -142,6 +142,17 @@ extension CodexService {
         }
     }
 
+    func openVisibleTerminalPane(_ paneId: String? = nil) async throws {
+        let targetPaneId = try resolveTerminalPaneId(paneId)
+        _ = try await sendRequest(
+            method: "terminal/openVisible",
+            params: .object(["paneId": .string(targetPaneId)]),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "Opening the terminal on Mac timed out."
+        )
+        terminalLastErrorMessage = nil
+    }
+
     private func sendTerminalInput(_ input: JSONValue, paneId: String?) async throws {
         let targetPaneId = try resolveTerminalPaneId(paneId)
         _ = try await sendRequest(

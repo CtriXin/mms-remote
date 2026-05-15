@@ -197,3 +197,35 @@ test("terminal hub opens a visible macOS terminal when create requests it", asyn
   assert.equal(visibleCalls[0].paneId, "%1");
   assert.deepEqual(result.visibleTerminal, { ok: true, opened: true, paneId: "%1" });
 });
+
+test("terminal hub opens an existing pane in a visible macOS terminal", async () => {
+  const visibleCalls = [];
+  const adapter = {
+    async findPane(target) {
+      assert.equal(target, "%1");
+      return {
+        id: "%1",
+        paneId: "%1",
+        paneKey: "dev:0.0",
+        sessionName: "dev",
+        windowIndex: 0,
+        cwd: "/tmp/dev",
+      };
+    },
+  };
+  const hub = createTerminalHub({
+    adapter,
+    visibleLauncher: {
+      async openPane(pane) {
+        visibleCalls.push(pane);
+        return { ok: true, opened: true, paneId: pane.paneId };
+      },
+    },
+  });
+
+  const result = await hub.openVisible({ paneId: "%1" });
+
+  assert.equal(visibleCalls.length, 1);
+  assert.equal(visibleCalls[0].sessionName, "dev");
+  assert.deepEqual(result, { ok: true, opened: true, paneId: "%1" });
+});
