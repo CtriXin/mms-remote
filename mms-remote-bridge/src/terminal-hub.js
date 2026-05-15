@@ -84,7 +84,7 @@ function createTerminalHub(options = {}) {
       joinWrapped: params.joinWrapped !== false,
     });
     return {
-      pane,
+      pane: decoratePane(pane),
       content: capture.content,
       capturedAt: capture.capturedAt,
     };
@@ -134,12 +134,29 @@ function createTerminalHub(options = {}) {
       }
       throw new TmuxAdapterError("Terminal pane id is required", { code: "terminal_pane_required" });
     }
-    return adapter.findPane(normalizedTarget);
+    try {
+      return await adapter.findPane(normalizedTarget);
+    } catch (error) {
+      const ordinalPane = await resolveOrdinalFallbackPane(normalizedTarget);
+      if (ordinalPane) {
+        return ordinalPane;
+      }
+      throw error;
+    }
   }
 
   async function newestPane() {
     const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
     return tree.panes[0] || null;
+  }
+
+  async function resolveOrdinalFallbackPane(target) {
+    const ordinalIndex = syntheticOrdinalPaneIndex(target);
+    if (ordinalIndex == null) {
+      return null;
+    }
+    const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
+    return tree.panes[ordinalIndex] || null;
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, createdPane, visibleApp }) {
@@ -297,6 +314,15 @@ function normalizePaneTarget(target) {
   return value;
 }
 
+function syntheticOrdinalPaneIndex(target) {
+  const match = String(target || "").trim().match(/^mms-(\d+):\d+\.\d+$/);
+  if (!match) {
+    return null;
+  }
+  const ordinal = Number.parseInt(match[1], 10);
+  return Number.isInteger(ordinal) && ordinal > 0 ? ordinal - 1 : null;
+}
+
 function compareSessionsByRecent(lhs, rhs) {
   return compareNumbersDesc(toFiniteNumber(lhs.createdAt), toFiniteNumber(rhs.createdAt))
     || compareNumbersDesc(tmuxObjectIdNumber(lhs.id), tmuxObjectIdNumber(rhs.id))
@@ -409,4 +435,5 @@ module.exports = {
   handleTerminalMethod,
   handleTerminalRequest,
   sortTerminalTreeByRecentPane,
+  syntheticOrdinalPaneIndex,
 };

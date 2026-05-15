@@ -10,7 +10,12 @@ const { execFileSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { createTerminalHub, handleTerminalMethod, handleTerminalRequest } = require("../src/terminal-hub");
+const {
+  createTerminalHub,
+  handleTerminalMethod,
+  handleTerminalRequest,
+  syntheticOrdinalPaneIndex,
+} = require("../src/terminal-hub");
 const { createTmuxAdapter } = require("../src/tmux-adapter");
 
 const hasTmux = (() => {
@@ -196,6 +201,42 @@ test("terminal hub snapshots the newest pane when the phone sends an empty targe
 
   assert.equal(result.pane.paneId, "%3");
   assert.deepEqual(snapshotCalls, ["%3"]);
+});
+
+test("terminal hub maps iOS synthetic ordinal pane targets to real panes", async () => {
+  const snapshotCalls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [],
+          windows: [],
+          panes: [
+            { id: "%1", paneId: "%1", paneKey: "old:0.0", sessionName: "old", windowIndex: 0, paneIndex: 0 },
+            { id: "%3", paneId: "%3", paneKey: "new:0.0", sessionName: "new", windowIndex: 0, paneIndex: 0 },
+            { id: "%2", paneId: "%2", paneKey: "mid:0.0", sessionName: "mid", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+      async findPane(target) {
+        throw new Error(`Unknown terminal pane: ${target}`);
+      },
+      async capturePane(params) {
+        snapshotCalls.push(params.target);
+        return { paneId: params.target, content: "mapped pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "mms-2:0.0" });
+
+  assert.equal(syntheticOrdinalPaneIndex("mms-2:0.0"), 1);
+  assert.equal(result.pane.paneId, "%2");
+  assert.equal(result.pane.requestTarget, "%2");
+  assert.deepEqual(snapshotCalls, ["%2"]);
 });
 
 test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !hasTmux }, async () => {
