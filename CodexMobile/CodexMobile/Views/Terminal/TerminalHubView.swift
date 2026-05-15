@@ -647,7 +647,8 @@ struct TerminalHubView: View {
     @MainActor
     private func rememberTerminalList(_ list: ManagedTerminalList, source: String) {
         visibleTerminalPanes = list.panes.filter { !$0.requestTarget.isEmpty }
-        terminalDebugLine = "\(source) terminal/list sessions=\(list.sessions.count) panes=\(list.panes.count) visible=\(visibleTerminalPanes.count)"
+        let firstPane = list.panes.first?.paneDebugSummary ?? "none"
+        terminalDebugLine = "\(source) terminal/list sessions=\(list.sessions.count) panes=\(list.panes.count) visible=\(visibleTerminalPanes.count) first=\(firstPane)"
         if let target = localSelectedTerminalPaneTarget,
            visibleTerminalPanes.contains(where: { paneMatches($0, target: target) }) {
             return

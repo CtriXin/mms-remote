@@ -46,15 +46,26 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
     let dead: Bool
 
     var requestTarget: String {
-        firstNonEmpty(paneId, target, normalizedPaneKey) ?? ""
+        firstNonEmpty(paneId, target, normalizedPaneKey, synthesizedPaneAddress, id) ?? ""
     }
 
     var paneAddress: String {
-        normalizedPaneKey ?? firstNonEmpty(paneId, target) ?? "unknown"
+        normalizedPaneKey ?? synthesizedPaneAddress ?? firstNonEmpty(paneId, target, id) ?? "unknown"
     }
 
     var displayTitle: String {
         firstNonEmpty(title, currentCommand, sessionName, windowName, paneAddress) ?? "Terminal"
+    }
+
+    var paneDebugSummary: String {
+        [
+            "target=\(debugValue(requestTarget))",
+            "id=\(debugValue(id))",
+            "paneId=\(debugValue(paneId))",
+            "paneKey=\(debugValue(paneKey))",
+            "session=\(debugValue(sessionName))",
+            "addr=\(debugValue(paneAddress))",
+        ].joined(separator: " ")
     }
 
     private var normalizedPaneKey: String? {
@@ -65,10 +76,21 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
         return key
     }
 
+    private var synthesizedPaneAddress: String? {
+        let session = sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !session.isEmpty else { return nil }
+        return "\(session):\(windowIndex).\(paneIndex)"
+    }
+
     private func firstNonEmpty(_ values: String?...) -> String? {
         values
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
+    }
+
+    private func debugValue(_ value: String) -> String {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? "-" : normalized
     }
 }
 
@@ -193,19 +215,31 @@ extension ManagedTerminalWindow {
 
 extension ManagedTerminalPane {
     init(json: JSONValue) throws {
-        guard let object = json.objectValue else {
+        guard let rawObject = json.objectValue else {
             throw ManagedTerminalModelError.invalidShape("pane")
         }
-        self.id = terminalString(object, "id", "paneId", "pane_id") ?? ""
-        self.paneId = terminalString(object, "paneId", "pane_id") ?? id
-        self.paneKey = terminalString(object, "paneKey", "pane_key") ?? ""
-        self.target = terminalString(object, "target") ?? paneId
+        let object = terminalNestedObject(rawObject, "pane", "terminalPane", "terminal_pane", "value") ?? rawObject
+        let decodedId = terminalString(
+            object,
+            "id",
+            "paneId",
+            "pane_id",
+            "target",
+            "paneKey",
+            "pane_key",
+            "paneAddress",
+            "pane_address"
+        ) ?? ""
+        self.id = decodedId
+        self.paneId = terminalString(object, "paneId", "pane_id", "target") ?? (decodedId.hasPrefix("%") ? decodedId : "")
+        self.paneKey = terminalString(object, "paneKey", "pane_key", "paneAddress", "pane_address", "address") ?? ""
+        self.target = terminalString(object, "target", "paneId", "pane_id") ?? (paneId.isEmpty ? paneKey : paneId)
         self.sessionId = terminalString(object, "sessionId", "session_id") ?? ""
-        self.sessionName = terminalString(object, "sessionName", "session_name") ?? ""
+        self.sessionName = terminalString(object, "sessionName", "session_name", "session") ?? ""
         self.windowId = terminalString(object, "windowId", "window_id") ?? ""
         self.windowIndex = terminalInt(object, "windowIndex", "window_index") ?? 0
         self.windowName = terminalString(object, "windowName", "window_name") ?? ""
-        self.paneIndex = terminalInt(object, "paneIndex", "pane_index") ?? 0
+        self.paneIndex = terminalInt(object, "paneIndex", "pane_index", "index") ?? 0
         self.title = terminalString(object, "title", "paneTitle", "pane_title") ?? ""
         self.currentCommand = terminalString(object, "currentCommand", "current_command", "paneCurrentCommand", "pane_current_command") ?? ""
         self.cwd = terminalString(object, "cwd", "currentPath", "current_path", "paneCurrentPath", "pane_current_path") ?? ""
@@ -234,6 +268,15 @@ private func terminalString(_ object: [String: JSONValue], _ keys: String...) ->
     for key in keys {
         if let value = object[key]?.stringValue {
             return value
+        }
+        if let value = object[key]?.intValue {
+            return String(value)
+        }
+        if let value = object[key]?.doubleValue {
+            return String(value)
+        }
+        if let value = object[key]?.boolValue {
+            return value ? "true" : "false"
         }
     }
     return nil
@@ -267,6 +310,15 @@ private func terminalBool(_ object: [String: JSONValue], _ keys: String...) -> B
 private func terminalArray(_ object: [String: JSONValue], _ keys: String...) -> [JSONValue]? {
     for key in keys {
         if let value = object[key]?.arrayValue {
+            return value
+        }
+    }
+    return nil
+}
+
+private func terminalNestedObject(_ object: [String: JSONValue], _ keys: String...) -> [String: JSONValue]? {
+    for key in keys {
+        if let value = object[key]?.objectValue {
             return value
         }
     }
