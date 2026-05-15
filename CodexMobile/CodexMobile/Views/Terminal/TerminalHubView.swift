@@ -92,6 +92,7 @@ struct TerminalHubView: View {
         }
         .task {
             if codex.isConnected {
+                codex.resetManagedTerminalState()
                 await refreshTerminalsAsync()
             }
         }

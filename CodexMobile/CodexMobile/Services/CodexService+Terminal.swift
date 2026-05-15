@@ -7,6 +7,17 @@
 import Foundation
 
 extension CodexService {
+    func resetManagedTerminalState() {
+        terminalTmuxVersion = ""
+        terminalSessions = []
+        terminalWindows = []
+        terminalPanes = []
+        terminalSnapshotsByPaneId = [:]
+        selectedTerminalPaneId = nil
+        terminalLastErrorMessage = nil
+        isLoadingTerminals = false
+    }
+
     var selectedTerminalPane: ManagedTerminalPane? {
         guard let selectedTerminalPaneId else { return nil }
         return terminalPanes.first { $0.paneId == selectedTerminalPaneId || $0.paneKey == selectedTerminalPaneId }
