@@ -46,11 +46,11 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
     let dead: Bool
 
     var requestTarget: String {
-        firstNonEmpty(paneId, target, normalizedPaneKey, synthesizedPaneAddress, id) ?? ""
+        firstUsableTarget(paneId, target, normalizedPaneKey, synthesizedPaneAddress, id) ?? ""
     }
 
     var paneAddress: String {
-        normalizedPaneKey ?? synthesizedPaneAddress ?? firstNonEmpty(paneId, target, id) ?? "unknown"
+        firstUsableTarget(normalizedPaneKey, synthesizedPaneAddress, paneId, target, id) ?? "unknown"
     }
 
     var displayTitle: String {
@@ -86,6 +86,12 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
         values
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
+    }
+
+    private func firstUsableTarget(_ values: String?...) -> String? {
+        values
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first(where: isUsableTerminalTarget)
     }
 
     private func debugValue(_ value: String) -> String {
@@ -171,12 +177,18 @@ extension ManagedTerminalList {
         guard let object = json?.objectValue else {
             throw ManagedTerminalModelError.missingResult("terminal/list")
         }
+        let sessions = try (terminalArray(object, "sessions") ?? []).map { try ManagedTerminalSession(json: $0) }
+        let windows = try (terminalArray(object, "windows") ?? []).map { try ManagedTerminalWindow(json: $0) }
+        let panes = try (terminalArray(object, "panes") ?? []).map { try ManagedTerminalPane(json: $0) }
         self.tmuxVersion = terminalString(object, "tmuxVersion", "tmux_version") ?? ""
-        self.sessions = try (terminalArray(object, "sessions") ?? []).map { try ManagedTerminalSession(json: $0) }
-        self.windows = try (terminalArray(object, "windows") ?? []).map { try ManagedTerminalWindow(json: $0) }
-        self.panes = try (terminalArray(object, "panes") ?? []).map { try ManagedTerminalPane(json: $0) }
+        self.sessions = sessions
+        self.windows = windows
+        self.panes = repairTerminalPanes(panes, windows: windows, sessions: sessions)
         if let paneJSON = object["createdPane"] ?? object["created_pane"] ?? object["selectedPane"] ?? object["selected_pane"] {
-            self.createdPane = try ManagedTerminalPane(json: paneJSON)
+            let createdPane = try ManagedTerminalPane(json: paneJSON)
+            self.createdPane = createdPane.requestTarget.isEmpty
+                ? repairTerminalPane(createdPane, window: windows.first, session: sessions.first, fallbackIndex: 0)
+                : createdPane
         } else {
             self.createdPane = nil
         }
@@ -511,4 +523,85 @@ private func terminalFieldBool(_ fields: [JSONValue]?, _ index: Int?) -> Bool? {
 
 private func normalizedTerminalJSONKey(_ key: String) -> String {
     key.lowercased().filter { $0.isLetter || $0.isNumber }
+}
+
+private func repairTerminalPanes(
+    _ panes: [ManagedTerminalPane],
+    windows: [ManagedTerminalWindow],
+    sessions: [ManagedTerminalSession]
+) -> [ManagedTerminalPane] {
+    panes.enumerated().map { index, pane in
+        guard pane.requestTarget.isEmpty else { return pane }
+        return repairTerminalPane(
+            pane,
+            window: windows.indices.contains(index) ? windows[index] : nil,
+            session: sessions.indices.contains(index) ? sessions[index] : nil,
+            fallbackIndex: index
+        )
+    }
+}
+
+private func repairTerminalPane(
+    _ pane: ManagedTerminalPane,
+    window: ManagedTerminalWindow?,
+    session: ManagedTerminalSession?,
+    fallbackIndex: Int
+) -> ManagedTerminalPane {
+    let sessionName = firstNonEmptyTerminalString(
+        pane.sessionName,
+        window?.sessionName,
+        session?.name
+    ) ?? "mms-\(fallbackIndex + 1)"
+    let windowIndex = window?.index ?? pane.windowIndex
+    let paneIndex = pane.paneIndex
+    let paneAddress = "\(sessionName):\(windowIndex).\(paneIndex)"
+    let paneId = isUsableTerminalTarget(pane.paneId) && pane.paneId.hasPrefix("%") ? pane.paneId : ""
+    let target = paneId.isEmpty ? paneAddress : paneId
+
+    return ManagedTerminalPane(
+        id: firstUsableTerminalString(paneId, pane.id, paneAddress) ?? paneAddress,
+        paneId: paneId,
+        paneKey: paneAddress,
+        target: target,
+        sessionId: firstNonEmptyTerminalString(pane.sessionId, window?.sessionId, session?.id) ?? "",
+        sessionName: sessionName,
+        windowId: firstNonEmptyTerminalString(pane.windowId, window?.id) ?? "",
+        windowIndex: windowIndex,
+        windowName: firstNonEmptyTerminalString(pane.windowName, window?.name) ?? "",
+        paneIndex: paneIndex,
+        title: firstNonEmptyTerminalString(pane.title, pane.currentCommand, window?.name) ?? "Terminal",
+        currentCommand: pane.currentCommand,
+        cwd: pane.cwd,
+        cols: pane.cols,
+        rows: pane.rows,
+        active: pane.active || window?.active == true,
+        dead: pane.dead
+    )
+}
+
+private func firstNonEmptyTerminalString(_ values: String?...) -> String? {
+    values
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .first { !$0.isEmpty && $0 != "-" }
+}
+
+private func firstUsableTerminalString(_ values: String?...) -> String? {
+    values
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .first(where: isUsableTerminalTarget)
+}
+
+private func isUsableTerminalTarget(_ value: String) -> Bool {
+    let target = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !target.isEmpty,
+          target != "unknown",
+          target != ":",
+          target != ":.",
+          target != "::",
+          !target.hasPrefix(":"),
+          !target.hasSuffix(":"),
+          !target.hasSuffix(".") else {
+        return false
+    }
+    return true
 }

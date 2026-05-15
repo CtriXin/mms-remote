@@ -289,7 +289,17 @@ extension CodexService {
 
     private func normalizedTerminalTarget(_ value: String?) -> String? {
         let target = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return target.isEmpty ? nil : target
+        guard !target.isEmpty,
+              target != "unknown",
+              target != ":",
+              target != ":.",
+              target != "::",
+              !target.hasPrefix(":"),
+              !target.hasSuffix(":"),
+              !target.hasSuffix(".") else {
+            return nil
+        }
+        return target
     }
 
     private func tmuxNumericId(_ value: String) -> Int {
