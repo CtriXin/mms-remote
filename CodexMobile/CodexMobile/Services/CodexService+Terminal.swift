@@ -8,23 +8,8 @@ import Foundation
 
 extension CodexService {
     var selectedTerminalPane: ManagedTerminalPane? {
-        guard let selectedTerminalPaneId = normalizedTerminalTarget(selectedTerminalPaneId) else {
-            return terminalPanes.first { !$0.requestTarget.isEmpty }
-        }
-        return terminalPanes.first { pane in
-            pane.paneId == selectedTerminalPaneId
-                || pane.paneKey == selectedTerminalPaneId
-                || pane.target == selectedTerminalPaneId
-                || pane.requestTarget == selectedTerminalPaneId
-                || pane.paneAddress == selectedTerminalPaneId
-        } ?? terminalPanes.first { !$0.requestTarget.isEmpty }
-    }
-
-    var selectedTerminalPaneTarget: String? {
-        if let target = normalizedTerminalTarget(selectedTerminalPane?.requestTarget) {
-            return target
-        }
-        return normalizedTerminalTarget(selectedTerminalPaneId)
+        guard let selectedTerminalPaneId else { return nil }
+        return terminalPanes.first { $0.paneId == selectedTerminalPaneId || $0.paneKey == selectedTerminalPaneId }
     }
 
     @discardableResult
@@ -60,8 +45,8 @@ extension CodexService {
             timeoutMessage: "Terminal attach timed out while reading the pane snapshot."
         )
         let snapshot = try ManagedTerminalSnapshot(json: response.result)
-        selectedTerminalPaneId = snapshot.pane.requestTarget
-        storeTerminalSnapshot(snapshot)
+        selectedTerminalPaneId = snapshot.pane.paneId
+        terminalSnapshotsByPaneId[snapshot.pane.paneId] = snapshot
         upsertTerminalPane(snapshot.pane)
         terminalLastErrorMessage = nil
         return snapshot
@@ -69,9 +54,7 @@ extension CodexService {
 
     @discardableResult
     func refreshTerminalSnapshot(paneId: String? = nil) async throws -> ManagedTerminalSnapshot {
-        let targetPaneId = normalizedTerminalTarget(paneId)
-            ?? selectedTerminalPaneTarget
-            ?? ""
+        let targetPaneId = paneId ?? selectedTerminalPaneId ?? ""
         guard !targetPaneId.isEmpty else {
             throw CodexServiceError.invalidInput("Select a terminal pane first.")
         }
@@ -83,7 +66,7 @@ extension CodexService {
             timeoutMessage: "Terminal snapshot timed out while reading the pane."
         )
         let snapshot = try ManagedTerminalSnapshot(json: response.result)
-        storeTerminalSnapshot(snapshot)
+        terminalSnapshotsByPaneId[snapshot.pane.paneId] = snapshot
         upsertTerminalPane(snapshot.pane)
         terminalLastErrorMessage = nil
         return snapshot
@@ -128,10 +111,6 @@ extension CodexService {
         )
         let list = try ManagedTerminalList(json: response.result)
         applyTerminalList(list)
-        if let createdPane = list.createdPane, !createdPane.requestTarget.isEmpty {
-            upsertTerminalPane(createdPane)
-            selectedTerminalPaneId = createdPane.requestTarget
-        }
         terminalLastErrorMessage = nil
         return list
     }
@@ -158,12 +137,10 @@ extension CodexService {
             timeoutNanoseconds: 5_000_000_000,
             timeoutMessage: "Terminal close timed out on the Mac bridge."
         )
-        terminalPanes.removeAll { paneMatches(pane: $0, target: targetPaneId) }
+        terminalPanes.removeAll { $0.paneId == targetPaneId || $0.paneKey == targetPaneId }
         terminalSnapshotsByPaneId.removeValue(forKey: targetPaneId)
-        terminalSnapshotsByPaneId.removeValue(forKey: selectedTerminalPaneId ?? "")
-        if let selectedTarget = normalizedTerminalTarget(selectedTerminalPaneId),
-           !terminalPanes.contains(where: { paneMatches(pane: $0, target: selectedTarget) }) {
-            selectedTerminalPaneId = terminalPanes.first?.requestTarget
+        if selectedTerminalPaneId == targetPaneId {
+            selectedTerminalPaneId = terminalPanes.first?.paneId
         }
     }
 
@@ -192,9 +169,7 @@ extension CodexService {
     }
 
     private func resolveTerminalPaneId(_ paneId: String?) throws -> String {
-        let targetPaneId = normalizedTerminalTarget(paneId)
-            ?? selectedTerminalPaneTarget
-            ?? ""
+        let targetPaneId = paneId ?? selectedTerminalPaneId ?? ""
         guard !targetPaneId.isEmpty else {
             throw CodexServiceError.invalidInput("Select a terminal pane first.")
         }
@@ -202,28 +177,26 @@ extension CodexService {
     }
 
     private func applyTerminalList(_ list: ManagedTerminalList) {
-        let previousPaneTargets = Set(terminalPanes.map(\.requestTarget).filter { !$0.isEmpty })
-        let sortedPanes = sortTerminalPanesByRecent(list.panes).filter { !$0.requestTarget.isEmpty }
+        let previousPaneIds = Set(terminalPanes.map(\.paneId))
+        let sortedPanes = sortTerminalPanesByRecent(list.panes)
         terminalTmuxVersion = list.tmuxVersion
         terminalSessions = sortTerminalSessionsByRecent(list.sessions)
         terminalWindows = sortTerminalWindowsByRecent(list.windows)
         terminalPanes = sortedPanes
-        if let newestPane = sortedPanes.first(where: { !previousPaneTargets.contains($0.requestTarget) }) {
-            selectedTerminalPaneId = newestPane.requestTarget
+        if let newestPane = sortedPanes.first(where: { !previousPaneIds.contains($0.paneId) }) {
+            selectedTerminalPaneId = newestPane.paneId
             return
         }
-        if let selectedTerminalPaneId = normalizedTerminalTarget(selectedTerminalPaneId),
-           sortedPanes.contains(where: { paneMatches(pane: $0, target: selectedTerminalPaneId) }) {
-            self.selectedTerminalPaneId = selectedTerminalPaneId
-        } else {
-            selectedTerminalPaneId = sortedPanes.first?.requestTarget
+        if let selectedTerminalPaneId,
+           !sortedPanes.contains(where: { $0.paneId == selectedTerminalPaneId || $0.paneKey == selectedTerminalPaneId }) {
+            self.selectedTerminalPaneId = sortedPanes.first?.paneId
+        } else if selectedTerminalPaneId == nil {
+            selectedTerminalPaneId = sortedPanes.first?.paneId
         }
     }
 
     private func upsertTerminalPane(_ pane: ManagedTerminalPane) {
-        let target = pane.requestTarget
-        guard !target.isEmpty else { return }
-        if let index = terminalPanes.firstIndex(where: { $0.requestTarget == target }) {
+        if let index = terminalPanes.firstIndex(where: { $0.paneId == pane.paneId }) {
             terminalPanes[index] = pane
         } else {
             terminalPanes.append(pane)
@@ -253,43 +226,13 @@ extension CodexService {
 
     private func sortTerminalPanesByRecent(_ panes: [ManagedTerminalPane]) -> [ManagedTerminalPane] {
         panes.sorted { lhs, rhs in
-            let lhsId = tmuxNumericId(lhs.requestTarget)
-            let rhsId = tmuxNumericId(rhs.requestTarget)
+            let lhsId = tmuxNumericId(lhs.paneId)
+            let rhsId = tmuxNumericId(rhs.paneId)
             if lhsId != rhsId { return lhsId > rhsId }
             if lhs.windowIndex != rhs.windowIndex { return lhs.windowIndex > rhs.windowIndex }
             if lhs.paneIndex != rhs.paneIndex { return lhs.paneIndex > rhs.paneIndex }
             return lhs.paneKey < rhs.paneKey
         }
-    }
-
-    private func storeTerminalSnapshot(_ snapshot: ManagedTerminalSnapshot) {
-        let keys = [
-            snapshot.pane.paneId,
-            snapshot.pane.paneKey,
-            snapshot.pane.target,
-            snapshot.pane.requestTarget,
-            snapshot.pane.paneAddress,
-        ]
-        for key in keys.compactMap(normalizedTerminalTarget) {
-            terminalSnapshotsByPaneId[key] = snapshot
-        }
-    }
-
-    private func paneMatches(pane: ManagedTerminalPane, target: String) -> Bool {
-        [
-            pane.paneId,
-            pane.paneKey,
-            pane.target,
-            pane.requestTarget,
-            pane.paneAddress,
-        ]
-        .compactMap(normalizedTerminalTarget)
-        .contains(target)
-    }
-
-    private func normalizedTerminalTarget(_ value: String?) -> String? {
-        let target = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return target.isEmpty ? nil : target
     }
 
     private func tmuxNumericId(_ value: String) -> Int {

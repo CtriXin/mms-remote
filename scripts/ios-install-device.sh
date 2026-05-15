@@ -56,20 +56,31 @@ require_cmd() {
 }
 
 pick_device() {
-  local destinations
-  destinations="$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -showdestinations 2>/dev/null)"
-  python3 -c '
-import re, sys
-text = sys.argv[1]
-for line in text.splitlines():
-    if "platform:iOS" not in line or "Simulator" in line or "Any iOS Device" in line:
+  local json
+  json="$(mktemp)"
+  trap 'rm -f "$json"' RETURN
+  xcrun devicectl list devices --json-output "$json" >/dev/null
+  python3 - <<'PY' "$json"
+import json, sys
+path = sys.argv[1]
+data = json.load(open(path))
+devices = data.get("result", {}).get("devices", [])
+for device in devices:
+    hw = device.get("hardwareProperties", {})
+    props = device.get("deviceProperties", {})
+    conn = device.get("connectionProperties", {})
+    if hw.get("platform") != "iOS":
         continue
-    match = re.search(r"id:([^,} ]+)", line)
-    if match:
-        print(match.group(1))
-        sys.exit(0)
+    if hw.get("reality") != "physical":
+        continue
+    if conn.get("pairingState") != "paired":
+        continue
+    if props.get("developerModeStatus") not in ("enabled", "unknown", None):
+        continue
+    print(hw.get("udid") or device.get("identifier") or props.get("name"))
+    sys.exit(0)
 sys.exit(1)
-' "$destinations"
+PY
 }
 
 require_cmd xcodebuild
@@ -118,5 +129,3 @@ fi
 echo "Installed: $BUNDLE_ID"
 echo "Bridge command:"
 echo "  cd '$ROOT/mms-remote-bridge' && npm start"
-echo "Or from repo root:"
-echo "  cd '$ROOT' && ./run-local-mms-remote.sh"

@@ -527,7 +527,7 @@ function readBridgeConfig({
   const privateDefaults = readPrivatePackageDefaults({ runtimeRoot, fsImpl });
   const sourceCheckout = isSourceCheckout(runtimeRoot, fsImpl);
   const defaultRelayUrl = sourceCheckout
-    ? readString(daemonConfig.relayUrl)
+    ? ""
     : privateDefaults.relayUrl;
   const explicitRelayUrl = readFirstDefinedEnv(
     ["MMS_REMOTE_RELAY"],

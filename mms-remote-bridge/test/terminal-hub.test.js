@@ -61,14 +61,6 @@ test("terminal hub lists, snapshots, inputs, resizes, and cleans up tmux panes",
       rows: 30,
       command: "printf 'ready\\n'; exec sh",
     });
-    const createdResult = await hub.create({
-      name: `${sessionName}b`,
-      cwd,
-      command: "printf 'ready_b\\n'; exec sh",
-    });
-    assert.match(createdResult.created.paneId, /^%\d+$/);
-    assert.equal(createdResult.selectedPane.paneId, createdResult.created.paneId);
-    await hub.kill({ sessionName: `${sessionName}b` });
 
     const pane = await waitFor(async () => {
       const list = await hub.list();

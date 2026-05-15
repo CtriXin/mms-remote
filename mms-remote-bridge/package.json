@@ -9,11 +9,10 @@
   },
   "files": [
     "bin/",
-    "scripts/",
     "src/"
   ],
   "scripts": {
-    "start": "node ./scripts/start-local.js",
+    "start": "node ./bin/mms-remote.js up",
     "test": "node --test ./test/*.test.js",
     "postinstall": "node ./src/bootstrap-codex-cli.js",
     "prepack": "node ./scripts/prepare-private-defaults.js",

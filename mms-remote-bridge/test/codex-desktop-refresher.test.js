@@ -197,30 +197,6 @@ test("readBridgeConfig does not use the hosted fallback inside a source checkout
   assert.equal(config.pushServiceUrl, "");
 });
 
-test("readBridgeConfig reuses a persisted relay inside a source checkout", () => {
-  const config = readBridgeConfig({
-    env: {
-      MMS_REMOTE_DEVICE_STATE_DIR: "/tmp/mms-remote-state",
-    },
-    runtimeRoot: "/workspace/mms-remote-bridge",
-    fsImpl: {
-      existsSync(targetPath) {
-        return targetPath === "/workspace/.git"
-          || targetPath === "/tmp/mms-remote-state/daemon-config.json";
-      },
-      readFileSync(targetPath) {
-        if (targetPath === "/tmp/mms-remote-state/daemon-config.json") {
-          return JSON.stringify({ relayUrl: "wss://saved.example/relay" });
-        }
-        throw new Error("unexpected read");
-      },
-    },
-  });
-
-  assert.equal(config.relayUrl, "wss://saved.example/relay");
-  assert.equal(config.pushServiceUrl, "");
-});
-
 test("readBridgeConfig preserves reverse-proxy subpaths when deriving push URLs", () => {
   const config = readBridgeConfig({
     env: {
