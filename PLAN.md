@@ -218,10 +218,11 @@ terminal/status
 
 ## 实现阶段
 
-### 当前落地状态（2026-05-14）
+### 当前落地状态（2026-05-15）
 
 - Phase 0/1/2 MVP 已落地：tmux adapter、bridge terminal RPC、iOS basic terminal hub、CLI smoke commands。
-- Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进一段：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Terminal.app 窗口 attach 到同一 tmux session/pane。
+- Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Terminal.app 窗口 attach 到同一 tmux session/pane；已有 pane 也可再打开到 Mac。
+- 验收前 smoke 已落地：`mms-remote terminal smoke --json` 会创建 managed tmux session、验证 snapshot/input、自动清理。
 - 仍未完成 Full：真实 terminal renderer、MMS wrapper integration、多 iOS client hardening。
 
 ### Phase 0: Mac-only Proof
@@ -385,6 +386,22 @@ MVP input：
 5. Mac 和 iPhone 对同一 managed pane 双端同步。
 6. iPhone 能创建新 managed terminal。
 7. Codex structured mode 不回归。
+
+### 验收入口
+
+```bash
+cd mms-remote-bridge
+node ./bin/mms-remote.js terminal smoke --json
+node ./bin/mms-remote.js terminal create --name mms-acceptance --cwd "$PWD" --open-visible --json
+node ./bin/mms-remote.js terminal list --json
+```
+
+手工验收：
+1. Mac 先跑 `npm start` 或 `node ./bin/mms-remote.js up`，手机连上 bridge。
+2. 手机进 Terminal，确认能看到 managed pane list。
+3. 手机创建 terminal，保持 `Open on Mac` 开启，确认 Mac Terminal.app 弹窗。
+4. 手机输入 `echo phone_ok`，Mac 同 pane 能看到；Mac 输入 `echo mac_ok`，手机 snapshot/poll 能看到。
+5. 对已有 pane 点顶部 display 按钮，确认能重新打开到 Mac。
 
 ### Full 验收
 
