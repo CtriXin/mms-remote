@@ -295,3 +295,55 @@ test("mms-remote terminal open forwards the selected pane", async () => {
   assert.deepEqual(capturedParams, { paneId: "%1" });
   assert.deepEqual(messages, ["[mms-remote] terminal opened on Mac."]);
 });
+
+test("mms-remote terminal smoke validates create input snapshot and cleanup", async () => {
+  const calls = [];
+  const messages = [];
+  let snapshotCount = 0;
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "smoke", "--name", "dev-smoke", "--cwd", "/tmp/dev"],
+    consoleImpl: {
+      log(message) { messages.push(message); },
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {
+          async create(params) {
+            calls.push(["create", params]);
+            return {
+              created: { sessionName: params.name },
+              panes: [{ paneId: "%1", sessionName: params.name }],
+            };
+          },
+          async snapshot(params) {
+            calls.push(["snapshot", params]);
+            snapshotCount += 1;
+            return {
+              content: snapshotCount === 1
+                ? "mms_remote_smoke_ready"
+                : "mms_remote_smoke_ready\nmms_remote_smoke_input",
+            };
+          },
+          async input(params) {
+            calls.push(["input", params]);
+            return { ok: true };
+          },
+          async kill(params) {
+            calls.push(["kill", params]);
+            return { ok: true };
+          },
+        };
+      },
+    },
+  });
+
+  assert.equal(calls[0][0], "create");
+  assert.equal(calls[0][1].name, "dev-smoke");
+  assert.equal(calls[0][1].cwd, "/tmp/dev");
+  assert.equal(calls[0][1].command.includes("mms_remote_smoke_ready"), true);
+  assert.deepEqual(calls.at(-1), ["kill", { sessionName: "dev-smoke" }]);
+  assert.deepEqual(messages, ["[mms-remote] terminal smoke passed: %1 (dev-smoke)"]);
+});

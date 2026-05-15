@@ -37,6 +37,8 @@ const defaultDeps = {
   openLastActiveThread,
   watchThreadRollout,
 };
+const TERMINAL_SMOKE_READY = "mms_remote_smoke_ready";
+const TERMINAL_SMOKE_INPUT = "mms_remote_smoke_input";
 
 if (require.main === module) {
   void main();
@@ -247,7 +249,7 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible]|open|snapshot|input|key|kill> | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible]|open|smoke|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
@@ -305,6 +307,16 @@ async function runTerminalCliCommand({
           ...(hasTruthyTerminalOption(options, ["open-visible", "openVisible"]) ? { openVisible: true } : {}),
         });
         emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalList });
+        return;
+      }
+      case "smoke": {
+        const options = parseTerminalOptions(terminalArgs);
+        const result = await runTerminalSmoke({
+          hub,
+          options,
+          cwd: options.cwd || process.cwd(),
+        });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalSmoke });
         return;
       }
       case "snapshot": {
@@ -386,12 +398,105 @@ function parsePositiveInt(value) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+async function runTerminalSmoke({
+  hub,
+  options = {},
+  cwd = process.cwd(),
+} = {}) {
+  const sessionName = options.name || `mms-smoke-${process.pid}-${Date.now()}`;
+  const keep = hasTruthyTerminalOption(options, ["keep"]);
+  const openVisible = hasTruthyTerminalOption(options, ["open-visible", "openVisible"]);
+  let pane = null;
+  let createdSession = false;
+
+  try {
+    const createdList = await hub.create({
+      name: sessionName,
+      cwd,
+      command: `printf '${TERMINAL_SMOKE_READY}\\n'; exec sh`,
+      cols: parsePositiveInt(options.cols) || 96,
+      rows: parsePositiveInt(options.rows) || 32,
+      ...(openVisible ? { openVisible: true } : {}),
+    });
+    createdSession = true;
+    pane = findTerminalPane(createdList, sessionName);
+    if (!pane) {
+      throw new Error("Terminal smoke could not find the created pane.");
+    }
+
+    await waitForTerminalContent({
+      hub,
+      paneId: pane.paneId,
+      expected: TERMINAL_SMOKE_READY,
+      label: "ready output",
+    });
+    await hub.input({ paneId: pane.paneId, input: { kind: "text", text: `printf ${TERMINAL_SMOKE_INPUT}` } });
+    await hub.input({ paneId: pane.paneId, input: { kind: "key", key: "enter" } });
+    await waitForTerminalContent({
+      hub,
+      paneId: pane.paneId,
+      expected: TERMINAL_SMOKE_INPUT,
+      label: "input output",
+    });
+
+    return {
+      ok: true,
+      sessionName,
+      paneId: pane.paneId,
+      ready: true,
+      input: true,
+      openVisible,
+      kept: keep,
+    };
+  } finally {
+    if (createdSession && !keep) {
+      await hub.kill({ sessionName }).catch(() => {});
+    }
+  }
+}
+
+async function waitForTerminalContent({
+  hub,
+  paneId,
+  expected,
+  label,
+  timeoutMs = 5000,
+  intervalMs = 100,
+} = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let lastContent = "";
+  while (Date.now() < deadline) {
+    const snapshot = await hub.snapshot({ paneId });
+    lastContent = snapshot.content || "";
+    if (lastContent.includes(expected)) {
+      return snapshot;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(`Terminal smoke timed out waiting for ${label}.`);
+}
+
+function findTerminalPane(result, sessionName) {
+  const panes = result?.panes || [];
+  if (result?.created?.paneId) {
+    const createdPane = panes.find((pane) => pane.paneId === result.created.paneId || pane.id === result.created.paneId);
+    if (createdPane) {
+      return createdPane;
+    }
+  }
+  return panes.find((pane) => pane.sessionName === sessionName) || null;
+}
+
 function emitTerminalResult({ result, jsonOutput, consoleImpl, formatter }) {
   if (jsonOutput) {
     emitJson(result);
     return;
   }
   consoleImpl.log(formatter(result));
+}
+
+function formatTerminalSmoke(result) {
+  return `[mms-remote] terminal smoke passed: ${result.paneId} (${result.sessionName})`;
 }
 
 function formatTerminalList(result) {
@@ -458,5 +563,6 @@ module.exports = {
   isVersionCommand,
   main,
   parseTerminalOptions,
+  runTerminalSmoke,
   runTerminalCliCommand,
 };
