@@ -287,6 +287,26 @@ test("terminal create still succeeds when visible terminal launch fails", async 
 test("terminal hub opens an existing pane in a visible macOS terminal", async () => {
   const visibleCalls = [];
   const adapter = {
+    async version() {
+      return "tmux mock";
+    },
+    async listAll() {
+      return {
+        sessions: [],
+        windows: [],
+        panes: [
+          {
+            id: "%1",
+            paneId: "%1",
+            paneKey: "dev:0.0",
+            target: "%1",
+            sessionName: "dev",
+            windowIndex: 0,
+            cwd: "/tmp/dev",
+          },
+        ],
+      };
+    },
     async findPane(target) {
       assert.equal(target, "%1");
       return {
@@ -314,4 +334,35 @@ test("terminal hub opens an existing pane in a visible macOS terminal", async ()
   assert.equal(visibleCalls.length, 1);
   assert.equal(visibleCalls[0].sessionName, "dev");
   assert.deepEqual(result, { ok: true, opened: true, paneId: "%1" });
+});
+
+test("terminal hub resolves stale synthetic iOS pane targets", async () => {
+  const adapter = {
+    async version() {
+      return "tmux mock";
+    },
+    async listAll() {
+      return {
+        sessions: [],
+        windows: [],
+        panes: [
+          { id: "%3", paneId: "%3", paneKey: "new:0.0", target: "%3", sessionName: "new", windowIndex: 0, paneIndex: 0 },
+          { id: "%2", paneId: "%2", paneKey: "old:0.0", target: "%2", sessionName: "old", windowIndex: 0, paneIndex: 0 },
+        ],
+      };
+    },
+    async findPane() {
+      throw new Error("synthetic target should resolve before findPane");
+    },
+    async capturePane(params) {
+      assert.equal(params.target, "%2");
+      return { content: "ok", capturedAt: "now" };
+    },
+  };
+  const hub = createTerminalHub({ adapter });
+
+  const result = await hub.snapshot({ paneId: "mms-2:0.0" });
+
+  assert.equal(result.pane.paneId, "%2");
+  assert.equal(result.content, "ok");
 });

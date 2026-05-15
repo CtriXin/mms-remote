@@ -91,7 +91,7 @@ struct TerminalHubView: View {
             }
         }
         .task {
-            if codex.isConnected, codex.terminalPanes.isEmpty {
+            if codex.isConnected {
                 await refreshTerminalsAsync()
             }
         }
@@ -434,14 +434,14 @@ struct TerminalHubView: View {
 
     private func pollTerminalList() async {
         while !Task.isCancelled {
-            guard codex.isConnected else { return }
-            do {
-                try await codex.refreshTerminalList(showLoading: false)
-            } catch {
-                if !Task.isCancelled {
-                    codex.terminalLastErrorMessage = error.localizedDescription
+            if codex.isConnected {
+                do {
+                    try await codex.refreshTerminalList(showLoading: false)
+                } catch {
+                    if !Task.isCancelled {
+                        codex.terminalLastErrorMessage = error.localizedDescription
+                    }
                 }
-                return
             }
             try? await Task.sleep(nanoseconds: 3_000_000_000)
         }
@@ -456,8 +456,8 @@ struct TerminalHubView: View {
             } catch {
                 if !Task.isCancelled {
                     codex.terminalLastErrorMessage = error.localizedDescription
+                    try? await codex.refreshTerminalList(showLoading: false)
                 }
-                return
             }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }

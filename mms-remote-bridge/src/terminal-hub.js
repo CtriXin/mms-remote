@@ -123,10 +123,43 @@ function createTerminalHub(options = {}) {
   }
 
   async function resolvePane(target) {
-    if (!target) {
+    const normalizedTarget = String(target || "").trim();
+    const terminalList = await list();
+    if (!normalizedTarget) {
+      const fallbackPane = terminalList.panes[0];
+      if (fallbackPane) {
+        return fallbackPane;
+      }
       throw new TmuxAdapterError("Terminal pane id is required", { code: "terminal_pane_required" });
     }
-    return adapter.findPane(String(target));
+
+    const directPane = terminalList.panes.find((pane) => (
+      pane.paneId === normalizedTarget
+        || pane.id === normalizedTarget
+        || pane.paneKey === normalizedTarget
+        || pane.target === normalizedTarget
+    ));
+    if (directPane) {
+      return directPane;
+    }
+
+    const ordinalPane = resolveSyntheticOrdinalPane(normalizedTarget, terminalList.panes);
+    if (ordinalPane) {
+      return ordinalPane;
+    }
+
+    try {
+      return await adapter.findPane(normalizedTarget);
+    } catch (error) {
+      if (error?.code !== "terminal_pane_not_found") {
+        throw error;
+      }
+      const fallbackPane = terminalList.panes[0];
+      if (fallbackPane) {
+        return fallbackPane;
+      }
+      throw error;
+    }
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, visibleApp }) {
@@ -180,6 +213,18 @@ function createTerminalHub(options = {}) {
     snapshot,
     visibleLauncher,
   };
+}
+
+function resolveSyntheticOrdinalPane(target, panes = []) {
+  const match = String(target || "").match(/^mms-(\d+):\d+\.\d+$/);
+  if (!match) {
+    return null;
+  }
+  const index = Number.parseInt(match[1], 10) - 1;
+  if (!Number.isInteger(index) || index < 0) {
+    return null;
+  }
+  return panes[index] || null;
 }
 
 function findCreatedPane({ created = {}, terminalList = {} } = {}) {
@@ -267,11 +312,16 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
     return false;
   }
 
+  console.log(`[mms-remote] ${message.method} request target=${terminalRequestTarget(message.params) || "-"}`);
   handleTerminalMethod(message.method, message.params || {}, options)
     .then((result) => {
+      if (message.method === "terminal/list") {
+        console.log(`[mms-remote] terminal/list ok sessions=${result.sessions?.length || 0} windows=${result.windows?.length || 0} panes=${result.panes?.length || 0}`);
+      }
       sendResponse(JSON.stringify({ id: message.id ?? null, result }));
     })
     .catch((error) => {
+      console.error(`[mms-remote] ${message.method} failed code=${error.code || "terminal_error"} message=${error.message || "Terminal request failed"}`);
       sendResponse(JSON.stringify({
         id: message.id ?? null,
         error: {
@@ -284,6 +334,10 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
       }));
     });
   return true;
+}
+
+function terminalRequestTarget(params = {}) {
+  return params.paneId || params.paneKey || params.target || params.session || params.sessionName || "";
 }
 
 function safeParseJSON(rawMessage) {
@@ -300,5 +354,6 @@ module.exports = {
   formatVisibleTerminalFailure,
   handleTerminalMethod,
   handleTerminalRequest,
+  resolveSyntheticOrdinalPane,
   sortTerminalTreeByRecentPane,
 };
