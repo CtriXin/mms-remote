@@ -1,83 +1,65 @@
 # Current Handoff — MMS Remote Terminal
 
-- timestamp: 2026-05-15 04:15 -0400
+- timestamp: 2026-05-15 16:40 +0800
 - owner: Codex
 - CLI: codex
 - model: GPT-5
-- task_id: terminal-rescue-handoff
-- status: paused; user will merge a working branch from another worktree
-- next_action: after merge, inspect the incoming branch diff, keep the working terminal path, and resume with small validated iterations only
+- task_id: ios-terminal-running-branch
+- status: running branch verified by user; local terminal hardening pending merge
+- next_action: merge `codex/ios-remote-22e6243` as the code truth, then run clean bridge/iPhone acceptance before stacking new planner work
 
 ## Goal
 
-Phone Terminal must control Mac tmux-managed terminal panes:
+Phone Terminal controls Mac tmux-managed terminal panes while Codex Chat remains a separate app entry point.
 
-- iOS sees Mac managed tmux sessions/windows/panes.
-- iOS can open/create a new managed terminal.
-- Mac and iOS share the same pane content and input path.
-- Codex Chat and Terminal remain separate app entry points.
-- Short CLI remains simple: `mmr join [name]` / `mms-remote terminal join [name]`.
-- Later: keyboard shortcuts, better terminal renderer/theme, visible Mac terminal support, and safer multi-device relay support.
+## Current Truth
 
-## Hard Boundary
+- active worktree: `/Users/xin/auto-skills/CtriXin-repo/mms-remote-ios-22e6243`
+- branch: `codex/ios-remote-22e6243`
+- base: `22e624367783234245d0b0724c34212f79722e84`
+- user-tested status: real phone no longer stuck on `Terminal Error`
+- known-good anchor from previous rescue: `3fa85e4bcb8189636fa044832f2558beb85627c7`
 
-Do not promise automatic capture of arbitrary existing Terminal.app/iTerm2/Ghostty panes unless they join tmux. The reliable product boundary is tmux-managed panes.
+## Current Changes
 
-## Known Good Anchor
+- iOS Terminal background list polling no longer surfaces modal `Terminal Error` alerts; manual refresh still reports errors.
+- Ghostty visible open now uses AppleScript `new tab` / `new window` instead of `open -n`, avoiding duplicate restored tab layouts.
+- iTerm2 visible open now prefers a new tab in the current window, falling back to a new window.
+- Terminal quick keys include Enter, Backspace, Ctrl-C/D/Z/A/E, Tab, Esc, Home/End, PgUp/PgDn, and arrows.
+- Current SwiftUI terminal snapshot viewer is a stopgap dark terminal surface with horizontal+vertical scrolling and no automatic line wrapping.
+- Full iTerm/Ghostty-like rendering still requires a real terminal renderer such as SwiftTerm or xterm.js.
 
-User-identified known-good commit:
+## Next Task
 
-- `3fa85e4bcb8189636fa044832f2558beb85627c7` — `feat(cli): add mmr join shortcut`
+- Implement SwiftTerm as the iOS Terminal renderer.
+- Goal: make phone Terminal look and behave like a real terminal, not a styled log view.
+- Keep current SwiftUI viewer only as fallback/debug path until SwiftTerm is stable.
+- Do not ship an ugly half-renderer as final UX.
 
-A rescue worktree was created at:
+## SwiftTerm Acceptance
 
-- `/Users/xin/auto-skills/CtriXin-repo/mms-remote-rescue-3fa`
-- branch: `rescue/terminal-3fa-clean`
-- base: `3fa85e4`
-- extra patch only: `aaa446a` Xcode `confirmationDialog` compile fix + version bump to build `119`
-- validation before interruption: `node --test mms-remote-bridge/test/terminal-hub.test.js` passed; generic iOS build passed
+- ANSI colors render.
+- Box drawing, separators, progress bars, prompt lines, and wide CJK text do not drift or wrap incorrectly.
+- Cursor movement, clear screen, and shell prompt editing work.
+- `top`/`htop`/`less`/`vim` render acceptably or fail gracefully with clear limitations.
+- Theme defaults to a polished dark terminal style; font uses existing bundled mono first, later optional Nerd Font.
 
-## Current Main State
+## Todo / Not Now
 
-Current `main` includes multiple failed rescue attempts through:
+- Add a Terminal setting for preferred Mac visible terminal app: `auto`, Ghostty, iTerm2, or Terminal.app.
+- Show the same selector in create/open flows later if UX needs per-launch override.
+- Default stays `auto` for now: Ghostty -> iTerm2 -> Terminal.app.
+- Use installed-app detection only for availability/labels; do not block manual selection unless launch fails.
 
-- `5bf130c fix(ios): clear terminal cache on entry`
+## Validation
 
-User reported it still fails. Do not keep patching from assumptions on this state. Prefer merging the external working branch, then compare against `3fa85e4` and current `main`.
+- `node --test test/terminal-visible-launcher.test.js test/terminal-hub.test.js test/mms-remote-cli.test.js` passed: 32/32.
+- `xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -configuration Debug -destination 'platform=iOS Simulator,id=4F06CB43-A708-44E5-8418-ABF70A2D4887' -derivedDataPath .build/DerivedData build` succeeded.
+- Full `npm test` earlier had 307/308 passing; only `bridge-desktop-ipc-integration.test.js` timed out, not adjacent to terminal launcher changes.
 
-## Recent Failure Pattern
+## Boundaries
 
-Observed symptoms:
-
-- iOS showed many stale terminal tabs.
-- Clicking tabs produced `Terminal Error`.
-- Earlier logs showed stale synthetic targets like `mms-1:0.0`, `mms-2:0.0` and errors like `Terminal pane target is required` / `Unknown terminal pane`.
-- Later Bridge logs only showed `terminal/list ok`, no fresh `terminal/attach` failure, suggesting iOS stale state or alert handling also contributed.
-- Clearing tmux and Bridge runtime did not restore confidence.
-
-## Runtime Stop State
-
-Before this handoff, the current Bridge/relay/tmux runtime was stopped/cleared by command:
-
-- `mms-remote.js stop`
-- killed `mms-remote`, `run-local-mms-remote`, `relay/server.js` leftovers
-- `tmux kill-server`
-- truncated `/Users/xin/.mms-remote/logs/bridge.stdout.log` and `bridge.stderr.log`
-
-Do not assume any running Bridge is the correct one after the user merges another branch. Re-check before testing.
-
-## Next Action
-
-1. Wait for user to merge the working branch.
-2. Run `git status -sb && git log --oneline -8`.
-3. Inspect terminal-related diff only.
-4. Start clean runtime from the merged branch.
-5. Verify with one pane, one phone install, one click, one input.
-6. Only then continue feature iteration.
-
-## Blockers / Risks
-
-- Multiple Xcode/worktree builds can install the same bundle id `com.mms.remote`; user may be running an older build unless version/build is checked.
-- Multiple Bridge launch modes existed: launchd `run-service`, foreground `run`, and local relay script. Only one should be active during verification.
-- Multiple tmux sessions/panes can look like app bugs. Acceptance should start from one clean `mms-clean` pane.
-- Do not hide terminal RPC errors. Log method + target + result counts on Bridge.
+- Do not promise automatic capture of arbitrary existing Terminal.app/iTerm2/Ghostty panes unless they join tmux.
+- Keep local-first Bridge/QR/daemon workflow.
+- Do not run Xcode tests unless user explicitly asks.
+- Before further terminal-renderer work, decide SwiftTerm native renderer vs WKWebView+xterm.js.

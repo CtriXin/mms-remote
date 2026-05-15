@@ -2,8 +2,7 @@
 
 ## 2026-05-15 Handoff Note
 
-Latest operational handoff lives in `.ai/plan/current.md` and `.ai/plan/handoff.md`. Treat those as the current truth before continuing Terminal work. Key point: user identified `3fa85e4bcb8189636fa044832f2558beb85627c7` as the known-good terminal point; current `main` has later failed rescue commits, so after the user merges the external working branch, compare that branch against `3fa85e4` and resume from evidence only.
-
+Latest operational handoff lives in `.ai/plan/current.md` and `.ai/plan/handoff.md`. Treat those as the current truth before continuing Terminal work. Key point: user identified `3fa85e4bcb8189636fa044832f2558beb85627c7` as the known-good terminal point; this worktree branch `codex/ios-remote-22e6243` is the current running branch after phone verification and targeted terminal fixes.
 
 ## 结论
 
@@ -155,7 +154,7 @@ Rules:
 - arrows / Home / End / PageUp / PageDown
 - optional paste bracket mode
 
-MVP 可以先支持：text、Enter、Backspace、Ctrl+C、Ctrl+D、Tab、Esc、arrows。
+MVP 可以先支持：text、Enter、Backspace、Ctrl+C、Ctrl+D、Ctrl+Z、Ctrl+A、Ctrl+E、Tab、Esc、Home/End、PageUp/PageDown、arrows。
 
 ### iOS Renderer Strategy
 
@@ -165,6 +164,7 @@ MVP 可以先支持：text、Enter、Backspace、Ctrl+C、Ctrl+D、Tab、Esc、a
 - **Preferred**: SwiftTerm，native VT100/ANSI/grid renderer
 - **Fallback**: WKWebView + xterm.js
 - **Not acceptable for full terminal**: 手写 SwiftUI line list + strip ANSI
+- UX bar: terminal must look intentional and polished; do not accept a visibly broken or ugly renderer as the final path.
 
 MVP 分级：
 - Level 1: line-oriented shell/CLI/logs，可用简化 renderer
@@ -298,7 +298,7 @@ MVP renderer：
 - 明确不支持 vim/htop/lazygit 等 full-screen app
 
 MVP input：
-- text / Enter / Backspace / Ctrl+C / Ctrl+D / Tab / Esc / arrows
+- text / Enter / Backspace / Ctrl+C / Ctrl+D / Ctrl+Z / Ctrl+A / Ctrl+E / Tab / Esc / Home / End / PageUp / PageDown / arrows
 
 验收：
 - iPhone 能打开 managed pane
@@ -310,7 +310,7 @@ MVP input：
 目标：把 basic viewer 升级成真实 terminal。
 
 推荐路线：
-- 首选 SwiftTerm
+- 首选 SwiftTerm：native renderer、暗色 terminal theme、稳定 monospace metrics
 - 备选 WKWebView + xterm.js
 
 需要支持：
@@ -320,8 +320,10 @@ MVP input：
 - clear screen
 - resize rows/cols
 - alternate screen 基础支持
+- fallback/debug path：当前 SwiftUI text viewer 可保留，但不能作为最终 renderer
 
 验收：
+- Claude/Codex prompt、box drawing、分割线、进度条、CJK 宽字符不串行
 - `top`/`htop` 类刷新不刷屏成垃圾文本
 - shell prompt editing 正常
 - progress bar / `\r` 覆盖显示正常
@@ -336,8 +338,8 @@ MVP input：
 - choose command: shell / codex / claude / custom command
 - optional macOS launcher:
   - `auto`: Ghostty -> iTerm2 -> Terminal.app
-  - `ghostty`: `open -na Ghostty.app --args ...`
-  - `iterm`: AppleScript 新建 iTerm2 window
+  - `ghostty`: AppleScript 复用当前 Ghostty app，新建 tab；无 window 时新建 window
+  - `iterm`: AppleScript 优先新建 iTerm2 tab；无 window 时新建 window
   - `terminal`: AppleScript 新建 Terminal.app window
   - 可用 `MMS_REMOTE_VISIBLE_TERMINAL=ghostty|iterm|terminal` 固定默认
 
@@ -439,7 +441,7 @@ mms-remote terminal join my-session
 3. 手机创建 terminal，默认不要打开 `Open Mac terminal app`；只有明确想弹 Mac terminal emulator 时再开启。
 4. 手机输入 `echo phone_ok`，Mac 同 pane 能看到；Mac 输入 `echo mac_ok`，手机 snapshot/poll 能看到。
 5. 想在当前 Ghostty/iTerm2/Terminal.app 里看同一 pane，必须在真实交互 shell 里运行 `mms-remote terminal join mms-acceptance` 或 `tmux attach -t mms-acceptance`；不要在非 TTY command runner 里跑。
-6. 顶部 display 按钮会打开 Mac terminal emulator；默认 auto 顺序是 Ghostty -> iTerm2 -> Terminal.app，可用 `MMS_REMOTE_VISIBLE_TERMINAL=ghostty|iterm|terminal` 固定。
+6. 顶部 display 按钮会打开 Mac terminal emulator；默认 auto 顺序是 Ghostty -> iTerm2 -> Terminal.app。Ghostty/iTerm2 会优先在现有 window 新建 tab，不会用 `open -n` 复制整套窗口布局；可用 `MMS_REMOTE_VISIBLE_TERMINAL=ghostty|iterm|terminal` 固定。
 
 ### Full 验收
 

@@ -7,6 +7,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  buildGhosttyAppleScript,
   buildTerminalAttachShellCommand,
   createTerminalVisibleLauncher,
   normalizeVisibleTerminalApp,
@@ -57,10 +58,13 @@ test("visible launcher auto-prefers Ghostty when it is installed", async () => {
   assert.equal(result.opened, true);
   assert.equal(result.app, "ghostty");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].file, "open");
-  assert.deepEqual(calls[0].args.slice(0, 4), ["-na", "Ghostty.app", "--args", "-e"]);
-  assert.equal(calls[0].args.includes("attach-session"), false);
-  assert.match(calls[0].args.at(-1), /attach-session/);
+  assert.equal(calls[0].file, "osascript");
+  assert.equal(calls[0].args[0], "-e");
+  assert.match(calls[0].args[1], /tell application "Ghostty"/);
+  assert.match(calls[0].args[1], /new tab in front window with configuration launchConfig/);
+  assert.match(calls[0].args[1], /new window with configuration launchConfig/);
+  assert.match(calls[0].args[1], /attach-session/);
+  assert.doesNotMatch(calls[0].args[1], /open -n/);
 });
 
 test("visible launcher can explicitly open iTerm2", async () => {
@@ -83,6 +87,7 @@ test("visible launcher can explicitly open iTerm2", async () => {
   assert.equal(result.app, "iterm");
   assert.equal(calls[0].file, "osascript");
   assert.match(calls[0].args[1], /tell application "iTerm2"/);
+  assert.match(calls[0].args[1], /create tab with default profile/);
   assert.match(calls[0].args[1], /create window with default profile/);
   assert.match(calls[0].args[1], /attach-session/);
 });
@@ -125,7 +130,17 @@ test("visible launcher accepts per-call visible app override", async () => {
   const result = await launcher.openPane({ paneId: "%1", sessionName: "dev" }, { visibleApp: "ghostty" });
 
   assert.equal(result.app, "ghostty");
-  assert.equal(calls[0].file, "open");
+  assert.equal(calls[0].file, "osascript");
+});
+
+test("Ghostty AppleScript opens a tab without launching a second app instance", () => {
+  const script = buildGhosttyAppleScript({ command: "exec tmux attach -t dev" });
+
+  assert.match(script, /new surface configuration/);
+  assert.match(script, /new tab in front window with configuration launchConfig/);
+  assert.match(script, /new window with configuration launchConfig/);
+  assert.match(script, /\/bin\/zsh -lc/);
+  assert.doesNotMatch(script, /open -n/);
 });
 
 test("visible launcher no-ops on non-macOS platforms", async () => {

@@ -10,7 +10,12 @@ const { execFileSync } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { createTerminalHub, handleTerminalMethod, handleTerminalRequest } = require("../src/terminal-hub");
+const {
+  createTerminalHub,
+  handleTerminalMethod,
+  handleTerminalRequest,
+  syntheticOrdinalPaneIndex,
+} = require("../src/terminal-hub");
 const { createTmuxAdapter } = require("../src/tmux-adapter");
 
 const hasTmux = (() => {
@@ -61,6 +66,14 @@ test("terminal hub lists, snapshots, inputs, resizes, and cleans up tmux panes",
       rows: 30,
       command: "printf 'ready\\n'; exec sh",
     });
+    const createdResult = await hub.create({
+      name: `${sessionName}b`,
+      cwd,
+      command: "printf 'ready_b\\n'; exec sh",
+    });
+    assert.match(createdResult.created.paneId, /^%\d+$/);
+    assert.equal(createdResult.selectedPane.paneId, createdResult.created.paneId);
+    await hub.kill({ sessionName: `${sessionName}b` });
 
     const pane = await waitFor(async () => {
       const list = await hub.list();
@@ -152,6 +165,110 @@ test("terminal hub lists newest panes first", async () => {
 
   assert.deepEqual(result.sessions.map((session) => session.name), ["zeta", "alpha"]);
   assert.deepEqual(result.panes.map((pane) => pane.paneId), ["%3", "%2", "%1"]);
+  assert.deepEqual(result.panes.map((pane) => pane.pane_id), ["%3", "%2", "%1"]);
+  assert.equal(result.panes[0].requestTarget, "%3");
+  assert.deepEqual(result.panes[0].fields.slice(1, 7), ["alpha", "", "0", "", "%3", "1"]);
+});
+
+test("terminal hub snapshots the newest pane when the phone sends an empty target", async () => {
+  const snapshotCalls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [],
+          windows: [],
+          panes: [
+            { id: "%1", paneId: "%1", paneKey: "old:0.0", sessionName: "old", windowIndex: 0, paneIndex: 0 },
+            { id: "%3", paneId: "%3", paneKey: "new:0.0", sessionName: "new", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+      async findPane(target) {
+        return { id: target, paneId: target, paneKey: "new:0.0", sessionName: "new", windowIndex: 0, paneIndex: 0 };
+      },
+      async capturePane(params) {
+        snapshotCalls.push(params.target);
+        return { paneId: params.target, content: "new pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "" });
+
+  assert.equal(result.pane.paneId, "%3");
+  assert.deepEqual(snapshotCalls, ["%3"]);
+});
+
+test("terminal hub maps iOS synthetic ordinal pane targets to real panes", async () => {
+  const snapshotCalls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [],
+          windows: [],
+          panes: [
+            { id: "%1", paneId: "%1", paneKey: "old:0.0", sessionName: "old", windowIndex: 0, paneIndex: 0 },
+            { id: "%3", paneId: "%3", paneKey: "new:0.0", sessionName: "new", windowIndex: 0, paneIndex: 0 },
+            { id: "%2", paneId: "%2", paneKey: "mid:0.0", sessionName: "mid", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+      async findPane(target) {
+        throw new Error(`Unknown terminal pane: ${target}`);
+      },
+      async capturePane(params) {
+        snapshotCalls.push(params.target);
+        return { paneId: params.target, content: "mapped pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "mms-2:0.0" });
+
+  assert.equal(syntheticOrdinalPaneIndex("mms-2:0.0"), 1);
+  assert.equal(result.pane.paneId, "%2");
+  assert.equal(result.pane.requestTarget, "%2");
+  assert.deepEqual(snapshotCalls, ["%2"]);
+});
+
+test("terminal hub snapshots with decorated fallback when paneId is empty", async () => {
+  const snapshotCalls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [],
+          windows: [],
+          panes: [
+            { id: "", paneId: "", target: "%9", paneKey: "fallback:0.0", sessionName: "fallback", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+      async findPane() {
+        throw new Error("not found");
+      },
+      async capturePane(params) {
+        snapshotCalls.push(params.target);
+        return { paneId: params.target, content: "fallback pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "" });
+
+  assert.equal(result.pane.requestTarget, "%9");
+  assert.deepEqual(snapshotCalls, ["%9"]);
 });
 
 test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !hasTmux }, async () => {
@@ -287,26 +404,6 @@ test("terminal create still succeeds when visible terminal launch fails", async 
 test("terminal hub opens an existing pane in a visible macOS terminal", async () => {
   const visibleCalls = [];
   const adapter = {
-    async version() {
-      return "tmux mock";
-    },
-    async listAll() {
-      return {
-        sessions: [],
-        windows: [],
-        panes: [
-          {
-            id: "%1",
-            paneId: "%1",
-            paneKey: "dev:0.0",
-            target: "%1",
-            sessionName: "dev",
-            windowIndex: 0,
-            cwd: "/tmp/dev",
-          },
-        ],
-      };
-    },
     async findPane(target) {
       assert.equal(target, "%1");
       return {
@@ -334,35 +431,4 @@ test("terminal hub opens an existing pane in a visible macOS terminal", async ()
   assert.equal(visibleCalls.length, 1);
   assert.equal(visibleCalls[0].sessionName, "dev");
   assert.deepEqual(result, { ok: true, opened: true, paneId: "%1" });
-});
-
-test("terminal hub resolves stale synthetic iOS pane targets", async () => {
-  const adapter = {
-    async version() {
-      return "tmux mock";
-    },
-    async listAll() {
-      return {
-        sessions: [],
-        windows: [],
-        panes: [
-          { id: "%3", paneId: "%3", paneKey: "new:0.0", target: "%3", sessionName: "new", windowIndex: 0, paneIndex: 0 },
-          { id: "%2", paneId: "%2", paneKey: "old:0.0", target: "%2", sessionName: "old", windowIndex: 0, paneIndex: 0 },
-        ],
-      };
-    },
-    async findPane() {
-      throw new Error("synthetic target should resolve before findPane");
-    },
-    async capturePane(params) {
-      assert.equal(params.target, "%2");
-      return { content: "ok", capturedAt: "now" };
-    },
-  };
-  const hub = createTerminalHub({ adapter });
-
-  const result = await hub.snapshot({ paneId: "mms-2:0.0" });
-
-  assert.equal(result.pane.paneId, "%2");
-  assert.equal(result.content, "ok");
 });
