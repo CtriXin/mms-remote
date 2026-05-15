@@ -408,7 +408,10 @@ function runTerminalJoin({
   stdout = process.stdout,
 } = {}) {
   if (!stdin.isTTY || !stdout.isTTY) {
-    throw new Error("terminal join must be run from a real interactive terminal, not a command runner");
+    throw new Error(
+      "terminal join must be run from a real interactive terminal, not a command runner. "
+      + "Open Ghostty/iTerm/Terminal and type it there; from Chat/Codex runners use `mms-remote terminal create --name NAME --command COMMAND` instead."
+    );
   }
 
   const sessionName = normalizeTerminalSessionName(options.name || positionalName || defaultTerminalSessionName(cwd));

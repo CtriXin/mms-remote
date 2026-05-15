@@ -20,11 +20,12 @@ function createTerminalHub(options = {}) {
       adapter.version().catch(() => "tmux unavailable"),
       adapter.listAll(),
     ]);
+    const sortedTree = sortTerminalTreeByRecentPane(tree);
     return {
       tmuxVersion,
-      sessions: tree.sessions,
-      windows: tree.windows,
-      panes: tree.panes,
+      sessions: sortedTree.sessions,
+      windows: sortedTree.windows,
+      panes: sortedTree.panes,
     };
   }
 
@@ -195,6 +196,55 @@ function findCreatedPane({ created = {}, terminalList = {} } = {}) {
   return null;
 }
 
+function sortTerminalTreeByRecentPane(tree = {}) {
+  const sessions = [...(tree.sessions || [])].sort(compareSessionsByRecent);
+  const sessionCreatedAtByName = new Map(sessions.map((session) => [session.name, toFiniteNumber(session.createdAt)]));
+  const windows = [...(tree.windows || [])].sort((lhs, rhs) => (
+    compareNumbersDesc(tmuxObjectIdNumber(lhs.id), tmuxObjectIdNumber(rhs.id))
+    || compareNumbersDesc(sessionCreatedAtByName.get(lhs.sessionName), sessionCreatedAtByName.get(rhs.sessionName))
+    || compareNumbersDesc(lhs.index, rhs.index)
+    || compareStrings(lhs.windowKey, rhs.windowKey)
+  ));
+  const panes = [...(tree.panes || [])].sort((lhs, rhs) => (
+    compareNumbersDesc(tmuxObjectIdNumber(lhs.paneId || lhs.id), tmuxObjectIdNumber(rhs.paneId || rhs.id))
+    || compareNumbersDesc(sessionCreatedAtByName.get(lhs.sessionName), sessionCreatedAtByName.get(rhs.sessionName))
+    || compareNumbersDesc(lhs.windowIndex, rhs.windowIndex)
+    || compareNumbersDesc(lhs.paneIndex, rhs.paneIndex)
+    || compareStrings(lhs.paneKey, rhs.paneKey)
+  ));
+
+  return { sessions, windows, panes };
+}
+
+function compareSessionsByRecent(lhs, rhs) {
+  return compareNumbersDesc(toFiniteNumber(lhs.createdAt), toFiniteNumber(rhs.createdAt))
+    || compareNumbersDesc(tmuxObjectIdNumber(lhs.id), tmuxObjectIdNumber(rhs.id))
+    || compareStrings(lhs.name, rhs.name);
+}
+
+function compareNumbersDesc(lhs, rhs) {
+  const left = toFiniteNumber(lhs);
+  const right = toFiniteNumber(rhs);
+  if (left === right) {
+    return 0;
+  }
+  return left > right ? -1 : 1;
+}
+
+function compareStrings(lhs, rhs) {
+  return String(lhs || "").localeCompare(String(rhs || ""));
+}
+
+function tmuxObjectIdNumber(value) {
+  const match = String(value || "").match(/\d+/);
+  return match ? Number.parseInt(match[0], 10) : Number.NEGATIVE_INFINITY;
+}
+
+function toFiniteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : Number.NEGATIVE_INFINITY;
+}
+
 function formatVisibleTerminalFailure(error) {
   return {
     ok: false,
@@ -250,4 +300,5 @@ module.exports = {
   formatVisibleTerminalFailure,
   handleTerminalMethod,
   handleTerminalRequest,
+  sortTerminalTreeByRecentPane,
 };

@@ -122,6 +122,38 @@ test("handleTerminalMethod dispatches terminal/list", { skip: !hasTmux }, async 
   }
 });
 
+test("terminal hub lists newest panes first", async () => {
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [
+            { id: "$1", name: "alpha", createdAt: 100 },
+            { id: "$2", name: "zeta", createdAt: 200 },
+          ],
+          windows: [
+            { id: "@1", sessionName: "alpha", index: 0, windowKey: "alpha:0" },
+            { id: "@2", sessionName: "zeta", index: 0, windowKey: "zeta:0" },
+          ],
+          panes: [
+            { id: "%1", paneId: "%1", paneKey: "alpha:0.0", sessionName: "alpha", windowIndex: 0, paneIndex: 0 },
+            { id: "%3", paneId: "%3", paneKey: "alpha:0.1", sessionName: "alpha", windowIndex: 0, paneIndex: 1 },
+            { id: "%2", paneId: "%2", paneKey: "zeta:0.0", sessionName: "zeta", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+    },
+  });
+
+  const result = await hub.list();
+
+  assert.deepEqual(result.sessions.map((session) => session.name), ["zeta", "alpha"]);
+  assert.deepEqual(result.panes.map((pane) => pane.paneId), ["%3", "%2", "%1"]);
+});
+
 test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !hasTmux }, async () => {
   const { adapter, hub } = makeHub();
   let response = "";

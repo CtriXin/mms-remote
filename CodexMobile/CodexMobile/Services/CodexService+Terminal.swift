@@ -177,15 +177,21 @@ extension CodexService {
     }
 
     private func applyTerminalList(_ list: ManagedTerminalList) {
+        let previousPaneIds = Set(terminalPanes.map(\.paneId))
+        let sortedPanes = sortTerminalPanesByRecent(list.panes)
         terminalTmuxVersion = list.tmuxVersion
-        terminalSessions = list.sessions
-        terminalWindows = list.windows
-        terminalPanes = list.panes
+        terminalSessions = sortTerminalSessionsByRecent(list.sessions)
+        terminalWindows = sortTerminalWindowsByRecent(list.windows)
+        terminalPanes = sortedPanes
+        if let newestPane = sortedPanes.first(where: { !previousPaneIds.contains($0.paneId) }) {
+            selectedTerminalPaneId = newestPane.paneId
+            return
+        }
         if let selectedTerminalPaneId,
-           !list.panes.contains(where: { $0.paneId == selectedTerminalPaneId || $0.paneKey == selectedTerminalPaneId }) {
-            self.selectedTerminalPaneId = list.panes.first?.paneId
+           !sortedPanes.contains(where: { $0.paneId == selectedTerminalPaneId || $0.paneKey == selectedTerminalPaneId }) {
+            self.selectedTerminalPaneId = sortedPanes.first?.paneId
         } else if selectedTerminalPaneId == nil {
-            selectedTerminalPaneId = list.panes.first?.paneId
+            selectedTerminalPaneId = sortedPanes.first?.paneId
         }
     }
 
@@ -195,5 +201,42 @@ extension CodexService {
         } else {
             terminalPanes.append(pane)
         }
+        terminalPanes = sortTerminalPanesByRecent(terminalPanes)
+    }
+
+    private func sortTerminalSessionsByRecent(_ sessions: [ManagedTerminalSession]) -> [ManagedTerminalSession] {
+        sessions.sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
+            let lhsId = tmuxNumericId(lhs.id)
+            let rhsId = tmuxNumericId(rhs.id)
+            if lhsId != rhsId { return lhsId > rhsId }
+            return lhs.name < rhs.name
+        }
+    }
+
+    private func sortTerminalWindowsByRecent(_ windows: [ManagedTerminalWindow]) -> [ManagedTerminalWindow] {
+        windows.sorted { lhs, rhs in
+            let lhsId = tmuxNumericId(lhs.id)
+            let rhsId = tmuxNumericId(rhs.id)
+            if lhsId != rhsId { return lhsId > rhsId }
+            if lhs.windowKey != rhs.windowKey { return lhs.windowKey < rhs.windowKey }
+            return lhs.name < rhs.name
+        }
+    }
+
+    private func sortTerminalPanesByRecent(_ panes: [ManagedTerminalPane]) -> [ManagedTerminalPane] {
+        panes.sorted { lhs, rhs in
+            let lhsId = tmuxNumericId(lhs.paneId)
+            let rhsId = tmuxNumericId(rhs.paneId)
+            if lhsId != rhsId { return lhsId > rhsId }
+            if lhs.windowIndex != rhs.windowIndex { return lhs.windowIndex > rhs.windowIndex }
+            if lhs.paneIndex != rhs.paneIndex { return lhs.paneIndex > rhs.paneIndex }
+            return lhs.paneKey < rhs.paneKey
+        }
+    }
+
+    private func tmuxNumericId(_ value: String) -> Int {
+        let digits = value.filter(\.isNumber)
+        return Int(digits) ?? Int.min
     }
 }
