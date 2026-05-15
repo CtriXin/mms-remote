@@ -20,7 +20,7 @@ function createTerminalHub(options = {}) {
       adapter.version().catch(() => "tmux unavailable"),
       adapter.listAll(),
     ]);
-    const sortedTree = sortTerminalTreeByRecentPane(tree);
+    const sortedTree = decorateTerminalTree(sortTerminalTreeByRecentPane(tree));
     return {
       tmuxVersion,
       sessions: sortedTree.sessions,
@@ -126,10 +126,20 @@ function createTerminalHub(options = {}) {
   }
 
   async function resolvePane(target) {
-    if (!target) {
+    const normalizedTarget = normalizePaneTarget(target);
+    if (!normalizedTarget) {
+      const fallbackPane = await newestPane();
+      if (fallbackPane) {
+        return fallbackPane;
+      }
       throw new TmuxAdapterError("Terminal pane id is required", { code: "terminal_pane_required" });
     }
-    return adapter.findPane(String(target));
+    return adapter.findPane(normalizedTarget);
+  }
+
+  async function newestPane() {
+    const tree = sortTerminalTreeByRecentPane(await adapter.listAll());
+    return tree.panes[0] || null;
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, createdPane, visibleApp }) {
@@ -217,6 +227,74 @@ function sortTerminalTreeByRecentPane(tree = {}) {
   ));
 
   return { sessions, windows, panes };
+}
+
+function decorateTerminalTree(tree = {}) {
+  return {
+    sessions: tree.sessions || [],
+    windows: tree.windows || [],
+    panes: (tree.panes || []).map(decoratePane),
+  };
+}
+
+function decoratePane(pane = {}) {
+  const paneId = String(pane.paneId || pane.id || "");
+  const paneKey = String(pane.paneKey || "");
+  const sessionName = String(pane.sessionName || "");
+  const windowIndex = Number.isFinite(Number(pane.windowIndex)) ? Number(pane.windowIndex) : 0;
+  const paneIndex = Number.isFinite(Number(pane.paneIndex)) ? Number(pane.paneIndex) : 0;
+  const target = String(pane.target || paneId || paneKey || "");
+  return {
+    ...pane,
+    id: String(pane.id || paneId || target || paneKey),
+    paneId,
+    paneKey,
+    target,
+    requestTarget: target || paneKey,
+    paneAddress: paneKey || (sessionName ? `${sessionName}:${windowIndex}.${paneIndex}` : ""),
+    pane_id: paneId,
+    pane_key: paneKey,
+    session_id: String(pane.sessionId || ""),
+    session_name: sessionName,
+    window_id: String(pane.windowId || ""),
+    window_index: windowIndex,
+    window_name: String(pane.windowName || ""),
+    pane_index: paneIndex,
+    pane_title: String(pane.title || ""),
+    pane_current_command: String(pane.currentCommand || ""),
+    pane_current_path: String(pane.cwd || ""),
+    pane_width: Number.isFinite(Number(pane.cols)) ? Number(pane.cols) : 0,
+    pane_height: Number.isFinite(Number(pane.rows)) ? Number(pane.rows) : 0,
+    pane_active: Boolean(pane.active),
+    pane_dead: Boolean(pane.dead),
+    fields: [
+      String(pane.sessionId || ""),
+      sessionName,
+      String(pane.windowId || ""),
+      String(windowIndex),
+      String(pane.windowName || ""),
+      paneId,
+      String(paneIndex),
+      String(pane.title || ""),
+      String(pane.currentCommand || ""),
+      String(pane.cwd || ""),
+      String(Number.isFinite(Number(pane.cols)) ? Number(pane.cols) : 0),
+      String(Number.isFinite(Number(pane.rows)) ? Number(pane.rows) : 0),
+      pane.active ? "1" : "0",
+      pane.dead ? "1" : "0",
+    ],
+  };
+}
+
+function normalizePaneTarget(target) {
+  const value = String(target || "").trim();
+  if (!value || value === "unknown" || value === ":" || value === ":." || value === "::") {
+    return "";
+  }
+  if (value.startsWith(":") || value.endsWith(":") || value.endsWith(".")) {
+    return "";
+  }
+  return value;
 }
 
 function compareSessionsByRecent(lhs, rhs) {

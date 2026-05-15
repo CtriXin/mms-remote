@@ -160,6 +160,42 @@ test("terminal hub lists newest panes first", async () => {
 
   assert.deepEqual(result.sessions.map((session) => session.name), ["zeta", "alpha"]);
   assert.deepEqual(result.panes.map((pane) => pane.paneId), ["%3", "%2", "%1"]);
+  assert.deepEqual(result.panes.map((pane) => pane.pane_id), ["%3", "%2", "%1"]);
+  assert.equal(result.panes[0].requestTarget, "%3");
+  assert.deepEqual(result.panes[0].fields.slice(1, 7), ["alpha", "", "0", "", "%3", "1"]);
+});
+
+test("terminal hub snapshots the newest pane when the phone sends an empty target", async () => {
+  const snapshotCalls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async listAll() {
+        return {
+          sessions: [],
+          windows: [],
+          panes: [
+            { id: "%1", paneId: "%1", paneKey: "old:0.0", sessionName: "old", windowIndex: 0, paneIndex: 0 },
+            { id: "%3", paneId: "%3", paneKey: "new:0.0", sessionName: "new", windowIndex: 0, paneIndex: 0 },
+          ],
+        };
+      },
+      async findPane(target) {
+        return { id: target, paneId: target, paneKey: "new:0.0", sessionName: "new", windowIndex: 0, paneIndex: 0 };
+      },
+      async capturePane(params) {
+        snapshotCalls.push(params.target);
+        return { paneId: params.target, content: "new pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "" });
+
+  assert.equal(result.pane.paneId, "%3");
+  assert.deepEqual(snapshotCalls, ["%3"]);
 });
 
 test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !hasTmux }, async () => {
