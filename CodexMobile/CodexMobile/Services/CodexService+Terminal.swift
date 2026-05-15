@@ -28,7 +28,10 @@ extension CodexService {
     }
 
     @discardableResult
-    func refreshTerminalList(showLoading: Bool = true) async throws -> ManagedTerminalList {
+    func refreshTerminalList(
+        showLoading: Bool = true,
+        recordError: Bool = true
+    ) async throws -> ManagedTerminalList {
         if showLoading { isLoadingTerminals = true }
         defer {
             if showLoading { isLoadingTerminals = false }
@@ -46,7 +49,9 @@ extension CodexService {
             terminalLastErrorMessage = nil
             return list
         } catch {
-            terminalLastErrorMessage = error.localizedDescription
+            if recordError {
+                terminalLastErrorMessage = error.localizedDescription
+            }
             throw error
         }
     }

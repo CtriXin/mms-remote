@@ -132,9 +132,26 @@ function buildVisibleTerminalLaunch({ command, visibleApp } = {}) {
 
 function buildGhosttyLaunch({ command, visibleApp = VISIBLE_TERMINAL_APPS.ghostty } = {}) {
   return {
-    file: "open",
-    args: ["-na", visibleApp.openAppName || "Ghostty.app", "--args", "-e", "/bin/zsh", "-lc", command],
+    file: "osascript",
+    args: ["-e", buildGhosttyAppleScript({ command, terminalApp: visibleApp.appName || "Ghostty" })],
   };
+}
+
+function buildGhosttyAppleScript({ command, terminalApp = "Ghostty" } = {}) {
+  const launchCommand = `/bin/zsh -lc ${shellQuote(command)}`;
+  return [
+    `tell application ${appleScriptString(terminalApp)}`,
+    `  set launchConfig to new surface configuration from {command:${appleScriptString(launchCommand)}, wait after command:true}`,
+    "  if (count of windows) > 0 then",
+    "    set createdTab to new tab in front window with configuration launchConfig",
+    "    select tab createdTab",
+    "  else",
+    "    set createdWindow to new window with configuration launchConfig",
+    "    activate window createdWindow",
+    "  end if",
+    "  activate",
+    "end tell",
+  ].join("\n");
 }
 
 function buildTerminalAppleScript({ command, terminalApp = "Terminal" } = {}) {
@@ -149,11 +166,20 @@ function buildTerminalAppleScript({ command, terminalApp = "Terminal" } = {}) {
 function buildITermAppleScript({ command } = {}) {
   return [
     'tell application "iTerm2"',
+    "  if (count of windows) > 0 then",
+    "    tell current window",
+    "      create tab with default profile",
+    "      tell current session",
+    `        write text ${appleScriptString(command)}`,
+    "      end tell",
+    "    end tell",
+    "  else",
+    "    set newWindow to (create window with default profile)",
+    "    tell current session of newWindow",
+    `      write text ${appleScriptString(command)}`,
+    "    end tell",
+    "  end if",
     "  activate",
-    "  set newWindow to (create window with default profile)",
-    "  tell current session of newWindow",
-    `    write text ${appleScriptString(command)}`,
-    "  end tell",
     "end tell",
   ].join("\n");
 }
@@ -248,6 +274,7 @@ function appleScriptString(value) {
 }
 
 module.exports = {
+  buildGhosttyAppleScript,
   buildGhosttyLaunch,
   buildITermAppleScript,
   buildTerminalAppleScript,

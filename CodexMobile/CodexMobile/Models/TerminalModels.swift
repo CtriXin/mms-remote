@@ -131,6 +131,10 @@ enum ManagedTerminalKey: String, CaseIterable, Identifiable, Sendable {
     case down
     case left
     case right
+    case home
+    case end
+    case pageUp
+    case pageDown
     case ctrlC = "ctrl-c"
     case ctrlD = "ctrl-d"
     case ctrlZ = "ctrl-z"
@@ -149,6 +153,10 @@ enum ManagedTerminalKey: String, CaseIterable, Identifiable, Sendable {
         case .down: return "↓"
         case .left: return "←"
         case .right: return "→"
+        case .home: return "Home"
+        case .end: return "End"
+        case .pageUp: return "PgUp"
+        case .pageDown: return "PgDn"
         case .ctrlC: return "Ctrl-C"
         case .ctrlD: return "Ctrl-D"
         case .ctrlZ: return "Ctrl-Z"

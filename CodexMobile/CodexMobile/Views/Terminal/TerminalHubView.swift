@@ -95,7 +95,7 @@ struct TerminalHubView: View {
         }
         .task {
             if codex.isConnected {
-                await refreshTerminalsAsync()
+                await refreshTerminalsAsync(presentsErrors: false, source: "initial")
             }
         }
         .task(id: codex.isConnected) {
@@ -232,16 +232,18 @@ struct TerminalHubView: View {
 
     private var terminalSnapshotView: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                Text(currentSnapshotText)
+            ScrollView([.vertical, .horizontal]) {
+                Text(currentSnapshotDisplayText)
                     .font(AppFont.mono(.caption))
-                    .foregroundStyle(Color(.label))
+                    .foregroundStyle(Color(red: 0.86, green: 0.89, blue: 0.92))
+                    .lineSpacing(1)
                     .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(14)
+                    .fixedSize(horizontal: true, vertical: true)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
                     .id("terminal-bottom")
             }
-            .background(Color(.systemBackground))
+            .background(Color(red: 0.06, green: 0.065, blue: 0.075))
             .onChange(of: currentSnapshotText) { _, _ in
                 proxy.scrollTo("terminal-bottom", anchor: .bottom)
             }
@@ -401,6 +403,10 @@ struct TerminalHubView: View {
             : "Loading terminal output..."
     }
 
+    private var currentSnapshotDisplayText: String {
+        sanitizeTerminalDisplayText(currentSnapshotText)
+    }
+
     private var canSendInput: Bool {
         codex.isConnected && selectedVisiblePaneTarget != nil && !isSendingInput
     }
@@ -427,7 +433,25 @@ struct TerminalHubView: View {
     }
 
     private var quickKeys: [ManagedTerminalKey] {
-        [.ctrlC, .tab, .escape, .up, .down, .left, .right]
+        [
+            .escape,
+            .tab,
+            .enter,
+            .backspace,
+            .ctrlC,
+            .ctrlD,
+            .ctrlZ,
+            .ctrlA,
+            .ctrlE,
+            .home,
+            .end,
+            .pageUp,
+            .pageDown,
+            .up,
+            .down,
+            .left,
+            .right,
+        ]
     }
 
     private var terminalErrorIsPresented: Binding<Bool> {
@@ -478,18 +502,18 @@ struct TerminalHubView: View {
     }
 
     private func refreshTerminals() {
-        Task { await refreshTerminalsAsync() }
+        Task { await refreshTerminalsAsync(presentsErrors: true, source: "manual") }
     }
 
     @MainActor
-    private func refreshTerminalsAsync() async {
+    private func refreshTerminalsAsync(presentsErrors: Bool, source: String) async {
         guard codex.isConnected else { return }
         isRefreshing = true
         terminalDebugLine = "Refreshing terminal/list..."
         defer { isRefreshing = false }
         do {
-            let list = try await codex.refreshTerminalList()
-            rememberTerminalList(list, source: "manual")
+            let list = try await codex.refreshTerminalList(recordError: presentsErrors)
+            rememberTerminalList(list, source: source)
             if let target = selectedVisiblePaneTarget {
                 do {
                     try await codex.refreshTerminalSnapshot(paneId: target)
@@ -500,7 +524,11 @@ struct TerminalHubView: View {
             }
         } catch {
             terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
-            localErrorMessage = error.localizedDescription
+            if presentsErrors {
+                localErrorMessage = error.localizedDescription
+            } else {
+                codex.terminalLastErrorMessage = nil
+            }
         }
     }
 
@@ -509,12 +537,12 @@ struct TerminalHubView: View {
         while !Task.isCancelled {
             guard codex.isConnected else { return }
             do {
-                let list = try await codex.refreshTerminalList(showLoading: false)
+                let list = try await codex.refreshTerminalList(showLoading: false, recordError: false)
                 rememberTerminalList(list, source: "poll")
             } catch {
                 if !Task.isCancelled {
                     terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
-                    codex.terminalLastErrorMessage = error.localizedDescription
+                    codex.terminalLastErrorMessage = nil
                 }
                 return
             }
@@ -714,6 +742,23 @@ struct TerminalHubView: View {
             return false
         }
         return true
+    }
+
+    private func sanitizeTerminalDisplayText(_ text: String) -> String {
+        var scalars = String.UnicodeScalarView()
+        scalars.reserveCapacity(text.unicodeScalars.count)
+        for scalar in text.unicodeScalars {
+            scalars.append(isUnsupportedTerminalDisplayScalar(scalar) ? UnicodeScalar(32)! : scalar)
+        }
+        return String(scalars)
+    }
+
+    private func isUnsupportedTerminalDisplayScalar(_ scalar: UnicodeScalar) -> Bool {
+        let value = scalar.value
+        return value == 0xFFFD
+            || (0xE000...0xF8FF).contains(value)
+            || (0xF0000...0xFFFFD).contains(value)
+            || (0x100000...0x10FFFD).contains(value)
     }
 }
 
