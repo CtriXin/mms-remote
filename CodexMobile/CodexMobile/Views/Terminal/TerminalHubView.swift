@@ -104,10 +104,9 @@ struct TerminalHubView: View {
         .alert("Terminal Error", isPresented: terminalErrorIsPresented) {
             Button("OK", role: .cancel) {
                 localErrorMessage = nil
-                codex.terminalLastErrorMessage = nil
             }
         } message: {
-            Text(localErrorMessage ?? codex.terminalLastErrorMessage ?? "Terminal request failed.")
+            Text(localErrorMessage ?? "Terminal request failed.")
         }
         .confirmationDialog(
             "Close Terminal?",
@@ -381,11 +380,10 @@ struct TerminalHubView: View {
 
     private var terminalErrorIsPresented: Binding<Bool> {
         Binding(
-            get: { localErrorMessage != nil || codex.terminalLastErrorMessage != nil },
+            get: { localErrorMessage != nil },
             set: { isPresented in
                 if !isPresented {
                     localErrorMessage = nil
-                    codex.terminalLastErrorMessage = nil
                 }
             }
         )
@@ -423,6 +421,7 @@ struct TerminalHubView: View {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
+            localErrorMessage = nil
             try await codex.refreshTerminalList()
             if let pane = codex.selectedTerminalPane {
                 try await codex.refreshTerminalSnapshot(paneId: pane.paneId)
@@ -438,9 +437,7 @@ struct TerminalHubView: View {
                 do {
                     try await codex.refreshTerminalList(showLoading: false)
                 } catch {
-                    if !Task.isCancelled {
-                        codex.terminalLastErrorMessage = error.localizedDescription
-                    }
+                    // Background list polling must not block the terminal UI with stale alerts.
                 }
             }
             try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -455,7 +452,6 @@ struct TerminalHubView: View {
                 try await codex.refreshTerminalSnapshot(paneId: paneId)
             } catch {
                 if !Task.isCancelled {
-                    codex.terminalLastErrorMessage = error.localizedDescription
                     try? await codex.refreshTerminalList(showLoading: false)
                 }
             }
