@@ -39,6 +39,25 @@ Use `/Users/xin/auto-skills/CtriXin-repo/mms-remote-ios-22e6243` on branch `code
 
 The screenshots show line/glyph issues because current iOS viewer is still `SwiftUI Text`, not a terminal emulator. Stopgap now prevents wrapping and hides unsupported PUA glyph boxes. Real parity should use SwiftTerm native renderer first; xterm.js in WKWebView remains fallback.
 
+### Next Task: SwiftTerm Renderer
+
+- Integrate SwiftTerm first. Treat xterm.js/WKWebView only as fallback.
+- Keep aesthetics as a release requirement: polished dark terminal, stable monospace metrics, no visibly broken separator/prompt layout.
+- Bridge likely needs richer terminal stream/snapshot semantics after renderer lands: preserve ANSI (`capture-pane -e`), size negotiation, resize on view geometry, and possibly incremental output instead of plain text snapshots.
+- Start behind a feature flag or fallback path so existing Terminal controls still work if SwiftTerm integration regresses.
+
+Acceptance:
+- Claude/Codex prompt blocks, separators, progress bars, and CJK text align on phone.
+- ANSI color, cursor movement, clear screen, prompt editing, and common full-screen apps render far better than the SwiftUI `Text` view.
+- No "ugly but technically works" final state; if native renderer is incomplete, keep fallback clearly marked.
+
+### TODO: Visible Terminal Preference
+
+- Add iOS preference for Mac visible terminal app: `auto`, Ghostty, iTerm2, Terminal.app.
+- Current default remains `auto`: Ghostty -> iTerm2 -> Terminal.app.
+- Future UI location: Terminal settings first; optional per-create/per-open override later.
+- Bridge already accepts visible app values through `MMS_REMOTE_VISIBLE_TERMINAL` and RPC params; likely work is mostly iOS preference plumbing + small create/open UI.
+
 ## 2026-05-15 04:15 -0400 — Terminal Rescue Pause
 
 - agent: Codex

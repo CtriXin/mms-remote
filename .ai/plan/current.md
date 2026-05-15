@@ -1,6 +1,6 @@
 # Current Handoff — MMS Remote Terminal
 
-- timestamp: 2026-05-15 16:34 +0800
+- timestamp: 2026-05-15 16:40 +0800
 - owner: Codex
 - CLI: codex
 - model: GPT-5
@@ -28,6 +28,28 @@ Phone Terminal controls Mac tmux-managed terminal panes while Codex Chat remains
 - Terminal quick keys include Enter, Backspace, Ctrl-C/D/Z/A/E, Tab, Esc, Home/End, PgUp/PgDn, and arrows.
 - Current SwiftUI terminal snapshot viewer is a stopgap dark terminal surface with horizontal+vertical scrolling and no automatic line wrapping.
 - Full iTerm/Ghostty-like rendering still requires a real terminal renderer such as SwiftTerm or xterm.js.
+
+## Next Task
+
+- Implement SwiftTerm as the iOS Terminal renderer.
+- Goal: make phone Terminal look and behave like a real terminal, not a styled log view.
+- Keep current SwiftUI viewer only as fallback/debug path until SwiftTerm is stable.
+- Do not ship an ugly half-renderer as final UX.
+
+## SwiftTerm Acceptance
+
+- ANSI colors render.
+- Box drawing, separators, progress bars, prompt lines, and wide CJK text do not drift or wrap incorrectly.
+- Cursor movement, clear screen, and shell prompt editing work.
+- `top`/`htop`/`less`/`vim` render acceptably or fail gracefully with clear limitations.
+- Theme defaults to a polished dark terminal style; font uses existing bundled mono first, later optional Nerd Font.
+
+## Todo / Not Now
+
+- Add a Terminal setting for preferred Mac visible terminal app: `auto`, Ghostty, iTerm2, or Terminal.app.
+- Show the same selector in create/open flows later if UX needs per-launch override.
+- Default stays `auto` for now: Ghostty -> iTerm2 -> Terminal.app.
+- Use installed-app detection only for availability/labels; do not block manual selection unless launch fails.
 
 ## Validation
 

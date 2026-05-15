@@ -164,6 +164,7 @@ MVP 可以先支持：text、Enter、Backspace、Ctrl+C、Ctrl+D、Ctrl+Z、Ctrl
 - **Preferred**: SwiftTerm，native VT100/ANSI/grid renderer
 - **Fallback**: WKWebView + xterm.js
 - **Not acceptable for full terminal**: 手写 SwiftUI line list + strip ANSI
+- UX bar: terminal must look intentional and polished; do not accept a visibly broken or ugly renderer as the final path.
 
 MVP 分级：
 - Level 1: line-oriented shell/CLI/logs，可用简化 renderer
@@ -309,7 +310,7 @@ MVP input：
 目标：把 basic viewer 升级成真实 terminal。
 
 推荐路线：
-- 首选 SwiftTerm
+- 首选 SwiftTerm：native renderer、暗色 terminal theme、稳定 monospace metrics
 - 备选 WKWebView + xterm.js
 
 需要支持：
@@ -319,8 +320,10 @@ MVP input：
 - clear screen
 - resize rows/cols
 - alternate screen 基础支持
+- fallback/debug path：当前 SwiftUI text viewer 可保留，但不能作为最终 renderer
 
 验收：
+- Claude/Codex prompt、box drawing、分割线、进度条、CJK 宽字符不串行
 - `top`/`htop` 类刷新不刷屏成垃圾文本
 - shell prompt editing 正常
 - progress bar / `\r` 覆盖显示正常
