@@ -20,6 +20,9 @@ struct TerminalHubView: View {
     @State private var isSendingInput = false
     @State private var isCreatingTerminal = false
     @State private var isOpeningVisibleTerminal = false
+    @State private var isClosingTerminal = false
+    @State private var isShowingCreateTerminalSheet = false
+    @State private var panePendingClose: ManagedTerminalPane?
     @State private var localErrorMessage: String?
 
     var body: some View {
@@ -41,6 +44,26 @@ struct TerminalHubView: View {
                 Button("Chats", action: onClose)
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    openCreateTerminalSheet()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .disabled(!codex.isConnected || isCreatingTerminal)
+                .accessibilityLabel("New terminal")
+
+                Button(role: .destructive) {
+                    panePendingClose = codex.selectedTerminalPane
+                } label: {
+                    if isClosingTerminal {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "xmark.circle")
+                    }
+                }
+                .disabled(!codex.isConnected || codex.selectedTerminalPane == nil || isClosingTerminal)
+                .accessibilityLabel("Close selected terminal")
+
                 Button {
                     openSelectedPaneOnMac()
                 } label: {
@@ -84,6 +107,36 @@ struct TerminalHubView: View {
             }
         } message: {
             Text(localErrorMessage ?? codex.terminalLastErrorMessage ?? "Terminal request failed.")
+        }
+        .confirmationDialog(
+            "Close Terminal?",
+            item: $panePendingClose,
+            titleVisibility: .visible
+        ) { pane in
+            Button("Close \(pane.displayTitle)", role: .destructive) {
+                closePane(pane)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { pane in
+            Text("Kills tmux pane \(pane.paneKey) on Mac and phone.")
+        }
+        .sheet(isPresented: $isShowingCreateTerminalSheet) {
+            NavigationStack {
+                ScrollView {
+                    createTerminalCard
+                        .padding(20)
+                }
+                .navigationTitle("New Terminal")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Cancel") {
+                            isShowingCreateTerminalSheet = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -423,6 +476,30 @@ struct TerminalHubView: View {
         }
     }
 
+    private func openCreateTerminalSheet() {
+        if let cwd = codex.selectedTerminalPane?.cwd, !cwd.isEmpty, newTerminalCwd == "/" {
+            newTerminalCwd = cwd
+        }
+        isShowingCreateTerminalSheet = true
+    }
+
+    private func closePane(_ pane: ManagedTerminalPane) {
+        Task {
+            isClosingTerminal = true
+            defer { isClosingTerminal = false }
+            do {
+                try await codex.killTerminalPane(pane.paneId)
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                try await codex.refreshTerminalList(showLoading: false)
+                if let nextPane = codex.selectedTerminalPane {
+                    try await codex.attachTerminalPane(nextPane.paneId)
+                }
+            } catch {
+                localErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private func generatedTerminalName() -> String {
         "mms-\(Int(Date().timeIntervalSince1970))"
     }
@@ -445,6 +522,7 @@ struct TerminalHubView: View {
                     openVisible: openVisibleTerminalOnMac
                 )
                 newTerminalName = ""
+                isShowingCreateTerminalSheet = false
                 if let pane = list.panes.first(where: { $0.sessionName == effectiveName }) ?? list.panes.first {
                     try await codex.attachTerminalPane(pane.paneId)
                 }
