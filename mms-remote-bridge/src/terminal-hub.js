@@ -20,7 +20,7 @@ function createTerminalHub(options = {}) {
       adapter.version().catch(() => "tmux unavailable"),
       adapter.listAll(),
     ]);
-    const sortedTree = decorateTerminalTree(sortTerminalTreeByRecentPane(tree));
+    const sortedTree = sortTerminalTreeByRecentPane(tree);
     return {
       tmuxVersion,
       sessions: sortedTree.sessions,
@@ -77,9 +77,14 @@ function createTerminalHub(options = {}) {
 
   async function snapshot(params = {}) {
     const pane = await resolvePane(params.paneId || params.paneKey || params.target);
-    const capture = await capturePaneSnapshot(pane, params);
+    const capture = await adapter.capturePane({
+      target: pane.paneId,
+      start: Number.isInteger(params.start) ? params.start : -2000,
+      preserveAnsi: Boolean(params.preserveAnsi),
+      joinWrapped: params.joinWrapped !== false,
+    });
     return {
-      pane: decoratePane(pane),
+      pane,
       content: capture.content,
       capturedAt: capture.capturedAt,
     };
@@ -121,70 +126,10 @@ function createTerminalHub(options = {}) {
   }
 
   async function resolvePane(target) {
-    const normalizedTarget = normalizePaneTarget(target);
-    if (!normalizedTarget) {
-      const fallbackPane = await newestPane();
-      if (fallbackPane) {
-        return fallbackPane;
-      }
+    if (!target) {
       throw new TmuxAdapterError("Terminal pane id is required", { code: "terminal_pane_required" });
     }
-    const ordinalPane = await resolveOrdinalFallbackPane(normalizedTarget);
-    if (ordinalPane) {
-      return ordinalPane;
-    }
-    try {
-      return await adapter.findPane(normalizedTarget);
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async function newestPane() {
-    const terminalList = await list();
-    return terminalList.panes.find((pane) => paneCaptureTarget(pane)) || terminalList.panes[0] || null;
-  }
-
-  async function resolveOrdinalFallbackPane(target) {
-    const ordinalIndex = syntheticOrdinalPaneIndex(target);
-    if (ordinalIndex == null) {
-      return null;
-    }
-    const terminalList = await list();
-    return terminalList.panes[ordinalIndex] || null;
-  }
-
-  async function capturePaneSnapshot(pane, params = {}) {
-    const captureTarget = paneCaptureTarget(pane);
-    if (!captureTarget) {
-      const fallbackPane = await newestPane();
-      const fallbackTarget = paneCaptureTarget(fallbackPane);
-      if (fallbackTarget) {
-        return captureWithTarget(fallbackTarget, params);
-      }
-    }
-    try {
-      return await captureWithTarget(captureTarget, params);
-    } catch (error) {
-      if (error?.code !== "invalid_terminal_target") {
-        throw error;
-      }
-      const fallbackPane = await newestPane();
-      const fallbackTarget = paneCaptureTarget(fallbackPane);
-      if (!fallbackTarget || fallbackTarget === captureTarget) {
-        throw error;
-      }
-      return captureWithTarget(fallbackTarget, params);
-    }
-  }
-
-  function captureWithTarget(target, params = {}) {
-    return adapter.capturePane({
-      target,
-      start: Number.isInteger(params.start) ? params.start : -2000,
-      preserveAnsi: Boolean(params.preserveAnsi),
-      joinWrapped: params.joinWrapped !== false,
-    });
+    return adapter.findPane(String(target));
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, createdPane, visibleApp }) {
@@ -274,89 +219,6 @@ function sortTerminalTreeByRecentPane(tree = {}) {
   return { sessions, windows, panes };
 }
 
-function decorateTerminalTree(tree = {}) {
-  return {
-    sessions: tree.sessions || [],
-    windows: tree.windows || [],
-    panes: (tree.panes || []).map(decoratePane),
-  };
-}
-
-function decoratePane(pane = {}) {
-  const paneId = String(pane.paneId || pane.id || "");
-  const paneKey = String(pane.paneKey || "");
-  const sessionName = String(pane.sessionName || "");
-  const windowIndex = Number.isFinite(Number(pane.windowIndex)) ? Number(pane.windowIndex) : 0;
-  const paneIndex = Number.isFinite(Number(pane.paneIndex)) ? Number(pane.paneIndex) : 0;
-  const target = String(pane.target || paneId || paneKey || "");
-  return {
-    ...pane,
-    id: String(pane.id || paneId || target || paneKey),
-    paneId,
-    paneKey,
-    target,
-    requestTarget: target || paneKey,
-    paneAddress: paneKey || (sessionName ? `${sessionName}:${windowIndex}.${paneIndex}` : ""),
-    pane_id: paneId,
-    pane_key: paneKey,
-    session_id: String(pane.sessionId || ""),
-    session_name: sessionName,
-    window_id: String(pane.windowId || ""),
-    window_index: windowIndex,
-    window_name: String(pane.windowName || ""),
-    pane_index: paneIndex,
-    pane_title: String(pane.title || ""),
-    pane_current_command: String(pane.currentCommand || ""),
-    pane_current_path: String(pane.cwd || ""),
-    pane_width: Number.isFinite(Number(pane.cols)) ? Number(pane.cols) : 0,
-    pane_height: Number.isFinite(Number(pane.rows)) ? Number(pane.rows) : 0,
-    pane_active: Boolean(pane.active),
-    pane_dead: Boolean(pane.dead),
-    fields: [
-      String(pane.sessionId || ""),
-      sessionName,
-      String(pane.windowId || ""),
-      String(windowIndex),
-      String(pane.windowName || ""),
-      paneId,
-      String(paneIndex),
-      String(pane.title || ""),
-      String(pane.currentCommand || ""),
-      String(pane.cwd || ""),
-      String(Number.isFinite(Number(pane.cols)) ? Number(pane.cols) : 0),
-      String(Number.isFinite(Number(pane.rows)) ? Number(pane.rows) : 0),
-      pane.active ? "1" : "0",
-      pane.dead ? "1" : "0",
-    ],
-  };
-}
-
-function normalizePaneTarget(target) {
-  const value = String(target || "").trim();
-  if (!value || value === "unknown" || value === ":" || value === ":." || value === "::") {
-    return "";
-  }
-  if (value.startsWith(":") || value.endsWith(":") || value.endsWith(".")) {
-    return "";
-  }
-  return value;
-}
-
-function paneCaptureTarget(pane = {}) {
-  return normalizePaneTarget(
-    pane.paneId || pane.target || pane.requestTarget || pane.paneKey || pane.paneAddress || pane.id
-  );
-}
-
-function syntheticOrdinalPaneIndex(target) {
-  const match = String(target || "").trim().match(/^mms-(\d+):\d+\.\d+$/);
-  if (!match) {
-    return null;
-  }
-  const ordinal = Number.parseInt(match[1], 10);
-  return Number.isInteger(ordinal) && ordinal > 0 ? ordinal - 1 : null;
-}
-
 function compareSessionsByRecent(lhs, rhs) {
   return compareNumbersDesc(toFiniteNumber(lhs.createdAt), toFiniteNumber(rhs.createdAt))
     || compareNumbersDesc(tmuxObjectIdNumber(lhs.id), tmuxObjectIdNumber(rhs.id))
@@ -408,15 +270,11 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
     return false;
   }
 
-  const logger = options.logger || console;
-  logTerminalRpcRequest(logger, message.method, message.params || {});
   handleTerminalMethod(message.method, message.params || {}, options)
     .then((result) => {
-      logTerminalRpcResult(logger, message.method, result);
       sendResponse(JSON.stringify({ id: message.id ?? null, result }));
     })
     .catch((error) => {
-      logTerminalRpcError(logger, message.method, error);
       sendResponse(JSON.stringify({
         id: message.id ?? null,
         error: {
@@ -429,44 +287,6 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
       }));
     });
   return true;
-}
-
-function logTerminalRpcRequest(logger, method, params) {
-  if (!logger || typeof logger.log !== "function" || method === "terminal/list" || method === "terminal/status") {
-    return;
-  }
-  const target = normalizePaneTarget(params?.paneId || params?.paneKey || params?.target);
-  logger.log(`[mms-remote] ${method} request target=${target || "(empty)"}`);
-}
-
-function logTerminalRpcResult(logger, method, result) {
-  if (!logger || typeof logger.log !== "function") {
-    return;
-  }
-  if (method === "terminal/attach" || method === "terminal/snapshot") {
-    logger.log(
-      `[mms-remote] ${method} ok target=${normalizePaneTarget(result?.pane?.requestTarget || result?.pane?.paneId || result?.pane?.target) || "(empty)"} content=${String(result?.content || "").length}`
-    );
-    return;
-  }
-  if (method === "terminal/list" || method === "terminal/status" || method === "terminal/create") {
-    logger.log(
-      `[mms-remote] ${method} ok sessions=${countArray(result?.sessions)} windows=${countArray(result?.windows)} panes=${countArray(result?.panes)}`
-    );
-    return;
-  }
-  logger.log(`[mms-remote] ${method} ok`);
-}
-
-function logTerminalRpcError(logger, method, error) {
-  if (!logger || typeof logger.error !== "function") {
-    return;
-  }
-  logger.error(`[mms-remote] ${method} failed code=${error?.code || "terminal_error"} message=${error?.message || "Terminal request failed"}`);
-}
-
-function countArray(value) {
-  return Array.isArray(value) ? value.length : 0;
 }
 
 function safeParseJSON(rawMessage) {
@@ -484,5 +304,4 @@ module.exports = {
   handleTerminalMethod,
   handleTerminalRequest,
   sortTerminalTreeByRecentPane,
-  syntheticOrdinalPaneIndex,
 };

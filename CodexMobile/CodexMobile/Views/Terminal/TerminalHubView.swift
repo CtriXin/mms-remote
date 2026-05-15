@@ -25,9 +25,6 @@ struct TerminalHubView: View {
     @State private var isShowingCreateTerminalSheet = false
     @State private var panePendingClose: ManagedTerminalPane?
     @State private var localErrorMessage: String?
-    @State private var visibleTerminalPanes: [ManagedTerminalPane] = []
-    @State private var localSelectedTerminalPaneTarget: String?
-    @State private var terminalDebugLine = "Terminal list not loaded yet."
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,7 +32,7 @@ struct TerminalHubView: View {
                 terminalOfflineBanner
             }
 
-            if displayedTerminalPanes.isEmpty && !codex.isLoadingTerminals {
+            if codex.terminalPanes.isEmpty && !codex.isLoadingTerminals {
                 emptyState
             } else {
                 terminalContent
@@ -57,7 +54,7 @@ struct TerminalHubView: View {
                 .accessibilityLabel("New terminal")
 
                 Button(role: .destructive) {
-                    panePendingClose = selectedVisiblePane
+                    panePendingClose = codex.selectedTerminalPane
                 } label: {
                     if isClosingTerminal {
                         ProgressView()
@@ -65,7 +62,7 @@ struct TerminalHubView: View {
                         Image(systemName: "xmark.circle")
                     }
                 }
-                .disabled(!codex.isConnected || selectedVisiblePane == nil || isClosingTerminal)
+                .disabled(!codex.isConnected || codex.selectedTerminalPane == nil || isClosingTerminal)
                 .accessibilityLabel("Close selected terminal")
 
                 Button {
@@ -77,7 +74,7 @@ struct TerminalHubView: View {
                         Image(systemName: "display")
                     }
                 }
-                .disabled(!codex.isConnected || selectedVisiblePane == nil || isOpeningVisibleTerminal)
+                .disabled(!codex.isConnected || codex.selectedTerminalPane == nil || isOpeningVisibleTerminal)
                 .accessibilityLabel("Open selected terminal on Mac")
 
                 Button {
@@ -101,8 +98,8 @@ struct TerminalHubView: View {
         .task(id: codex.isConnected) {
             await pollTerminalList()
         }
-        .task(id: selectedVisiblePaneTarget) {
-            await pollSelectedPaneSnapshot(paneId: selectedVisiblePaneTarget)
+        .task(id: codex.selectedTerminalPane?.requestTarget) {
+            await pollSelectedPaneSnapshot(paneId: codex.selectedTerminalPane?.requestTarget)
         }
         .alert("Terminal Error", isPresented: terminalErrorIsPresented) {
             Button("OK", role: .cancel) {
@@ -153,15 +150,6 @@ struct TerminalHubView: View {
                 .padding(.vertical, 10)
                 .background(Color(.secondarySystemBackground))
 
-            Text(terminalDebugLine)
-                .font(AppFont.mono(.caption2))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
-                .background(Color(.secondarySystemBackground))
-
             Divider()
 
             terminalSnapshotView
@@ -177,7 +165,7 @@ struct TerminalHubView: View {
     private var paneStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(displayedTerminalPanes) { pane in
+                ForEach(codex.terminalPanes) { pane in
                     Button {
                         attachPane(pane)
                     } label: {
@@ -320,12 +308,6 @@ struct TerminalHubView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
-            Text(terminalDebugLine)
-                .font(AppFont.mono(.caption2))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .textSelection(.enabled)
-                .frame(maxWidth: 340)
             createTerminalCard
                 .frame(maxWidth: 380)
             Spacer()
@@ -381,11 +363,7 @@ struct TerminalHubView: View {
     }
 
     private var currentSnapshot: ManagedTerminalSnapshot? {
-        if let target = selectedVisiblePaneTarget,
-           let snapshot = codex.terminalSnapshotsByPaneId[target] {
-            return snapshot
-        }
-        guard let pane = selectedVisiblePane else { return nil }
+        guard let pane = codex.selectedTerminalPane else { return nil }
         return codex.terminalSnapshotsByPaneId[pane.requestTarget]
             ?? codex.terminalSnapshotsByPaneId[pane.paneId]
             ?? codex.terminalSnapshotsByPaneId[pane.paneKey]
@@ -396,34 +374,13 @@ struct TerminalHubView: View {
         if currentSnapshot?.content.isEmpty == false {
             return currentSnapshot?.content ?? ""
         }
-        return selectedVisiblePane == nil
+        return codex.selectedTerminalPane == nil
             ? "Select a pane, then use refresh or input to load output."
             : "Loading terminal output..."
     }
 
     private var canSendInput: Bool {
-        codex.isConnected && selectedVisiblePaneTarget != nil && !isSendingInput
-    }
-
-    private var displayedTerminalPanes: [ManagedTerminalPane] {
-        codex.terminalPanes.isEmpty ? visibleTerminalPanes : codex.terminalPanes
-    }
-
-    private var selectedVisiblePane: ManagedTerminalPane? {
-        if let target = localSelectedTerminalPaneTarget,
-           let pane = displayedTerminalPanes.first(where: { paneMatches($0, target: target) }) {
-            return pane
-        }
-        if let pane = codex.selectedTerminalPane,
-           let target = paneRequestTarget(pane),
-           displayedTerminalPanes.contains(where: { paneMatches($0, target: target) }) {
-            return pane
-        }
-        return displayedTerminalPanes.first
-    }
-
-    private var selectedVisiblePaneTarget: String? {
-        selectedVisiblePane.flatMap(paneRequestTarget)
+        codex.isConnected && codex.selectedTerminalPane != nil && !isSendingInput
     }
 
     private var quickKeys: [ManagedTerminalKey] {
@@ -462,58 +419,38 @@ struct TerminalHubView: View {
     }
 
     private func isSelected(_ pane: ManagedTerminalPane) -> Bool {
-        if let selectedPane = selectedVisiblePane {
-            return paneRequestTarget(selectedPane) == paneRequestTarget(pane)
+        if let selectedPane = codex.selectedTerminalPane {
+            return selectedPane.requestTarget == pane.requestTarget
                 || selectedPane.paneAddress == pane.paneAddress
         }
         return false
-    }
-
-    private func paneMatches(_ pane: ManagedTerminalPane, target: String) -> Bool {
-        pane.requestTarget == target
-            || pane.paneId == target
-            || pane.paneKey == target
-            || pane.paneAddress == target
-            || pane.target == target
     }
 
     private func refreshTerminals() {
         Task { await refreshTerminalsAsync() }
     }
 
-    @MainActor
     private func refreshTerminalsAsync() async {
         guard codex.isConnected else { return }
         isRefreshing = true
-        terminalDebugLine = "Refreshing terminal/list..."
         defer { isRefreshing = false }
         do {
-            let list = try await codex.refreshTerminalList()
-            rememberTerminalList(list, source: "manual")
-            if let target = selectedVisiblePaneTarget {
-                do {
-                    try await codex.refreshTerminalSnapshot(paneId: target)
-                } catch {
-                    terminalDebugLine = "terminal/snapshot failed target=\(target): \(error.localizedDescription)"
-                    codex.terminalLastErrorMessage = nil
-                }
+            try await codex.refreshTerminalList()
+            if let pane = codex.selectedTerminalPane {
+                try await codex.refreshTerminalSnapshot(paneId: pane.requestTarget)
             }
         } catch {
-            terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
             localErrorMessage = error.localizedDescription
         }
     }
 
-    @MainActor
     private func pollTerminalList() async {
         while !Task.isCancelled {
             guard codex.isConnected else { return }
             do {
-                let list = try await codex.refreshTerminalList(showLoading: false)
-                rememberTerminalList(list, source: "poll")
+                try await codex.refreshTerminalList(showLoading: false)
             } catch {
                 if !Task.isCancelled {
-                    terminalDebugLine = "terminal/list failed: \(error.localizedDescription)"
                     codex.terminalLastErrorMessage = error.localizedDescription
                 }
                 return
@@ -522,17 +459,15 @@ struct TerminalHubView: View {
         }
     }
 
-    @MainActor
     private func pollSelectedPaneSnapshot(paneId: String?) async {
         guard let paneId, !paneId.isEmpty else { return }
         while !Task.isCancelled {
-            guard codex.isConnected, selectedVisiblePaneTarget == paneId else { return }
+            guard codex.isConnected, codex.selectedTerminalPane?.requestTarget == paneId else { return }
             do {
                 try await codex.refreshTerminalSnapshot(paneId: paneId)
             } catch {
                 if !Task.isCancelled {
-                    terminalDebugLine = "terminal/snapshot failed target=\(paneId): \(error.localizedDescription)"
-                    codex.terminalLastErrorMessage = nil
+                    codex.terminalLastErrorMessage = error.localizedDescription
                 }
                 return
             }
@@ -543,14 +478,7 @@ struct TerminalHubView: View {
     private func attachPane(_ pane: ManagedTerminalPane) {
         Task {
             do {
-                localErrorMessage = nil
-                codex.terminalLastErrorMessage = nil
-                guard let target = paneRequestTarget(pane) else {
-                    localErrorMessage = "Terminal pane target is missing. Refresh terminals and try again."
-                    return
-                }
-                localSelectedTerminalPaneTarget = target
-                try await codex.attachTerminalPane(target)
+                try await codex.attachTerminalPane(pane.requestTarget)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -565,11 +493,10 @@ struct TerminalHubView: View {
             isSendingInput = true
             defer { isSendingInput = false }
             do {
-                let target = selectedVisiblePaneTarget
-                try await codex.sendTerminalText(command, paneId: target)
-                try await codex.sendTerminalKey(.enter, paneId: target)
+                try await codex.sendTerminalText(command)
+                try await codex.sendTerminalKey(.enter)
                 try? await Task.sleep(nanoseconds: 180_000_000)
-                try await codex.refreshTerminalSnapshot(paneId: target)
+                try await codex.refreshTerminalSnapshot()
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -579,10 +506,9 @@ struct TerminalHubView: View {
     private func sendKey(_ key: ManagedTerminalKey) {
         Task {
             do {
-                let target = selectedVisiblePaneTarget
-                try await codex.sendTerminalKey(key, paneId: target)
+                try await codex.sendTerminalKey(key)
                 try? await Task.sleep(nanoseconds: 120_000_000)
-                try await codex.refreshTerminalSnapshot(paneId: target)
+                try await codex.refreshTerminalSnapshot()
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -590,7 +516,7 @@ struct TerminalHubView: View {
     }
 
     private func openSelectedPaneOnMac() {
-        guard let pane = selectedVisiblePane else { return }
+        guard let pane = codex.selectedTerminalPane else { return }
         openVisiblePaneOnMac(pane)
     }
 
@@ -599,7 +525,7 @@ struct TerminalHubView: View {
             isOpeningVisibleTerminal = true
             defer { isOpeningVisibleTerminal = false }
             do {
-                try await codex.openVisibleTerminalPane(paneRequestTarget(pane))
+                try await codex.openVisibleTerminalPane(pane.requestTarget)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -626,12 +552,11 @@ struct TerminalHubView: View {
             isClosingTerminal = true
             defer { isClosingTerminal = false }
             do {
-                try await codex.killTerminalPane(paneRequestTarget(pane))
+                try await codex.killTerminalPane(pane.requestTarget)
                 try? await Task.sleep(nanoseconds: 200_000_000)
-                let list = try await codex.refreshTerminalList(showLoading: false)
-                rememberTerminalList(list, source: "close")
-                if let nextTarget = selectedVisiblePaneTarget {
-                    try await codex.attachTerminalPane(nextTarget)
+                try await codex.refreshTerminalList(showLoading: false)
+                if let nextPane = codex.selectedTerminalPane {
+                    try await codex.attachTerminalPane(nextPane.requestTarget)
                 }
             } catch {
                 localErrorMessage = error.localizedDescription
@@ -662,58 +587,15 @@ struct TerminalHubView: View {
                 )
                 newTerminalName = ""
                 isShowingCreateTerminalSheet = false
-                rememberTerminalList(list, source: "create")
                 if let pane = list.createdPane
-                    ?? list.panes.first(where: { $0.sessionName == effectiveName && paneRequestTarget($0) != nil })
-                    ?? list.panes.first(where: { paneRequestTarget($0) != nil }),
-                   let target = paneRequestTarget(pane) {
-                    localSelectedTerminalPaneTarget = target
-                    try await codex.attachTerminalPane(target)
+                    ?? list.panes.first(where: { $0.sessionName == effectiveName && !$0.requestTarget.isEmpty })
+                    ?? list.panes.first(where: { !$0.requestTarget.isEmpty }) {
+                    try await codex.attachTerminalPane(pane.requestTarget)
                 }
             } catch {
                 localErrorMessage = error.localizedDescription
             }
         }
-    }
-
-    @MainActor
-    private func rememberTerminalList(_ list: ManagedTerminalList, source: String) {
-        visibleTerminalPanes = list.panes.filter { paneRequestTarget($0) != nil }
-        let firstPane = list.panes.first?.paneDebugSummary ?? "none"
-        terminalDebugLine = "\(source) terminal/list sessions=\(list.sessions.count) panes=\(list.panes.count) visible=\(visibleTerminalPanes.count) first=\(firstPane)"
-        if let target = localSelectedTerminalPaneTarget,
-           visibleTerminalPanes.contains(where: { paneMatches($0, target: target) }) {
-            return
-        }
-        localSelectedTerminalPaneTarget = codex.selectedTerminalPane.flatMap(paneRequestTarget)
-            ?? visibleTerminalPanes.first.flatMap(paneRequestTarget)
-    }
-
-    private func paneRequestTarget(_ pane: ManagedTerminalPane) -> String? {
-        [
-            pane.requestTarget,
-            pane.paneId,
-            pane.target,
-            pane.paneKey,
-            pane.paneAddress,
-            pane.id,
-        ]
-        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .first(where: isUsablePaneTarget)
-    }
-
-    private func isUsablePaneTarget(_ target: String) -> Bool {
-        guard !target.isEmpty,
-              target != "unknown",
-              target != ":",
-              target != ":.",
-              target != "::",
-              !target.hasPrefix(":"),
-              !target.hasSuffix(":"),
-              !target.hasSuffix(".") else {
-            return false
-        }
-        return true
     }
 }
 

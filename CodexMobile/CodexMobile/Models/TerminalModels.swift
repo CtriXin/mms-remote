@@ -46,26 +46,15 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
     let dead: Bool
 
     var requestTarget: String {
-        firstUsableTarget(paneId, target, normalizedPaneKey, synthesizedPaneAddress, id) ?? ""
+        firstNonEmpty(paneId, target, normalizedPaneKey) ?? ""
     }
 
     var paneAddress: String {
-        firstUsableTarget(normalizedPaneKey, synthesizedPaneAddress, paneId, target, id) ?? "unknown"
+        normalizedPaneKey ?? firstNonEmpty(paneId, target) ?? "unknown"
     }
 
     var displayTitle: String {
         firstNonEmpty(title, currentCommand, sessionName, windowName, paneAddress) ?? "Terminal"
-    }
-
-    var paneDebugSummary: String {
-        [
-            "target=\(debugValue(requestTarget))",
-            "id=\(debugValue(id))",
-            "paneId=\(debugValue(paneId))",
-            "paneKey=\(debugValue(paneKey))",
-            "session=\(debugValue(sessionName))",
-            "addr=\(debugValue(paneAddress))",
-        ].joined(separator: " ")
     }
 
     private var normalizedPaneKey: String? {
@@ -76,27 +65,10 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
         return key
     }
 
-    private var synthesizedPaneAddress: String? {
-        let session = sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !session.isEmpty else { return nil }
-        return "\(session):\(windowIndex).\(paneIndex)"
-    }
-
     private func firstNonEmpty(_ values: String?...) -> String? {
         values
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
-    }
-
-    private func firstUsableTarget(_ values: String?...) -> String? {
-        values
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first(where: isUsableTerminalTarget)
-    }
-
-    private func debugValue(_ value: String) -> String {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalized.isEmpty ? "-" : normalized
     }
 }
 
@@ -177,18 +149,12 @@ extension ManagedTerminalList {
         guard let object = json?.objectValue else {
             throw ManagedTerminalModelError.missingResult("terminal/list")
         }
-        let sessions = try (terminalArray(object, "sessions") ?? []).map { try ManagedTerminalSession(json: $0) }
-        let windows = try (terminalArray(object, "windows") ?? []).map { try ManagedTerminalWindow(json: $0) }
-        let panes = try (terminalArray(object, "panes") ?? []).map { try ManagedTerminalPane(json: $0) }
         self.tmuxVersion = terminalString(object, "tmuxVersion", "tmux_version") ?? ""
-        self.sessions = sessions
-        self.windows = windows
-        self.panes = repairTerminalPanes(panes, windows: windows, sessions: sessions)
+        self.sessions = try (terminalArray(object, "sessions") ?? []).map { try ManagedTerminalSession(json: $0) }
+        self.windows = try (terminalArray(object, "windows") ?? []).map { try ManagedTerminalWindow(json: $0) }
+        self.panes = try (terminalArray(object, "panes") ?? []).map { try ManagedTerminalPane(json: $0) }
         if let paneJSON = object["createdPane"] ?? object["created_pane"] ?? object["selectedPane"] ?? object["selected_pane"] {
-            let createdPane = try ManagedTerminalPane(json: paneJSON)
-            self.createdPane = createdPane.requestTarget.isEmpty
-                ? repairTerminalPane(createdPane, window: windows.first, session: sessions.first, fallbackIndex: 0)
-                : createdPane
+            self.createdPane = try ManagedTerminalPane(json: paneJSON)
         } else {
             self.createdPane = nil
         }
@@ -227,92 +193,26 @@ extension ManagedTerminalWindow {
 
 extension ManagedTerminalPane {
     init(json: JSONValue) throws {
-        guard let rawObject = json.objectValue else {
+        guard let object = json.objectValue else {
             throw ManagedTerminalModelError.invalidShape("pane")
         }
-        let object = terminalNestedObject(rawObject, "pane", "terminalPane", "terminal_pane", "value") ?? rawObject
-        let root = JSONValue.object(rawObject)
-        let fields = terminalFieldArray(rawObject) ?? terminalFieldArray(object)
-
-        let decodedId = terminalPaneString(
-            object,
-            root: root,
-            fields: fields,
-            fieldIndex: 5,
-            "id",
-            "paneId",
-            "pane_id",
-            "target",
-            "paneKey",
-            "pane_key",
-            "paneAddress",
-            "pane_address"
-        ) ?? ""
-        let decodedPaneId = terminalPaneString(
-            object,
-            root: root,
-            fields: fields,
-            fieldIndex: 5,
-            "paneId",
-            "pane_id",
-            "target"
-        ) ?? (decodedId.hasPrefix("%") ? decodedId : "")
-        let decodedSessionName = terminalPaneString(
-            object,
-            root: root,
-            fields: fields,
-            fieldIndex: 1,
-            "sessionName",
-            "session_name",
-            "session"
-        ) ?? ""
-        let decodedWindowIndex = terminalPaneInt(
-            object,
-            root: root,
-            fields: fields,
-            fieldIndex: 3,
-            "windowIndex",
-            "window_index"
-        ) ?? 0
-        let decodedPaneIndex = terminalPaneInt(
-            object,
-            root: root,
-            fields: fields,
-            fieldIndex: 6,
-            "paneIndex",
-            "pane_index",
-            "index"
-        ) ?? 0
-        let decodedPaneKey = terminalPaneString(
-            object,
-            root: root,
-            fields: fields,
-            fieldIndex: nil,
-            "paneKey",
-            "pane_key",
-            "paneAddress",
-            "pane_address",
-            "address"
-        ) ?? (decodedSessionName.isEmpty ? "" : "\(decodedSessionName):\(decodedWindowIndex).\(decodedPaneIndex)")
-
-        self.id = decodedId
-        self.paneId = decodedPaneId
-        self.paneKey = decodedPaneKey
-        self.target = terminalPaneString(object, root: root, fields: fields, fieldIndex: 5, "target", "paneId", "pane_id")
-            ?? (decodedPaneId.isEmpty ? decodedPaneKey : decodedPaneId)
-        self.sessionId = terminalPaneString(object, root: root, fields: fields, fieldIndex: 0, "sessionId", "session_id") ?? ""
-        self.sessionName = decodedSessionName
-        self.windowId = terminalPaneString(object, root: root, fields: fields, fieldIndex: 2, "windowId", "window_id") ?? ""
-        self.windowIndex = decodedWindowIndex
-        self.windowName = terminalPaneString(object, root: root, fields: fields, fieldIndex: 4, "windowName", "window_name") ?? ""
-        self.paneIndex = decodedPaneIndex
-        self.title = terminalPaneString(object, root: root, fields: fields, fieldIndex: 7, "title", "paneTitle", "pane_title") ?? ""
-        self.currentCommand = terminalPaneString(object, root: root, fields: fields, fieldIndex: 8, "currentCommand", "current_command", "paneCurrentCommand", "pane_current_command") ?? ""
-        self.cwd = terminalPaneString(object, root: root, fields: fields, fieldIndex: 9, "cwd", "currentPath", "current_path", "paneCurrentPath", "pane_current_path") ?? ""
-        self.cols = terminalPaneInt(object, root: root, fields: fields, fieldIndex: 10, "cols", "columns", "paneWidth", "pane_width") ?? 0
-        self.rows = terminalPaneInt(object, root: root, fields: fields, fieldIndex: 11, "rows", "paneHeight", "pane_height") ?? 0
-        self.active = terminalPaneBool(object, root: root, fields: fields, fieldIndex: 12, "active", "paneActive", "pane_active") ?? false
-        self.dead = terminalPaneBool(object, root: root, fields: fields, fieldIndex: 13, "dead", "paneDead", "pane_dead") ?? false
+        self.id = terminalString(object, "id", "paneId", "pane_id") ?? ""
+        self.paneId = terminalString(object, "paneId", "pane_id") ?? id
+        self.paneKey = terminalString(object, "paneKey", "pane_key") ?? ""
+        self.target = terminalString(object, "target") ?? paneId
+        self.sessionId = terminalString(object, "sessionId", "session_id") ?? ""
+        self.sessionName = terminalString(object, "sessionName", "session_name") ?? ""
+        self.windowId = terminalString(object, "windowId", "window_id") ?? ""
+        self.windowIndex = terminalInt(object, "windowIndex", "window_index") ?? 0
+        self.windowName = terminalString(object, "windowName", "window_name") ?? ""
+        self.paneIndex = terminalInt(object, "paneIndex", "pane_index") ?? 0
+        self.title = terminalString(object, "title", "paneTitle", "pane_title") ?? ""
+        self.currentCommand = terminalString(object, "currentCommand", "current_command", "paneCurrentCommand", "pane_current_command") ?? ""
+        self.cwd = terminalString(object, "cwd", "currentPath", "current_path", "paneCurrentPath", "pane_current_path") ?? ""
+        self.cols = terminalInt(object, "cols", "columns", "paneWidth", "pane_width") ?? 0
+        self.rows = terminalInt(object, "rows", "paneHeight", "pane_height") ?? 0
+        self.active = terminalBool(object, "active", "paneActive", "pane_active") ?? false
+        self.dead = terminalBool(object, "dead", "paneDead", "pane_dead") ?? false
     }
 }
 
@@ -331,12 +231,8 @@ extension ManagedTerminalSnapshot {
 }
 
 private func terminalString(_ object: [String: JSONValue], _ keys: String...) -> String? {
-    terminalString(object, keys)
-}
-
-private func terminalString(_ object: [String: JSONValue], _ keys: [String]) -> String? {
     for key in keys {
-        if let value = terminalString(from: object[key]) {
+        if let value = object[key]?.stringValue {
             return value
         }
     }
@@ -344,12 +240,11 @@ private func terminalString(_ object: [String: JSONValue], _ keys: [String]) -> 
 }
 
 private func terminalInt(_ object: [String: JSONValue], _ keys: String...) -> Int? {
-    terminalInt(object, keys)
-}
-
-private func terminalInt(_ object: [String: JSONValue], _ keys: [String]) -> Int? {
     for key in keys {
-        if let value = terminalInt(from: object[key]) {
+        if let value = object[key]?.intValue {
+            return value
+        }
+        if let text = object[key]?.stringValue, let value = Int(text) {
             return value
         }
     }
@@ -357,13 +252,13 @@ private func terminalInt(_ object: [String: JSONValue], _ keys: [String]) -> Int
 }
 
 private func terminalBool(_ object: [String: JSONValue], _ keys: String...) -> Bool? {
-    terminalBool(object, keys)
-}
-
-private func terminalBool(_ object: [String: JSONValue], _ keys: [String]) -> Bool? {
     for key in keys {
-        if let value = terminalBool(from: object[key]) {
+        if let value = object[key]?.boolValue {
             return value
+        }
+        if let text = object[key]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            if ["1", "true", "yes"].contains(text) { return true }
+            if ["0", "false", "no"].contains(text) { return false }
         }
     }
     return nil
@@ -376,232 +271,4 @@ private func terminalArray(_ object: [String: JSONValue], _ keys: String...) -> 
         }
     }
     return nil
-}
-
-private func terminalNestedObject(_ object: [String: JSONValue], _ keys: String...) -> [String: JSONValue]? {
-    for key in keys {
-        if let value = object[key]?.objectValue {
-            return value
-        }
-    }
-    return nil
-}
-
-private func terminalPaneString(
-    _ object: [String: JSONValue],
-    root: JSONValue,
-    fields: [JSONValue]?,
-    fieldIndex: Int?,
-    _ keys: String...
-) -> String? {
-    terminalString(object, keys)
-        ?? terminalStringDeep(root, keys)
-        ?? terminalFieldString(fields, fieldIndex)
-}
-
-private func terminalPaneInt(
-    _ object: [String: JSONValue],
-    root: JSONValue,
-    fields: [JSONValue]?,
-    fieldIndex: Int?,
-    _ keys: String...
-) -> Int? {
-    terminalInt(object, keys)
-        ?? terminalIntDeep(root, keys)
-        ?? terminalFieldInt(fields, fieldIndex)
-}
-
-private func terminalPaneBool(
-    _ object: [String: JSONValue],
-    root: JSONValue,
-    fields: [JSONValue]?,
-    fieldIndex: Int?,
-    _ keys: String...
-) -> Bool? {
-    terminalBool(object, keys)
-        ?? terminalBoolDeep(root, keys)
-        ?? terminalFieldBool(fields, fieldIndex)
-}
-
-private func terminalStringDeep(_ root: JSONValue, _ keys: [String], maxDepth: Int = 5) -> String? {
-    guard maxDepth >= 0 else { return nil }
-    switch root {
-    case .object(let object):
-        let normalizedKeys = Set(keys.map(normalizedTerminalJSONKey))
-        for (key, value) in object where normalizedKeys.contains(normalizedTerminalJSONKey(key)) {
-            if let text = terminalString(from: value) {
-                return text
-            }
-        }
-        for value in object.values {
-            if let text = terminalStringDeep(value, keys, maxDepth: maxDepth - 1) {
-                return text
-            }
-        }
-    case .array(let values):
-        for value in values {
-            if let text = terminalStringDeep(value, keys, maxDepth: maxDepth - 1) {
-                return text
-            }
-        }
-    default:
-        return nil
-    }
-    return nil
-}
-
-private func terminalIntDeep(_ root: JSONValue, _ keys: [String], maxDepth: Int = 5) -> Int? {
-    terminalStringDeep(root, keys, maxDepth: maxDepth).flatMap { Int($0) }
-}
-
-private func terminalBoolDeep(_ root: JSONValue, _ keys: [String], maxDepth: Int = 5) -> Bool? {
-    terminalStringDeep(root, keys, maxDepth: maxDepth).flatMap(terminalBool)
-}
-
-private func terminalString(from value: JSONValue?) -> String? {
-    switch value {
-    case .string(let value):
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    case .integer(let value):
-        return String(value)
-    case .double(let value):
-        return String(value)
-    case .bool(let value):
-        return value ? "true" : "false"
-    default:
-        return nil
-    }
-}
-
-private func terminalInt(from value: JSONValue?) -> Int? {
-    if let value = value?.intValue {
-        return value
-    }
-    if let text = terminalString(from: value), let value = Int(text) {
-        return value
-    }
-    return nil
-}
-
-private func terminalBool(from value: JSONValue?) -> Bool? {
-    if let value = value?.boolValue {
-        return value
-    }
-    return terminalString(from: value).flatMap(terminalBool)
-}
-
-private func terminalBool(from text: String) -> Bool? {
-    let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    if ["1", "true", "yes"].contains(normalized) { return true }
-    if ["0", "false", "no"].contains(normalized) { return false }
-    return nil
-}
-
-private func terminalFieldArray(_ object: [String: JSONValue]) -> [JSONValue]? {
-    if let fields = terminalArray(object, "fields", "values", "row") {
-        return fields
-    }
-    let numericValues = (0..<14).map { object[String($0)] ?? .null }
-    return numericValues.contains { terminalString(from: $0) != nil } ? numericValues : nil
-}
-
-private func terminalFieldString(_ fields: [JSONValue]?, _ index: Int?) -> String? {
-    guard let fields, let index, fields.indices.contains(index) else { return nil }
-    return terminalString(from: fields[index])
-}
-
-private func terminalFieldInt(_ fields: [JSONValue]?, _ index: Int?) -> Int? {
-    guard let fields, let index, fields.indices.contains(index) else { return nil }
-    return terminalInt(from: fields[index])
-}
-
-private func terminalFieldBool(_ fields: [JSONValue]?, _ index: Int?) -> Bool? {
-    guard let fields, let index, fields.indices.contains(index) else { return nil }
-    return terminalBool(from: fields[index])
-}
-
-private func normalizedTerminalJSONKey(_ key: String) -> String {
-    key.lowercased().filter { $0.isLetter || $0.isNumber }
-}
-
-private func repairTerminalPanes(
-    _ panes: [ManagedTerminalPane],
-    windows: [ManagedTerminalWindow],
-    sessions: [ManagedTerminalSession]
-) -> [ManagedTerminalPane] {
-    panes.enumerated().map { index, pane in
-        guard pane.requestTarget.isEmpty else { return pane }
-        return repairTerminalPane(
-            pane,
-            window: windows.indices.contains(index) ? windows[index] : nil,
-            session: sessions.indices.contains(index) ? sessions[index] : nil,
-            fallbackIndex: index
-        )
-    }
-}
-
-private func repairTerminalPane(
-    _ pane: ManagedTerminalPane,
-    window: ManagedTerminalWindow?,
-    session: ManagedTerminalSession?,
-    fallbackIndex: Int
-) -> ManagedTerminalPane {
-    let sessionName = firstNonEmptyTerminalString(
-        pane.sessionName,
-        window?.sessionName,
-        session?.name
-    ) ?? "mms-\(fallbackIndex + 1)"
-    let windowIndex = window?.index ?? pane.windowIndex
-    let paneIndex = pane.paneIndex
-    let paneAddress = "\(sessionName):\(windowIndex).\(paneIndex)"
-    let paneId = isUsableTerminalTarget(pane.paneId) && pane.paneId.hasPrefix("%") ? pane.paneId : ""
-    let target = paneId.isEmpty ? paneAddress : paneId
-
-    return ManagedTerminalPane(
-        id: firstUsableTerminalString(paneId, pane.id, paneAddress) ?? paneAddress,
-        paneId: paneId,
-        paneKey: paneAddress,
-        target: target,
-        sessionId: firstNonEmptyTerminalString(pane.sessionId, window?.sessionId, session?.id) ?? "",
-        sessionName: sessionName,
-        windowId: firstNonEmptyTerminalString(pane.windowId, window?.id) ?? "",
-        windowIndex: windowIndex,
-        windowName: firstNonEmptyTerminalString(pane.windowName, window?.name) ?? "",
-        paneIndex: paneIndex,
-        title: firstNonEmptyTerminalString(pane.title, pane.currentCommand, window?.name) ?? "Terminal",
-        currentCommand: pane.currentCommand,
-        cwd: pane.cwd,
-        cols: pane.cols,
-        rows: pane.rows,
-        active: pane.active || window?.active == true,
-        dead: pane.dead
-    )
-}
-
-private func firstNonEmptyTerminalString(_ values: String?...) -> String? {
-    values
-        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .first { !$0.isEmpty && $0 != "-" }
-}
-
-private func firstUsableTerminalString(_ values: String?...) -> String? {
-    values
-        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .first(where: isUsableTerminalTarget)
-}
-
-private func isUsableTerminalTarget(_ value: String) -> Bool {
-    let target = value.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !target.isEmpty,
-          target != "unknown",
-          target != ":",
-          target != ":.",
-          target != "::",
-          !target.hasPrefix(":"),
-          !target.hasSuffix(":"),
-          !target.hasSuffix(".") else {
-        return false
-    }
-    return true
 }

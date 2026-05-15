@@ -61,7 +61,7 @@ extension CodexService {
         )
         let snapshot = try ManagedTerminalSnapshot(json: response.result)
         selectedTerminalPaneId = snapshot.pane.requestTarget
-        storeTerminalSnapshot(snapshot, aliases: [paneId])
+        storeTerminalSnapshot(snapshot)
         upsertTerminalPane(snapshot.pane)
         terminalLastErrorMessage = nil
         return snapshot
@@ -83,7 +83,7 @@ extension CodexService {
             timeoutMessage: "Terminal snapshot timed out while reading the pane."
         )
         let snapshot = try ManagedTerminalSnapshot(json: response.result)
-        storeTerminalSnapshot(snapshot, aliases: [targetPaneId])
+        storeTerminalSnapshot(snapshot)
         upsertTerminalPane(snapshot.pane)
         terminalLastErrorMessage = nil
         return snapshot
@@ -262,14 +262,14 @@ extension CodexService {
         }
     }
 
-    private func storeTerminalSnapshot(_ snapshot: ManagedTerminalSnapshot, aliases: [String] = []) {
+    private func storeTerminalSnapshot(_ snapshot: ManagedTerminalSnapshot) {
         let keys = [
             snapshot.pane.paneId,
             snapshot.pane.paneKey,
             snapshot.pane.target,
             snapshot.pane.requestTarget,
             snapshot.pane.paneAddress,
-        ] + aliases
+        ]
         for key in keys.compactMap(normalizedTerminalTarget) {
             terminalSnapshotsByPaneId[key] = snapshot
         }
@@ -289,17 +289,7 @@ extension CodexService {
 
     private func normalizedTerminalTarget(_ value: String?) -> String? {
         let target = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !target.isEmpty,
-              target != "unknown",
-              target != ":",
-              target != ":.",
-              target != "::",
-              !target.hasPrefix(":"),
-              !target.hasSuffix(":"),
-              !target.hasSuffix(".") else {
-            return nil
-        }
-        return target
+        return target.isEmpty ? nil : target
     }
 
     private func tmuxNumericId(_ value: String) -> Int {
