@@ -64,7 +64,7 @@ function createTerminalHub(options = {}) {
       result.visibleTerminal = await openVisibleTerminalForCreatedPane({
         created,
         terminalList,
-      });
+      }).catch(formatVisibleTerminalFailure);
     }
 
     return result;
@@ -192,6 +192,17 @@ function findCreatedPane({ created = {}, terminalList = {} } = {}) {
   return null;
 }
 
+function formatVisibleTerminalFailure(error) {
+  return {
+    ok: false,
+    opened: false,
+    error: {
+      code: String(error?.code || "terminal_visible_launch_failed"),
+      message: error?.message || "Failed to open the visible terminal on Mac.",
+    },
+  };
+}
+
 async function handleTerminalMethod(method, params = {}, options = {}) {
   const hub = options.hub || createTerminalHub(options);
   return hub.handleMethod(method, params);
@@ -233,6 +244,7 @@ function safeParseJSON(rawMessage) {
 module.exports = {
   createTerminalHub,
   findCreatedPane,
+  formatVisibleTerminalFailure,
   handleTerminalMethod,
   handleTerminalRequest,
 };

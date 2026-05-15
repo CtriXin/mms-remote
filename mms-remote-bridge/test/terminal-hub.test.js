@@ -198,6 +198,60 @@ test("terminal hub opens a visible macOS terminal when create requests it", asyn
   assert.deepEqual(result.visibleTerminal, { ok: true, opened: true, paneId: "%1" });
 });
 
+test("terminal create still succeeds when visible terminal launch fails", async () => {
+  const adapter = {
+    async version() {
+      return "tmux mock";
+    },
+    async createSession() {
+      return { sessionName: "dev" };
+    },
+    async listAll() {
+      return {
+        sessions: [],
+        windows: [],
+        panes: [
+          {
+            id: "%1",
+            paneId: "%1",
+            paneKey: "dev:0.0",
+            sessionName: "dev",
+            windowIndex: 0,
+            cwd: "/tmp/dev",
+          },
+        ],
+      };
+    },
+  };
+  const hub = createTerminalHub({
+    adapter,
+    visibleLauncher: {
+      async openPane() {
+        const error = new Error("osascript denied");
+        error.code = "osascript_failed";
+        throw error;
+      },
+    },
+  });
+
+  const result = await hub.create({
+    name: "dev",
+    cwd: "/tmp/dev",
+    openVisible: true,
+  });
+
+  assert.equal(result.created.sessionName, "dev");
+  assert.equal(result.panes[0].paneId, "%1");
+  assert.deepEqual(result.visibleTerminal, {
+    ok: false,
+    opened: false,
+    error: {
+      code: "osascript_failed",
+      message: "osascript denied",
+    },
+  });
+});
+
 test("terminal hub opens an existing pane in a visible macOS terminal", async () => {
   const visibleCalls = [];
   const adapter = {
