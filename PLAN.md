@@ -228,6 +228,8 @@ terminal/status
 - Phase 0/1/2 MVP 已落地：tmux adapter、bridge terminal RPC、iOS basic terminal hub、CLI smoke commands。
 - Phase 4 中的 “Create New Terminal + Visible Mac Window” 已推进：手机/CLI 创建 managed terminal 时可请求 Mac 打开 Ghostty/iTerm2/Terminal.app 窗口 attach 到同一 tmux session/pane；已有 pane 也可再打开到 Mac。
 - Mac visible terminal 选择支持 `auto|ghostty|iterm|terminal`，默认 auto 优先 Ghostty，再 iTerm2，再 Terminal.app。
+- 任意 terminal 软件入口已开始落地：`scripts/install-mms-remote-cli.sh` 可把 `mms-remote` 放进 PATH；`mms-remote terminal join` 可在真实交互 shell 里 attach/create managed tmux session。
+- iOS Terminal 会后台轮询 pane list；外部 `join` 新增的 managed pane 会自动出现在横向 pane strip。
 - 验收前 smoke 已落地：`mms-remote terminal smoke --json` 会创建 managed tmux session、验证 snapshot/input、自动清理。
 - 仍未完成 Full：真实 terminal renderer、MMS wrapper integration、多 iOS client hardening。
 
@@ -407,12 +409,20 @@ node ./bin/mms-remote.js terminal create --name mms-acceptance --cwd "$PWD" --js
 node ./bin/mms-remote.js terminal list --json
 ```
 
+任意 terminal 入口：
+
+```bash
+./scripts/install-mms-remote-cli.sh
+mms-remote terminal join
+mms-remote terminal join my-session
+```
+
 手工验收：
 1. Mac 先跑 `npm start` 或 `node ./bin/mms-remote.js up`，手机连上 bridge。
 2. 手机进 Terminal，确认能看到 managed pane list。
 3. 手机创建 terminal，默认不要打开 `Open Mac terminal app`；只有明确想弹 Mac terminal emulator 时再开启。
 4. 手机输入 `echo phone_ok`，Mac 同 pane 能看到；Mac 输入 `echo mac_ok`，手机 snapshot/poll 能看到。
-5. 想在当前 Ghostty 里看同一 pane，必须在 Ghostty 的真实交互 shell 里手动运行 `tmux attach -t mms-acceptance`；不要在非 TTY command runner 里跑。
+5. 想在当前 Ghostty/iTerm2/Terminal.app 里看同一 pane，必须在真实交互 shell 里运行 `mms-remote terminal join mms-acceptance` 或 `tmux attach -t mms-acceptance`；不要在非 TTY command runner 里跑。
 6. 顶部 display 按钮会打开 Mac terminal emulator；默认 auto 顺序是 Ghostty -> iTerm2 -> Terminal.app，可用 `MMS_REMOTE_VISIBLE_TERMINAL=ghostty|iterm|terminal` 固定。
 
 ### Full 验收

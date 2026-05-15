@@ -350,3 +350,60 @@ test("mms-remote terminal smoke validates create input snapshot and cleanup", as
   assert.deepEqual(calls.at(-1), ["kill", { sessionName: "dev-smoke" }]);
   assert.deepEqual(messages, ["[mms-remote] terminal smoke passed: %1 (dev-smoke)"]);
 });
+
+test("mms-remote terminal join attaches the current terminal to tmux", async () => {
+  let captured;
+  const messages = [];
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "join", "dev", "--cwd", "/tmp/dev"],
+    consoleImpl: {
+      log(message) { messages.push(message); },
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {};
+      },
+      spawnSync(file, args, options) {
+        captured = { file, args, options };
+        return { status: 0 };
+      },
+      stdin: { isTTY: true },
+      stdout: { isTTY: true },
+    },
+  });
+
+  assert.equal(captured.file, "tmux");
+  assert.deepEqual(captured.args, ["new-session", "-A", "-s", "dev", "-c", "/tmp/dev"]);
+  assert.equal(captured.options.cwd, "/tmp/dev");
+  assert.deepEqual(messages, ["[mms-remote] terminal joined: dev"]);
+});
+
+test("mms-remote terminal join rejects non-interactive command runners", async () => {
+  const errors = [];
+  const exits = [];
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "join", "dev"],
+    consoleImpl: {
+      log() {},
+      error(message) { errors.push(message); },
+    },
+    exitImpl(code) { exits.push(code); },
+    deps: {
+      createTerminalHub() {
+        return {};
+      },
+      spawnSync() {
+        throw new Error("tmux should not run without a TTY");
+      },
+      stdin: { isTTY: false },
+      stdout: { isTTY: true },
+    },
+  });
+
+  assert.equal(exits[0], 1);
+  assert.match(errors[0], /real interactive terminal/);
+});

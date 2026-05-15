@@ -3,7 +3,10 @@
 // Purpose: CLI surface for foreground bridge runs, pairing reset, thread resume, and macOS service control.
 // Layer: CLI binary
 // Exports: none
-// Depends on: ../src
+// Depends on: ../src, child_process, path
+
+const { spawnSync } = require("child_process");
+const path = require("path");
 
 const {
   createTerminalHub,
@@ -36,6 +39,7 @@ const defaultDeps = {
   resetBridgePairing,
   openLastActiveThread,
   watchThreadRollout,
+  spawnSync,
 };
 const TERMINAL_SMOKE_READY = "mms_remote_smoke_ready";
 const TERMINAL_SMOKE_INPUT = "mms_remote_smoke_input";
@@ -249,7 +253,7 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|join|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
@@ -294,6 +298,19 @@ async function runTerminalCliCommand({
       case "list": {
         const result = await hub.list();
         emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalList });
+        return;
+      }
+      case "join": {
+        const options = parseTerminalOptions(terminalArgs);
+        const result = runTerminalJoin({
+          options,
+          positionalName: firstTerminalPositional(terminalArgs),
+          cwd: options.cwd || process.cwd(),
+          spawnSyncImpl: deps.spawnSync || spawnSync,
+          stdin: deps.stdin || process.stdin,
+          stdout: deps.stdout || process.stdout,
+        });
+        emitTerminalResult({ result, jsonOutput, consoleImpl, formatter: formatTerminalJoin });
         return;
       }
       case "create": {
@@ -376,6 +393,61 @@ function hasTruthyTerminalOption(options, keys) {
 function visibleAppParam(options = {}) {
   const visibleApp = options["visible-app"] || options.visibleApp || options["terminal-app"] || options.terminalApp;
   return visibleApp ? { visibleApp } : {};
+}
+
+function firstTerminalPositional(args) {
+  return args.find((arg) => !arg.startsWith("--")) || "";
+}
+
+function runTerminalJoin({
+  options = {},
+  positionalName = "",
+  cwd = process.cwd(),
+  spawnSyncImpl = spawnSync,
+  stdin = process.stdin,
+  stdout = process.stdout,
+} = {}) {
+  if (!stdin.isTTY || !stdout.isTTY) {
+    throw new Error("terminal join must be run from a real interactive terminal, not a command runner");
+  }
+
+  const sessionName = normalizeTerminalSessionName(options.name || positionalName || defaultTerminalSessionName(cwd));
+  const args = ["new-session", "-A", "-s", sessionName];
+  const joinCwd = options.cwd || cwd;
+  if (joinCwd) {
+    args.push("-c", joinCwd);
+  }
+  if (options.command) {
+    args.push(options.command);
+  }
+
+  const child = spawnSyncImpl("tmux", args, {
+    cwd: joinCwd || cwd,
+    stdio: "inherit",
+  });
+  if (child.error) {
+    throw child.error;
+  }
+  if (child.status && child.status !== 0) {
+    throw new Error(`tmux exited with status ${child.status}`);
+  }
+  return { ok: true, sessionName, args };
+}
+
+function defaultTerminalSessionName(cwd) {
+  return path.basename(path.resolve(cwd || process.cwd())) || "mms-terminal";
+}
+
+function normalizeTerminalSessionName(value) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/[^A-Za-z0-9_.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  if (/^[A-Za-z0-9]/.test(normalized)) {
+    return normalized;
+  }
+  return `mms-${Date.now()}`;
 }
 
 function parseTerminalOptions(args) {
@@ -507,6 +579,10 @@ function formatTerminalSmoke(result) {
   return `[mms-remote] terminal smoke passed: ${result.paneId} (${result.sessionName})`;
 }
 
+function formatTerminalJoin(result) {
+  return `[mms-remote] terminal joined: ${result.sessionName}`;
+}
+
 function formatTerminalList(result) {
   const panes = result?.panes || [];
   if (panes.length === 0) {
@@ -571,6 +647,9 @@ module.exports = {
   isVersionCommand,
   main,
   parseTerminalOptions,
+  defaultTerminalSessionName,
+  normalizeTerminalSessionName,
+  runTerminalJoin,
   runTerminalSmoke,
   runTerminalCliCommand,
   visibleAppParam,

@@ -13,9 +13,11 @@ extension CodexService {
     }
 
     @discardableResult
-    func refreshTerminalList() async throws -> ManagedTerminalList {
-        isLoadingTerminals = true
-        defer { isLoadingTerminals = false }
+    func refreshTerminalList(showLoading: Bool = true) async throws -> ManagedTerminalList {
+        if showLoading { isLoadingTerminals = true }
+        defer {
+            if showLoading { isLoadingTerminals = false }
+        }
 
         do {
             let response = try await sendRequest(

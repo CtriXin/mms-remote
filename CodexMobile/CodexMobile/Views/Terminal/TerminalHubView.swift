@@ -71,6 +71,9 @@ struct TerminalHubView: View {
                 await refreshTerminalsAsync()
             }
         }
+        .task(id: codex.isConnected) {
+            await pollTerminalList()
+        }
         .task(id: codex.selectedTerminalPaneId) {
             await pollSelectedPaneSnapshot(paneId: codex.selectedTerminalPaneId)
         }
@@ -334,6 +337,21 @@ struct TerminalHubView: View {
             }
         } catch {
             localErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func pollTerminalList() async {
+        while !Task.isCancelled {
+            guard codex.isConnected else { return }
+            do {
+                try await codex.refreshTerminalList(showLoading: false)
+            } catch {
+                if !Task.isCancelled {
+                    codex.terminalLastErrorMessage = error.localizedDescription
+                }
+                return
+            }
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
         }
     }
 
