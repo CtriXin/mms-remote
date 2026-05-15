@@ -45,10 +45,30 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
     let active: Bool
     let dead: Bool
 
+    var requestTarget: String {
+        firstNonEmpty(paneId, target, normalizedPaneKey) ?? ""
+    }
+
+    var paneAddress: String {
+        normalizedPaneKey ?? firstNonEmpty(paneId, target) ?? "unknown"
+    }
+
     var displayTitle: String {
-        if !title.isEmpty { return title }
-        if !currentCommand.isEmpty { return currentCommand }
-        return paneKey
+        firstNonEmpty(title, currentCommand, sessionName, windowName, paneAddress) ?? "Terminal"
+    }
+
+    private var normalizedPaneKey: String? {
+        let key = paneKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, key.contains(":"), key.contains("."), !key.hasPrefix(":") else {
+            return nil
+        }
+        return key
+    }
+
+    private func firstNonEmpty(_ values: String?...) -> String? {
+        values
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
     }
 }
 
