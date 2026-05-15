@@ -178,7 +178,7 @@ function createTmuxAdapter(options = {}) {
   async function createSession(params = {}) {
     const name = normalizeSessionName(params.name || `mms-${crypto.randomUUID().slice(0, 8)}`);
     const cwd = normalizeCwd(params.cwd);
-    const args = ["new-session", "-d", "-s", name];
+    const args = ["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", name];
     if (Number.isInteger(params.cols) && Number.isInteger(params.rows)) {
       args.push("-x", String(params.cols), "-y", String(params.rows));
     }
@@ -188,8 +188,8 @@ function createTmuxAdapter(options = {}) {
     if (params.command) {
       args.push(String(params.command));
     }
-    await run(args);
-    return { sessionName: name };
+    const { stdout } = await run(args);
+    return { sessionName: name, paneId: stdout.trim() };
   }
 
   async function createWindow(params = {}) {

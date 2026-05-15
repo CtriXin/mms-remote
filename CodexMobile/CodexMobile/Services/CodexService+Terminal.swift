@@ -128,6 +128,10 @@ extension CodexService {
         )
         let list = try ManagedTerminalList(json: response.result)
         applyTerminalList(list)
+        if let createdPane = list.createdPane, !createdPane.requestTarget.isEmpty {
+            upsertTerminalPane(createdPane)
+            selectedTerminalPaneId = createdPane.requestTarget
+        }
         terminalLastErrorMessage = nil
         return list
     }

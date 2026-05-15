@@ -83,12 +83,14 @@ struct ManagedTerminalList: Codable, Equatable, Sendable {
     let sessions: [ManagedTerminalSession]
     let windows: [ManagedTerminalWindow]
     let panes: [ManagedTerminalPane]
+    let createdPane: ManagedTerminalPane?
 
     static let empty = ManagedTerminalList(
         tmuxVersion: "",
         sessions: [],
         windows: [],
-        panes: []
+        panes: [],
+        createdPane: nil
     )
 }
 
@@ -147,10 +149,15 @@ extension ManagedTerminalList {
         guard let object = json?.objectValue else {
             throw ManagedTerminalModelError.missingResult("terminal/list")
         }
-        self.tmuxVersion = object["tmuxVersion"]?.stringValue ?? ""
-        self.sessions = try (object["sessions"]?.arrayValue ?? []).map { try ManagedTerminalSession(json: $0) }
-        self.windows = try (object["windows"]?.arrayValue ?? []).map { try ManagedTerminalWindow(json: $0) }
-        self.panes = try (object["panes"]?.arrayValue ?? []).map { try ManagedTerminalPane(json: $0) }
+        self.tmuxVersion = terminalString(object, "tmuxVersion", "tmux_version") ?? ""
+        self.sessions = try (terminalArray(object, "sessions") ?? []).map { try ManagedTerminalSession(json: $0) }
+        self.windows = try (terminalArray(object, "windows") ?? []).map { try ManagedTerminalWindow(json: $0) }
+        self.panes = try (terminalArray(object, "panes") ?? []).map { try ManagedTerminalPane(json: $0) }
+        if let paneJSON = object["createdPane"] ?? object["created_pane"] ?? object["selectedPane"] ?? object["selected_pane"] {
+            self.createdPane = try ManagedTerminalPane(json: paneJSON)
+        } else {
+            self.createdPane = nil
+        }
     }
 }
 
@@ -159,11 +166,11 @@ extension ManagedTerminalSession {
         guard let object = json.objectValue else {
             throw ManagedTerminalModelError.invalidShape("session")
         }
-        self.id = object["id"]?.stringValue ?? ""
-        self.name = object["name"]?.stringValue ?? ""
-        self.windowCount = object["windowCount"]?.intValue ?? 0
-        self.attachedCount = object["attachedCount"]?.intValue ?? 0
-        self.createdAt = object["createdAt"]?.intValue ?? 0
+        self.id = terminalString(object, "id") ?? ""
+        self.name = terminalString(object, "name") ?? ""
+        self.windowCount = terminalInt(object, "windowCount", "window_count") ?? 0
+        self.attachedCount = terminalInt(object, "attachedCount", "attached_count") ?? 0
+        self.createdAt = terminalInt(object, "createdAt", "created_at") ?? 0
     }
 }
 
@@ -172,15 +179,15 @@ extension ManagedTerminalWindow {
         guard let object = json.objectValue else {
             throw ManagedTerminalModelError.invalidShape("window")
         }
-        self.id = object["id"]?.stringValue ?? ""
-        self.sessionId = object["sessionId"]?.stringValue ?? ""
-        self.sessionName = object["sessionName"]?.stringValue ?? ""
-        self.index = object["index"]?.intValue ?? 0
-        self.name = object["name"]?.stringValue ?? ""
-        self.active = object["active"]?.boolValue ?? false
-        self.paneCount = object["paneCount"]?.intValue ?? 0
-        self.layout = object["layout"]?.stringValue ?? ""
-        self.windowKey = object["windowKey"]?.stringValue ?? ""
+        self.id = terminalString(object, "id", "windowId", "window_id") ?? ""
+        self.sessionId = terminalString(object, "sessionId", "session_id") ?? ""
+        self.sessionName = terminalString(object, "sessionName", "session_name") ?? ""
+        self.index = terminalInt(object, "index", "windowIndex", "window_index") ?? 0
+        self.name = terminalString(object, "name", "windowName", "window_name") ?? ""
+        self.active = terminalBool(object, "active") ?? false
+        self.paneCount = terminalInt(object, "paneCount", "pane_count", "windowPanes", "window_panes") ?? 0
+        self.layout = terminalString(object, "layout") ?? ""
+        self.windowKey = terminalString(object, "windowKey", "window_key") ?? ""
     }
 }
 
@@ -189,23 +196,23 @@ extension ManagedTerminalPane {
         guard let object = json.objectValue else {
             throw ManagedTerminalModelError.invalidShape("pane")
         }
-        self.id = object["id"]?.stringValue ?? object["paneId"]?.stringValue ?? ""
-        self.paneId = object["paneId"]?.stringValue ?? id
-        self.paneKey = object["paneKey"]?.stringValue ?? ""
-        self.target = object["target"]?.stringValue ?? paneId
-        self.sessionId = object["sessionId"]?.stringValue ?? ""
-        self.sessionName = object["sessionName"]?.stringValue ?? ""
-        self.windowId = object["windowId"]?.stringValue ?? ""
-        self.windowIndex = object["windowIndex"]?.intValue ?? 0
-        self.windowName = object["windowName"]?.stringValue ?? ""
-        self.paneIndex = object["paneIndex"]?.intValue ?? 0
-        self.title = object["title"]?.stringValue ?? ""
-        self.currentCommand = object["currentCommand"]?.stringValue ?? ""
-        self.cwd = object["cwd"]?.stringValue ?? ""
-        self.cols = object["cols"]?.intValue ?? 0
-        self.rows = object["rows"]?.intValue ?? 0
-        self.active = object["active"]?.boolValue ?? false
-        self.dead = object["dead"]?.boolValue ?? false
+        self.id = terminalString(object, "id", "paneId", "pane_id") ?? ""
+        self.paneId = terminalString(object, "paneId", "pane_id") ?? id
+        self.paneKey = terminalString(object, "paneKey", "pane_key") ?? ""
+        self.target = terminalString(object, "target") ?? paneId
+        self.sessionId = terminalString(object, "sessionId", "session_id") ?? ""
+        self.sessionName = terminalString(object, "sessionName", "session_name") ?? ""
+        self.windowId = terminalString(object, "windowId", "window_id") ?? ""
+        self.windowIndex = terminalInt(object, "windowIndex", "window_index") ?? 0
+        self.windowName = terminalString(object, "windowName", "window_name") ?? ""
+        self.paneIndex = terminalInt(object, "paneIndex", "pane_index") ?? 0
+        self.title = terminalString(object, "title", "paneTitle", "pane_title") ?? ""
+        self.currentCommand = terminalString(object, "currentCommand", "current_command", "paneCurrentCommand", "pane_current_command") ?? ""
+        self.cwd = terminalString(object, "cwd", "currentPath", "current_path", "paneCurrentPath", "pane_current_path") ?? ""
+        self.cols = terminalInt(object, "cols", "columns", "paneWidth", "pane_width") ?? 0
+        self.rows = terminalInt(object, "rows", "paneHeight", "pane_height") ?? 0
+        self.active = terminalBool(object, "active", "paneActive", "pane_active") ?? false
+        self.dead = terminalBool(object, "dead", "paneDead", "pane_dead") ?? false
     }
 }
 
@@ -218,7 +225,50 @@ extension ManagedTerminalSnapshot {
             throw ManagedTerminalModelError.invalidShape("snapshot.pane")
         }
         self.pane = try ManagedTerminalPane(json: paneJSON)
-        self.content = object["content"]?.stringValue ?? ""
-        self.capturedAt = object["capturedAt"]?.stringValue ?? ""
+        self.content = terminalString(object, "content") ?? ""
+        self.capturedAt = terminalString(object, "capturedAt", "captured_at") ?? ""
     }
+}
+
+private func terminalString(_ object: [String: JSONValue], _ keys: String...) -> String? {
+    for key in keys {
+        if let value = object[key]?.stringValue {
+            return value
+        }
+    }
+    return nil
+}
+
+private func terminalInt(_ object: [String: JSONValue], _ keys: String...) -> Int? {
+    for key in keys {
+        if let value = object[key]?.intValue {
+            return value
+        }
+        if let text = object[key]?.stringValue, let value = Int(text) {
+            return value
+        }
+    }
+    return nil
+}
+
+private func terminalBool(_ object: [String: JSONValue], _ keys: String...) -> Bool? {
+    for key in keys {
+        if let value = object[key]?.boolValue {
+            return value
+        }
+        if let text = object[key]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            if ["1", "true", "yes"].contains(text) { return true }
+            if ["0", "false", "no"].contains(text) { return false }
+        }
+    }
+    return nil
+}
+
+private func terminalArray(_ object: [String: JSONValue], _ keys: String...) -> [JSONValue]? {
+    for key in keys {
+        if let value = object[key]?.arrayValue {
+            return value
+        }
+    }
+    return nil
 }

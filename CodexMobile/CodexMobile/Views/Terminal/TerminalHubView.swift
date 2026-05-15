@@ -587,7 +587,9 @@ struct TerminalHubView: View {
                 )
                 newTerminalName = ""
                 isShowingCreateTerminalSheet = false
-                if let pane = list.panes.first(where: { $0.sessionName == effectiveName }) ?? list.panes.first {
+                if let pane = list.createdPane
+                    ?? list.panes.first(where: { $0.sessionName == effectiveName && !$0.requestTarget.isEmpty })
+                    ?? list.panes.first(where: { !$0.requestTarget.isEmpty }) {
                     try await codex.attachTerminalPane(pane.requestTarget)
                 }
             } catch {
