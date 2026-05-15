@@ -381,6 +381,70 @@ test("mms-remote terminal join attaches the current terminal to tmux", async () 
   assert.deepEqual(messages, ["[mms-remote] terminal joined: dev"]);
 });
 
+test("mms-remote terminal join without a name uses a generated session id", async () => {
+  let captured;
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "join", "--cwd", "/tmp/dev"],
+    consoleImpl: {
+      log() {},
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {};
+      },
+      spawnSync(file, args, options) {
+        captured = { file, args, options };
+        return { status: 0 };
+      },
+      stdin: { isTTY: true },
+      stdout: { isTTY: true },
+    },
+  });
+
+  assert.equal(captured.file, "tmux");
+  assert.match(captured.args[3], /^mms-[a-f0-9]{8}$/);
+  assert.deepEqual(captured.args.slice(0, 3), ["new-session", "-A", "-s"]);
+  assert.deepEqual(captured.args.slice(4), ["-c", "/tmp/dev"]);
+});
+
+test("mms-remote terminal join accepts a pane address from the phone", async () => {
+  const calls = [];
+  const messages = [];
+
+  await main({
+    argv: ["node", "mms-remote", "terminal", "join", "dev:0.1"],
+    consoleImpl: {
+      log(message) { messages.push(message); },
+      error(message) { throw new Error(`unexpected error: ${message}`); },
+    },
+    exitImpl(code) { throw new Error(`unexpected exit ${code}`); },
+    deps: {
+      createTerminalHub() {
+        return {};
+      },
+      spawnSync(file, args, options) {
+        calls.push({ file, args, options });
+        if (args[0] === "display-message") {
+          return { status: 0, stdout: "dev\n" };
+        }
+        return { status: 0 };
+      },
+      stdin: { isTTY: true },
+      stdout: { isTTY: true },
+    },
+  });
+
+  assert.deepEqual(calls.map((call) => call.args), [
+    ["display-message", "-p", "-t", "dev:0.1", "#{session_name}"],
+    ["select-pane", "-t", "dev:0.1"],
+    ["attach-session", "-t", "dev"],
+  ]);
+  assert.deepEqual(messages, ["[mms-remote] terminal joined: dev"]);
+});
+
 test("mms-remote terminal join rejects non-interactive command runners", async () => {
   const errors = [];
   const exits = [];

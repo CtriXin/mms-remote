@@ -3,10 +3,10 @@
 // Purpose: CLI surface for foreground bridge runs, pairing reset, thread resume, and macOS service control.
 // Layer: CLI binary
 // Exports: none
-// Depends on: ../src, child_process, path
+// Depends on: ../src, child_process, crypto
 
 const { spawnSync } = require("child_process");
-const path = require("path");
+const crypto = require("crypto");
 
 const {
   createTerminalHub,
@@ -253,7 +253,7 @@ async function main({
 
   consoleImpl.error(`Unknown command: ${command}`);
   consoleImpl.error(
-    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|join|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
+    "Usage: mms-remote up | mms-remote run | mms-remote terminal <list|join [name|name:window.pane]|create [--open-visible --visible-app auto|ghostty|iterm|terminal]|open|smoke|snapshot|input|key|kill> | "
     + "mms-remote start | mms-remote restart | mms-remote stop | mms-remote status | "
     + "mms-remote reset-pairing | mms-remote resume | mms-remote watch [threadId] | mms-remote --version | "
     + "append --json to start/restart/stop/status/reset-pairing/resume for machine-readable output"
@@ -396,7 +396,18 @@ function visibleAppParam(options = {}) {
 }
 
 function firstTerminalPositional(args) {
-  return args.find((arg) => !arg.startsWith("--")) || "";
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg.startsWith("--")) {
+      const value = args[index + 1];
+      if (value != null && !value.startsWith("--")) {
+        index += 1;
+      }
+      continue;
+    }
+    return arg;
+  }
+  return "";
 }
 
 function runTerminalJoin({
@@ -414,9 +425,21 @@ function runTerminalJoin({
     );
   }
 
-  const sessionName = normalizeTerminalSessionName(options.name || positionalName || defaultTerminalSessionName(cwd));
-  const args = ["new-session", "-A", "-s", sessionName];
+  const requestedTarget = String(options.name || positionalName || defaultTerminalSessionName()).trim();
   const joinCwd = options.cwd || cwd;
+  if (isTerminalPaneAddress(requestedTarget)) {
+    if (options.command) {
+      throw new Error("terminal join target cannot include --command; use a session name for new commands");
+    }
+    return attachExistingTerminalTarget({
+      target: requestedTarget,
+      cwd: joinCwd,
+      spawnSyncImpl,
+    });
+  }
+
+  const sessionName = normalizeTerminalSessionName(requestedTarget);
+  const args = ["new-session", "-A", "-s", sessionName];
   if (joinCwd) {
     args.push("-c", joinCwd);
   }
@@ -437,8 +460,74 @@ function runTerminalJoin({
   return { ok: true, sessionName, args };
 }
 
-function defaultTerminalSessionName(cwd) {
-  return path.basename(path.resolve(cwd || process.cwd())) || "mms-terminal";
+function attachExistingTerminalTarget({
+  target,
+  cwd = process.cwd(),
+  spawnSyncImpl = spawnSync,
+} = {}) {
+  const sessionName = resolveTerminalTargetSessionName({ target, cwd, spawnSyncImpl });
+  runTmuxSync({
+    args: ["select-pane", "-t", target],
+    cwd,
+    spawnSyncImpl,
+    stdio: "ignore",
+  });
+  const args = ["attach-session", "-t", sessionName];
+  runTmuxSync({
+    args,
+    cwd,
+    spawnSyncImpl,
+    stdio: "inherit",
+  });
+  return { ok: true, sessionName, target, args };
+}
+
+function resolveTerminalTargetSessionName({
+  target,
+  cwd = process.cwd(),
+  spawnSyncImpl = spawnSync,
+} = {}) {
+  const stdout = runTmuxSync({
+    args: ["display-message", "-p", "-t", target, "#{session_name}"],
+    cwd,
+    spawnSyncImpl,
+    stdio: "pipe",
+  }).stdout || "";
+  const sessionName = String(stdout).trim();
+  if (!sessionName) {
+    throw new Error(`tmux target did not resolve to a session: ${target}`);
+  }
+  return sessionName;
+}
+
+function runTmuxSync({
+  args,
+  cwd = process.cwd(),
+  spawnSyncImpl = spawnSync,
+  stdio = "pipe",
+} = {}) {
+  const child = spawnSyncImpl("tmux", args, {
+    cwd,
+    stdio,
+    encoding: "utf8",
+  });
+  if (child.error) {
+    throw child.error;
+  }
+  if (child.status && child.status !== 0) {
+    const stderr = typeof child.stderr === "string" ? child.stderr.trim() : "";
+    throw new Error(stderr || `tmux exited with status ${child.status}`);
+  }
+  return child;
+}
+
+function isTerminalPaneAddress(value) {
+  const target = String(value || "").trim();
+  return target.startsWith("%") || target.startsWith("@") || target.includes(":");
+}
+
+function defaultTerminalSessionName() {
+  return `mms-${crypto.randomBytes(4).toString("hex")}`;
 }
 
 function normalizeTerminalSessionName(value) {
