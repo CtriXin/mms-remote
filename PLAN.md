@@ -392,16 +392,17 @@ MVP input：
 ```bash
 cd mms-remote-bridge
 node ./bin/mms-remote.js terminal smoke --json
-node ./bin/mms-remote.js terminal create --name mms-acceptance --cwd "$PWD" --open-visible --json
+node ./bin/mms-remote.js terminal create --name mms-acceptance --cwd "$PWD" --json
 node ./bin/mms-remote.js terminal list --json
 ```
 
 手工验收：
 1. Mac 先跑 `npm start` 或 `node ./bin/mms-remote.js up`，手机连上 bridge。
 2. 手机进 Terminal，确认能看到 managed pane list。
-3. 手机创建 terminal，保持 `Open on Mac` 开启，确认 Mac Terminal.app 弹窗。
+3. 手机创建 terminal，默认不要打开 `Open Mac Terminal.app`；只有明确想弹 macOS Terminal.app 时再开启。
 4. 手机输入 `echo phone_ok`，Mac 同 pane 能看到；Mac 输入 `echo mac_ok`，手机 snapshot/poll 能看到。
-5. 对已有 pane 点顶部 display 按钮，确认能重新打开到 Mac。
+5. 想在当前 Ghostty 里看同一 pane，必须在 Ghostty 的真实交互 shell 里手动运行 `tmux attach -t mms-acceptance`；不要在非 TTY command runner 里跑。
+6. 顶部 display 按钮会打开 macOS Terminal.app；只在需要 Terminal.app 弹窗时使用。
 
 ### Full 验收
 

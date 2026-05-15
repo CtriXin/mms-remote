@@ -15,7 +15,7 @@ struct TerminalHubView: View {
     @State private var newTerminalName = ""
     @State private var newTerminalCwd = "/"
     @State private var newTerminalCommand = ""
-    @State private var openVisibleTerminalOnMac = true
+    @State private var openVisibleTerminalOnMac = false
     @State private var isRefreshing = false
     @State private var isSendingInput = false
     @State private var isCreatingTerminal = false
@@ -247,7 +247,7 @@ struct TerminalHubView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            Toggle("Open on Mac", isOn: $openVisibleTerminalOnMac)
+            Toggle("Open Mac Terminal.app", isOn: $openVisibleTerminalOnMac)
                 .font(AppFont.callout())
             Button {
                 createTerminal()
