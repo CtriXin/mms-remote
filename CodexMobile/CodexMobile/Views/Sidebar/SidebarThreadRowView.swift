@@ -17,7 +17,10 @@ struct SidebarThreadRowView: View {
     let childSubagentCount: Int
     let isSubagentExpanded: Bool
     let onToggleSubagents: (() -> Void)?
+    var isSelectionMode: Bool = false
+    var isMarkedForSelection: Bool = false
     let onTap: () -> Void
+    var onSelectionToggle: (() -> Void)? = nil
     var onRename: ((String) -> Void)? = nil
     var onPinToggle: (() -> Void)? = nil
     var onArchiveToggle: (() -> Void)? = nil
@@ -35,7 +38,10 @@ struct SidebarThreadRowView: View {
             }
         }
         .background {
-            if isSelected {
+            if isMarkedForSelection {
+                Color.accentColor.opacity(0.14)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else if isSelected, !isSelectionMode {
                 Color(.tertiarySystemFill).opacity(0.8)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
@@ -50,7 +56,7 @@ struct SidebarThreadRowView: View {
     // MARK: - Parent row (no CodexService dependency)
 
     private var parentRow: some View {
-        Button(action: { HapticFeedback.shared.triggerImpactFeedback(style: .light); onTap() }) {
+        Button(action: handlePrimaryTap) {
             HStack(alignment: .center, spacing: 8) {
                 leadingIndicatorSlot
 
@@ -147,7 +153,7 @@ struct SidebarThreadRowView: View {
     // MARK: - Subagent row (CodexService isolated in SubagentNameLabel)
 
     private var subagentRow: some View {
-        Button(action: { HapticFeedback.shared.triggerImpactFeedback(style: .light); onTap() }) {
+        Button(action: handlePrimaryTap) {
             HStack(alignment: .center, spacing: 8) {
                 leadingIndicatorSlot
 
@@ -185,14 +191,19 @@ struct SidebarThreadRowView: View {
     @ViewBuilder
     private var leadingIndicatorSlot: some View {
         Group {
-            if let runBadgeState, !thread.isSubagent {
+            if isSelectionMode {
+                Image(systemName: isMarkedForSelection ? "checkmark.circle.fill" : "circle")
+                    .font(AppFont.system(size: 18, weight: .semibold))
+                    .foregroundStyle(isMarkedForSelection ? Color.accentColor : Color.secondary)
+                    .symbolRenderingMode(.hierarchical)
+            } else if let runBadgeState, !thread.isSubagent {
                 SidebarThreadRunBadgeView(state: runBadgeState)
             } else {
                 Color.clear
                     .frame(width: 10, height: 10)
             }
         }
-        .frame(width: titleLeadingSlotWidth, alignment: .center)
+        .frame(width: isSelectionMode ? 22 : titleLeadingSlotWidth, alignment: .center)
     }
 
     @ViewBuilder
@@ -247,6 +258,15 @@ struct SidebarThreadRowView: View {
 
     @ViewBuilder
     private var contextMenuContent: some View {
+        if !isSelectionMode, let onSelectionToggle {
+            Button {
+                HapticFeedback.shared.triggerImpactFeedback(style: .light)
+                onSelectionToggle()
+            } label: {
+                Label(LocalizationManager.shared.localized("sidebar.select"), systemImage: "checkmark.circle")
+            }
+        }
+
         Button {
             HapticFeedback.shared.triggerImpactFeedback(style: .light)
             UIPasteboard.general.string = thread.sessionId
@@ -294,6 +314,15 @@ struct SidebarThreadRowView: View {
             } label: {
                 Label(LocalizationManager.shared.localized("sidebar.remove_from_phone"), systemImage: "trash")
             }
+        }
+    }
+
+    private func handlePrimaryTap() {
+        HapticFeedback.shared.triggerImpactFeedback(style: .light)
+        if isSelectionMode, let onSelectionToggle {
+            onSelectionToggle()
+        } else {
+            onTap()
         }
     }
 }

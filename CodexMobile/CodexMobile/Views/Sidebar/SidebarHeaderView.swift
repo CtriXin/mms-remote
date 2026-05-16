@@ -7,7 +7,10 @@ import SwiftUI
 
 struct SidebarHeaderView: View {
     var showsCloseButton = false
+    var showsSelectionButton = false
+    var isSelectionMode = false
     var onClose: () -> Void = {}
+    var onSelectionModeToggle: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 10) {
@@ -21,6 +24,19 @@ struct SidebarHeaderView: View {
                 .font(AppFont.title3(weight: .medium))
 
             Spacer(minLength: 0)
+
+            if showsSelectionButton {
+                Button(action: onSelectionModeToggle) {
+                    Text(LocalizationManager.shared.localized(isSelectionMode ? "sidebar.done" : "sidebar.select"))
+                        .font(AppFont.subheadline(weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(Color.primary.opacity(0.08), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(LocalizationManager.shared.localized(isSelectionMode ? "sidebar.done" : "sidebar.select"))
+            }
 
             if showsCloseButton {
                 // Mirrors the top-bar menu affordance so full-width sidebar presentations still

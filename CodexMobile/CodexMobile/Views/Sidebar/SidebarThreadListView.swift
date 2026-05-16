@@ -16,7 +16,10 @@ struct SidebarThreadListView: View {
     let timingLabelProvider: (CodexThread) -> String?
     let diffTotalsByThreadID: [String: TurnSessionDiffTotals]
     let runBadgeStateByThreadID: [String: CodexThreadRunBadgeState]
+    var isSelectionMode: Bool = false
+    var selectedThreadIDs: Set<String> = []
     let onSelectThread: (CodexThread) -> Void
+    var onToggleThreadSelection: ((CodexThread) -> Void)? = nil
     let onCreateThreadInProjectGroup: (SidebarThreadGroup) -> Void
     var onArchiveProjectGroup: ((SidebarThreadGroup) -> Void)? = nil
     var onDeleteProjectGroup: ((SidebarThreadGroup) -> Void)? = nil
@@ -410,6 +413,8 @@ struct SidebarThreadListView: View {
             childSubagentCount: childSubagentCount,
             isSubagentExpanded: isSubagentExpanded,
             onToggleSubagents: onToggleSubagents,
+            isSelectionMode: isSelectionMode,
+            isMarkedForSelection: selectedThreadIDs.contains(thread.id),
             onTap: {
                 if isSelected, childSubagentCount > 0 {
                     onToggleSubagents?()
@@ -417,6 +422,7 @@ struct SidebarThreadListView: View {
                     onSelectThread(thread)
                 }
             },
+            onSelectionToggle: onToggleThreadSelection.map { handler in { handler(thread) } },
             onRename: onRenameThread.map { handler in { newName in handler(thread, newName) } },
             onPinToggle: onPinToggleThread.map { handler in { handler(thread) } },
             onArchiveToggle: onArchiveToggleThread.map { handler in { handler(thread) } },
