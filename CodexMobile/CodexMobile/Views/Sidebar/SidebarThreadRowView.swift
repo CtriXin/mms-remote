@@ -94,7 +94,7 @@ struct SidebarThreadRowView: View {
                             }
 
                             if thread.syncState == .archivedLocal {
-                                Text("Stored locally")
+                                Text(localized: "sidebar.stored_locally")
                                     .font(AppFont.footnote())
                                     .foregroundStyle(.tertiary)
                                     .lineLimit(1)
@@ -119,7 +119,7 @@ struct SidebarThreadRowView: View {
     private var parentTrailingMeta: some View {
         HStack(spacing: 6) {
             if thread.syncState == .archivedLocal {
-                Text("Archived")
+                Text(localized: "sidebar.archived")
                     .font(AppFont.caption2())
                     .foregroundStyle(.orange)
                     .padding(.horizontal, 5)
@@ -251,7 +251,7 @@ struct SidebarThreadRowView: View {
             HapticFeedback.shared.triggerImpactFeedback(style: .light)
             UIPasteboard.general.string = thread.sessionId
         } label: {
-            Label("Copy sessionId", systemImage: "doc.on.doc")
+            Label(LocalizationManager.shared.localized("sidebar.copy_session_id"), systemImage: "doc.on.doc")
         }
 
         if onRename != nil {
@@ -259,7 +259,7 @@ struct SidebarThreadRowView: View {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 renamePrompt.present(currentTitle: thread.displayTitle)
             } label: {
-                Label("Rename", systemImage: "pencil")
+                Label(LocalizationManager.shared.localized("sidebar.rename"), systemImage: "pencil")
             }
         }
 
@@ -269,7 +269,7 @@ struct SidebarThreadRowView: View {
                 onArchiveToggle()
             } label: {
                 Label(
-                    thread.syncState == .archivedLocal ? "Unarchive" : "Archive",
+                    thread.syncState == .archivedLocal ? LocalizationManager.shared.localized("sidebar.unarchive") : LocalizationManager.shared.localized("sidebar.archive"),
                     systemImage: thread.syncState == .archivedLocal ? "tray.and.arrow.up" : "archivebox"
                 )
             }
@@ -281,7 +281,7 @@ struct SidebarThreadRowView: View {
                 onPinToggle()
             } label: {
                 Label(
-                    isPinned ? "Unpin" : "Pin",
+                    isPinned ? LocalizationManager.shared.localized("sidebar.unpin") : LocalizationManager.shared.localized("sidebar.pin"),
                     systemImage: isPinned ? "pin.slash" : "pin"
                 )
             }
@@ -292,7 +292,7 @@ struct SidebarThreadRowView: View {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 onDelete()
             } label: {
-                Label("Remove from Phone", systemImage: "trash")
+                Label(LocalizationManager.shared.localized("sidebar.remove_from_phone"), systemImage: "trash")
             }
         }
     }
@@ -410,7 +410,7 @@ private struct SidebarThreadDiffTotalsLabel: View {
             .font(AppFont.mono(.caption2))
             .lineLimit(1)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Conversation diff total")
+            .accessibilityLabel(LocalizationManager.shared.localized("sidebar.conversation_diff_total"))
             .accessibilityValue("+\(totals.additions) -\(totals.deletions)")
     }
 }

@@ -40,13 +40,13 @@ struct SidebarThreadListView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
 
                 if threads.isEmpty && !isFiltering {
-                    Text(isConnected ? "No conversations" : "Connect to view conversations")
+                    Text(isConnected ? LocalizationManager.shared.localized("sidebar.no_conversations") : LocalizationManager.shared.localized("sidebar.connect_to_view"))
                         .foregroundStyle(.secondary)
                         .font(AppFont.subheadline())
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
                 } else if groups.flatMap(\.threads).isEmpty && isFiltering {
-                    Text("No matching conversations")
+                    Text(localized: "sidebar.no_matching_conversations")
                         .foregroundStyle(.secondary)
                         .font(AppFont.subheadline())
                         .padding(.horizontal, 16)
@@ -200,7 +200,7 @@ struct SidebarThreadListView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text(hiddenCount > 0 ? "Show \(hiddenCount) more" : "Show more")
+                    Text(hiddenCount > 0 ? String(format: LocalizationManager.shared.localized("sidebar.show_more_count"), hiddenCount) : LocalizationManager.shared.localized("sidebar.show_more"))
                     Image(systemName: "chevron.down")
                         .font(AppFont.system(size: 10, weight: .semibold))
                         .rotationEffect(.degrees(showMoreChevronRotated ? 180 : 0))
@@ -249,7 +249,7 @@ struct SidebarThreadListView: View {
                         HapticFeedback.shared.triggerImpactFeedback(style: .light)
                         onArchiveProjectGroup(group)
                     } label: {
-                        Label("Archive Project", systemImage: "archivebox")
+                        Label(LocalizationManager.shared.localized("sidebar.archive_project"), systemImage: "archivebox")
                     }
                 }
 
@@ -258,7 +258,7 @@ struct SidebarThreadListView: View {
                         HapticFeedback.shared.triggerImpactFeedback(style: .light)
                         onDeleteProjectGroup(group)
                     } label: {
-                        Label("Remove from Phone", systemImage: "trash")
+                        Label(LocalizationManager.shared.localized("sidebar.remove_from_phone"), systemImage: "trash")
                     }
                 }
             }
@@ -501,16 +501,25 @@ struct SidebarThreadListView: View {
 
     // Keep project sections expanded after regrouping so live updates do not collapse the sidebar.
     private func syncExpandedProjectGroupState() {
+        let persistedCollapsed = SidebarProjectExpansionState.decodePersistedGroupIDs(
+            collapsedProjectGroupIDsStorage
+        )
         let nextState = SidebarProjectExpansionState.synchronizedState(
             currentExpandedGroupIDs: expandedProjectGroupIDs,
             knownGroupIDs: knownProjectGroupIDs,
             visibleGroups: groups,
             hasInitialized: hasInitializedProjectGroupExpansion,
-            persistedCollapsedGroupIDs: SidebarProjectExpansionState.decodePersistedGroupIDs(
-                collapsedProjectGroupIDsStorage
-            )
+            persistedCollapsedGroupIDs: persistedCollapsed
         )
-        expandedProjectGroupIDs = nextState.expandedGroupIDs
+        var nextExpanded = nextState.expandedGroupIDs
+        let newlyKnown = nextState.knownGroupIDs.subtracting(knownProjectGroupIDs)
+        let oneWeekAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        for group in groups where group.kind == .project && newlyKnown.contains(group.id) {
+            if group.sortDate < oneWeekAgo {
+                nextExpanded.remove(group.id)
+            }
+        }
+        expandedProjectGroupIDs = nextExpanded
         knownProjectGroupIDs = nextState.knownGroupIDs
         hasInitializedProjectGroupExpansion = true
     }
@@ -570,7 +579,7 @@ struct SidebarThreadListView: View {
 }
 
 enum SidebarProjectThreadPreviewState {
-    static let collapsedRootThreadLimit = 6
+    static let collapsedRootThreadLimit = 3
 
     // Caps each project section to the latest root conversations until the user expands it.
     static func visibleRootThreads(

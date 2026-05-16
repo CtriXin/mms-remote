@@ -11,12 +11,12 @@ struct TerminalRunningIndicator: View {
     var body: some View {
         HStack(spacing: 6) {
             glyph
-            Text("MMS Remote is thinking...")
+            Text(LocalizationManager.shared.localized("thinking_dots"))
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
                 .overlay { ShimmerLabelMask() }
                 .mask(
-                    Text("MMS Remote is thinking...")
+                    Text(LocalizationManager.shared.localized("thinking_dots"))
                         .font(AppFont.caption())
                 )
         }
@@ -25,7 +25,7 @@ struct TerminalRunningIndicator: View {
                 cursorOpacity = 0.18
             }
         }
-        .accessibilityLabel("MMS Remote is thinking")
+        .accessibilityLabel(LocalizationManager.shared.localized("thinking"))
     }
 
     private var glyph: some View {

@@ -33,7 +33,7 @@ struct FileMentionChip: View {
                         .background(Color.blue.opacity(0.14), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Remove file mention")
+                .accessibilityLabel(LocalizationManager.shared.localized("message.remove_file"))
             }
         }
         .padding(.horizontal, 8)
@@ -67,7 +67,7 @@ struct SkillMentionChip: View {
                         .background(Color.indigo.opacity(0.14), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Remove skill mention")
+                .accessibilityLabel(LocalizationManager.shared.localized("message.remove_skill"))
             }
         }
         .padding(.horizontal, 8)
@@ -101,7 +101,7 @@ struct PluginMentionChip: View {
                         .background(Color.blue.opacity(0.14), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Remove plugin mention")
+                .accessibilityLabel(LocalizationManager.shared.localized("message.remove_plugin"))
             }
         }
         .padding(.horizontal, 8)

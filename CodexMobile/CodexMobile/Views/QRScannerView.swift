@@ -66,13 +66,13 @@ struct QRScannerView: View {
         .task {
             await checkCameraPermission()
         }
-        .alert("Pairing Error", isPresented: Binding(
+        .alert(LocalizationManager.shared.localized("qr.title.error"), isPresented: Binding(
             get: { scannerError != nil },
             set: { if !$0 { scannerError = nil } }
         )) {
-            Button("OK", role: .cancel) { scannerError = nil }
+            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) { scannerError = nil }
         } message: {
-            Text(scannerError ?? "Invalid QR code")
+            Text(scannerError ?? LocalizationManager.shared.localized("qr.message.invalid"))
         }
     }
 
@@ -93,25 +93,25 @@ struct QRScannerView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 if let command = prompt.command, !command.isEmpty {
-                    Text("Do these steps on your computer")
+                    Text(localized: "qr.steps.computer")
                         .font(AppFont.caption(weight: .semibold))
                         .foregroundStyle(.white.opacity(0.7))
 
-                    bridgeUpdateStep(number: "1", title: "Update MMS Remote", detail: command, showsCopyButton: true)
-                    bridgeUpdateStep(number: "2", title: "Start it again", detail: "Run mms-remote up")
-                    bridgeUpdateStep(number: "3", title: "Make a new QR code", detail: "Use the new QR shown in the terminal")
-                    bridgeUpdateStep(number: "4", title: "Come back here", detail: "Then scan the new QR code from the iPhone")
+                    bridgeUpdateStep(number: "1", title: LocalizationManager.shared.localized("qr.step.update"), detail: command, showsCopyButton: true)
+                    bridgeUpdateStep(number: "2", title: LocalizationManager.shared.localized("qr.step.start"), detail: LocalizationManager.shared.localized("qr.detail.run_up"))
+                    bridgeUpdateStep(number: "3", title: LocalizationManager.shared.localized("qr.step.new_qr"), detail: LocalizationManager.shared.localized("qr.detail.update_command"))
+                    bridgeUpdateStep(number: "4", title: LocalizationManager.shared.localized("qr.step.come_back"), detail: LocalizationManager.shared.localized("qr.detail.scan_new"))
                 } else {
-                    Text("Do these steps on your iPhone")
+                    Text(localized: "qr.steps.iphone")
                         .font(AppFont.caption(weight: .semibold))
                         .foregroundStyle(.white.opacity(0.7))
 
-                    bridgeUpdateStep(number: "1", title: "Update MMS Remote", detail: "Install the latest MMS Remote build on this iPhone.")
-                    bridgeUpdateStep(number: "2", title: "Come back here", detail: "Then retry the connection or scan a fresh QR code.")
+                    bridgeUpdateStep(number: "1", title: LocalizationManager.shared.localized("qr.step.update"), detail: LocalizationManager.shared.localized("qr.detail.install_latest"))
+                    bridgeUpdateStep(number: "2", title: LocalizationManager.shared.localized("qr.step.come_back"), detail: LocalizationManager.shared.localized("qr.detail.retry_or_scan"))
                 }
             }
 
-            Button("I Updated It") {
+            Button(LocalizationManager.shared.localized("qr.button.updated")) {
                 bridgeUpdatePrompt = nil
                 didCopyBridgeUpdateCommand = false
             }
@@ -158,7 +158,7 @@ struct QRScannerView: View {
                     )
 
                 if showsCopyButton {
-                    Button(didCopyBridgeUpdateCommand ? "Copied" : "Copy Command") {
+                    Button(didCopyBridgeUpdateCommand ? LocalizationManager.shared.localized("common.copied") : LocalizationManager.shared.localized("common.copy")) {
                         UIPasteboard.general.string = detail
                         HapticFeedback.shared.triggerImpactFeedback(style: .light)
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -192,7 +192,7 @@ struct QRScannerView: View {
                 )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Back")
+        .accessibilityLabel(LocalizationManager.shared.localized("qr.button.back"))
     }
 
     private var scannerOverlay: some View {
@@ -203,7 +203,7 @@ struct QRScannerView: View {
                 .stroke(Color.white.opacity(0.6), lineWidth: 2)
                 .frame(width: 250, height: 250)
 
-            Text("Scan the MMS Remote QR code")
+            Text(localized: "qr.scan_prompt")
                 .font(AppFont.subheadline(weight: .medium))
                 .foregroundStyle(.white)
 
@@ -217,17 +217,17 @@ struct QRScannerView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
 
-            Text("Camera access needed")
+            Text(localized: "qr.camera.title")
                 .font(AppFont.title3(weight: .semibold))
                 .foregroundStyle(.white)
 
-            Text("Open Settings and allow camera access to scan the pairing QR code.")
+            Text(localized: "qr.camera.message")
                 .font(AppFont.subheadline())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            Button("Open Settings") {
+            Button(LocalizationManager.shared.localized("qr.button.open_settings")) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
@@ -264,7 +264,7 @@ struct QRScannerView: View {
         case .success(let payload):
             onScan(payload)
         case .shortCode:
-            scannerError = "Use Pair with Code from the previous screen."
+            scannerError = LocalizationManager.shared.localized("qr.error.use_pair_with_code")
             resetScanLock()
         case .scanError(let message):
             scannerError = message

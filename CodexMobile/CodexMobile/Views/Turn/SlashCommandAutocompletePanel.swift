@@ -56,7 +56,7 @@ struct SlashCommandAutocompletePanel: View {
         let items = TurnComposerSlashCommand.filtered(matching: query, within: availableCommands)
 
         if items.isEmpty {
-            Text("No commands for /\(query)")
+            Text(String(format: LocalizationManager.shared.localized("autocomplete.no_commands"), query))
                 .font(AppFont.footnote())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)

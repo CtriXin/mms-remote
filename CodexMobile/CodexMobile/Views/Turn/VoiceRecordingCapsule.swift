@@ -94,7 +94,7 @@ struct VoiceRecordingCapsule: View {
                 .background(Color.primary.opacity(0.08), in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Cancel voice recording")
+        .accessibilityLabel(LocalizationManager.shared.localized("voice.cancel"))
     }
 
     // MARK: - Helpers
@@ -176,7 +176,7 @@ private struct VoiceRecordingCapsulePreview: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
 
-                Text("Ask anything... @plugins, $skills, /commands")
+                Text(localized: "voice.ask_anything")
                     .font(AppFont.body())
                     .foregroundStyle(Color(.placeholderText))
                     .frame(maxWidth: .infinity, alignment: .leading)

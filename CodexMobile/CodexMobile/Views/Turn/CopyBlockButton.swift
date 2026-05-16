@@ -31,7 +31,7 @@ struct CopyBlockButton: View {
                     copyLabel
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Copy response")
+                .accessibilityLabel(LocalizationManager.shared.localized("message.copy_response"))
             }
         }
         .animation(.easeInOut(duration: 0.18), value: isRunning)
@@ -58,7 +58,7 @@ struct CopyBlockButton: View {
             }
             .frame(width: 15, height: 15)
             if showCopiedFeedback {
-                Text("Copied")
+                Text(LocalizationManager.shared.localized("common.copied"))
                     .font(AppFont.system(size: 11, weight: .medium))
             }
         }

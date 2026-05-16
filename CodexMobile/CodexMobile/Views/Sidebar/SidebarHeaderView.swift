@@ -17,7 +17,7 @@ struct SidebarHeaderView: View {
                 .frame(width: 26, height: 26)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            Text("MMS Remote")
+            Text(localized: "sidebar.title")
                 .font(AppFont.title3(weight: .medium))
 
             Spacer(minLength: 0)
@@ -33,7 +33,7 @@ struct SidebarHeaderView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close menu")
+                .accessibilityLabel(LocalizationManager.shared.localized("sidebar.close_menu"))
             }
         }
         .padding(.horizontal, 16)

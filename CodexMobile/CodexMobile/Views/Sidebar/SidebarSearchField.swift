@@ -20,7 +20,7 @@ struct SidebarSearchField: View {
                     .font(AppFont.subheadline())
                     .foregroundStyle(.secondary)
 
-                TextField("Search conversations", text: $text)
+                TextField(LocalizationManager.shared.localized("search.placeholder"), text: $text)
                     .font(AppFont.subheadline())
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -32,7 +32,7 @@ struct SidebarSearchField: View {
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
-                            Button("Done") {
+                            Button(LocalizationManager.shared.localized("search.button.done")) {
                                 isFocused = false
                             }
                         }
@@ -59,7 +59,7 @@ struct SidebarSearchField: View {
             )
 
             if isFocused {
-                Button("Cancel") {
+                Button(LocalizationManager.shared.localized("search.button.cancel")) {
                     text = ""
                     isFocused = false
                 }

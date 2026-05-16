@@ -183,46 +183,46 @@ struct SidebarView: View {
             sidebarSheetContent(sheet)
         }
         .confirmationDialog(
-            "Archive \"\(projectGroupPendingArchive?.label ?? "project")\"?",
+            String(format: LocalizationManager.shared.localized("sidebar.alert.archive_project_title"), projectGroupPendingArchive?.label ?? "project"),
             isPresented: Binding(
                 get: { projectGroupPendingArchive != nil },
                 set: { if !$0 { projectGroupPendingArchive = nil } }
             ),
             titleVisibility: .visible
         ) {
-            Button("Archive Project") {
+            Button(LocalizationManager.shared.localized("sidebar.alert.archive_project_button")) {
                 archivePendingProjectGroup()
             }
-            Button("Cancel", role: .cancel) {
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
                 projectGroupPendingArchive = nil
             }
         } message: {
-            Text("All active chats in this project will be archived.")
+            Text(localized: "sidebar.alert.archive_project_message")
         }
         .alert(
-            "Remove \"\(projectGroupPendingDeletion?.label ?? "project")\" from this phone?",
+            String(format: LocalizationManager.shared.localized("sidebar.alert.remove_project_title"), projectGroupPendingDeletion?.label ?? "project"),
             isPresented: Binding(
                 get: { projectGroupPendingDeletion != nil },
                 set: { if !$0 { projectGroupPendingDeletion = nil } }
             )
         ) {
-            Button("Remove from Phone", role: .destructive) {
+            Button(LocalizationManager.shared.localized("sidebar.remove_from_phone"), role: .destructive) {
                 deletePendingProjectGroupLocally()
             }
-            Button("Cancel", role: .cancel) {
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
                 projectGroupPendingDeletion = nil
             }
         } message: {
-            Text("Chats for this project will be deleted only from MMS Remote on this phone. Nothing is removed from your computer or Codex observer.")
+            Text(localized: "sidebar.alert.remove_project_message")
         }
         .alert(
-            "Remove \"\(threadPendingDeletion?.displayTitle ?? "conversation")\" from this phone?",
+            String(format: LocalizationManager.shared.localized("sidebar.alert.remove_chat_title"), threadPendingDeletion?.displayTitle ?? "conversation"),
             isPresented: Binding(
                 get: { threadPendingDeletion != nil },
                 set: { if !$0 { threadPendingDeletion = nil } }
             )
         ) {
-            Button("Remove from Phone", role: .destructive) {
+            Button(LocalizationManager.shared.localized("sidebar.remove_from_phone"), role: .destructive) {
                 if let thread = threadPendingDeletion {
                     if selectedThread?.id == thread.id {
                         selectedThread = nil
@@ -231,25 +231,25 @@ struct SidebarView: View {
                 }
                 threadPendingDeletion = nil
             }
-            Button("Cancel", role: .cancel) {
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
                 threadPendingDeletion = nil
             }
         } message: {
-            Text("This only removes the chat from MMS Remote on this phone. Nothing is removed from your computer or Codex observer.")
+            Text(localized: "sidebar.remove_confirm")
         }
         .alert(
-            "Action failed",
+            LocalizationManager.shared.localized("sidebar.alert.action_failed"),
             isPresented: Binding(
                 get: { createThreadErrorMessage != nil },
                 set: { if !$0 { createThreadErrorMessage = nil } }
             ),
             actions: {
-                Button("OK", role: .cancel) {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                     createThreadErrorMessage = nil
                 }
             },
             message: {
-                Text(createThreadErrorMessage ?? "Please try again.")
+                Text(createThreadErrorMessage ?? LocalizationManager.shared.localized("sidebar.alert.try_again"))
             }
         )
     }
@@ -595,7 +595,7 @@ private struct SidebarThreadsInlineLoadingView: View {
         HStack(spacing: 8) {
             ProgressView()
                 .controlSize(.small)
-            Text("Syncing chats")
+            Text(localized: "sidebar.syncing")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)

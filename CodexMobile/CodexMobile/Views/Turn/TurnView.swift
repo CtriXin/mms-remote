@@ -460,16 +460,16 @@ struct TurnView: View {
             }
         )
         .alert(
-            checkedOutElsewhereAlert?.title ?? "Branch already open elsewhere",
+            checkedOutElsewhereAlert?.title ?? LocalizationManager.shared.localized("alert.branch_open_elsewhere"),
             isPresented: checkedOutElsewhereAlertIsPresented,
             presenting: checkedOutElsewhereAlert
         ) { alert in
-            Button("Close", role: .cancel) {
+            Button(LocalizationManager.shared.localized("common.close"), role: .cancel) {
                 checkedOutElsewhereAlert = nil
             }
 
             if let threadID = alert.threadID {
-                Button("Open Chat") {
+                Button(LocalizationManager.shared.localized("alert.open_chat")) {
                     checkedOutElsewhereAlert = nil
                     openThread(threadID)
                 }
@@ -1845,9 +1845,9 @@ struct TurnView: View {
                 .controlSize(.small)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Creating fork...")
+                Text(localized: "composer.creating_fork")
                     .font(AppFont.subheadline(weight: .semibold))
-                Text("Opening the new chat")
+                Text(localized: "composer.opening_chat")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             }
@@ -1869,8 +1869,8 @@ struct TurnView: View {
 
     private var loadingState: some View {
         chatPlaceholderState(
-            title: Text("Loading chat..."),
-            subtitle: "Fetching the latest messages for this conversation."
+            title: Text(localized: "composer.loading_chat"),
+            subtitle: LocalizationManager.shared.localized("timeline.preparing")
         )
     }
 
@@ -1886,15 +1886,15 @@ struct TurnView: View {
     private var emptyState: some View {
         chatPlaceholderState(
             title: emptyStateTitle,
-            subtitle: "Chats are End-to-end encrypted"
+            subtitle: LocalizationManager.shared.localized("composer.e2e_encrypted")
         )
     }
 
     private var emptyStateTitle: Text {
         guard let folder = emptyStateFolderName else {
-            return Text("Hi! How can I help you?")
+            return Text(localized: "composer.hi_help")
         }
-        return Text("What should we do in ")
+        return Text(localized: "composer.what_do")
             + Text(folder).foregroundStyle(.secondary)
             + Text("?")
     }
@@ -1937,11 +1937,11 @@ private struct NewChatOpeningOverlay: View {
                 .controlSize(.regular)
 
             VStack(spacing: 4) {
-                Text("Starting new chat...")
+                Text(localized: "composer.starting_chat")
                     .font(AppFont.headline())
                     .foregroundStyle(.primary)
 
-                Text("Preparing an empty conversation.")
+                Text(localized: "common.preparing_conversation")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             }
@@ -1981,7 +1981,7 @@ private struct SubagentParentAccessoryCard: View {
             }
         } header: {
             HStack(alignment: .center, spacing: 6) {
-                Text("Subagent")
+                Text(localized: "composer.subagent")
                     .font(AppFont.mono(.caption2))
                     .foregroundStyle(.secondary)
 
@@ -1994,7 +1994,7 @@ private struct SubagentParentAccessoryCard: View {
                     .lineLimit(1)
             }
         } summary: {
-            Text("Back to \(parentTitle)")
+            Text(String(format: LocalizationManager.shared.localized("composer.back_to"), parentTitle))
                 .font(AppFont.subheadline(weight: .medium))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
@@ -2037,9 +2037,9 @@ private struct RuntimeDebugLogSheet: View {
             Group {
                 if codex.runtimeDebugLogEntries.isEmpty {
                     ContentUnavailableView(
-                        "No Runtime Logs Yet",
+                        LocalizationManager.shared.localized("composer.no_runtime_logs"),
                         systemImage: "list.bullet.rectangle",
-                        description: Text("Start a Plan Mode turn and the RPC events will appear here.")
+                        description: Text(localized: "composer.plan_rpc_hint")
                     )
                 } else {
                     ScrollView {
@@ -2052,21 +2052,21 @@ private struct RuntimeDebugLogSheet: View {
                     .background(Color(.systemBackground))
                 }
             }
-            .navigationTitle("Runtime Logs")
+            .navigationTitle(LocalizationManager.shared.localized("composer.runtime_logs"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
+                    Button(LocalizationManager.shared.localized("common.close")) {
                         dismiss()
                     }
                 }
 
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Clear") {
+                    Button(LocalizationManager.shared.localized("common.clear")) {
                         codex.clearRuntimeDebugLog()
                     }
 
-                    Button("Copy") {
+                    Button(LocalizationManager.shared.localized("common.copy")) {
                         UIPasteboard.general.string = combinedLogText
                     }
                     .disabled(combinedLogText.isEmpty)

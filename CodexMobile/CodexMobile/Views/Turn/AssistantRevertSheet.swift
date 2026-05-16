@@ -73,12 +73,12 @@ struct AssistantRevertSheet: View {
                 }
                 .padding(16)
             }
-            .navigationTitle("Undo this response")
+            .navigationTitle(LocalizationManager.shared.localized("revert.title"))
             .navigationBarTitleDisplayMode(.inline)
             .adaptiveNavigationBar()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button(LocalizationManager.shared.localized("settings.close")) {
                         dismiss()
                         onClose()
                     }
@@ -86,7 +86,7 @@ struct AssistantRevertSheet: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     if canConfirm {
-                        Button(state.isApplying ? "Undoing..." : "Undo") {
+                        Button(state.isApplying ? LocalizationManager.shared.localized("revert.undoing") : LocalizationManager.shared.localized("revert.undo")) {
                             onConfirm()
                         }
                         .disabled(state.isApplying)
@@ -99,12 +99,12 @@ struct AssistantRevertSheet: View {
 
     private var infoCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("This action will try to undo only the changes from this response. Later local edits stay untouched unless they overlap.")
+            Text(LocalizationManager.shared.localized("revert.description"))
                 .font(AppFont.body())
                 .foregroundStyle(.primary)
 
             HStack(spacing: 8) {
-                Text("\(affectedFiles.count) file\(affectedFiles.count == 1 ? "" : "s")")
+                Text(String(format: LocalizationManager.shared.localized("revert.files"), affectedFiles.count))
                     .font(AppFont.mono(.caption))
                     .foregroundStyle(.secondary)
                 Text("+\(totalAdditions)")
@@ -129,7 +129,7 @@ struct AssistantRevertSheet: View {
 
             if effectiveRiskLevel == .warning {
                 issueSection(
-                    title: "Needs review",
+                    title: LocalizationManager.shared.localized("revert.needs_review"),
                     lines: warningLines
                 )
             }
@@ -142,7 +142,7 @@ struct AssistantRevertSheet: View {
     private var loadingCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             ProgressView()
-            Text("Checking whether the reverse patch applies cleanly...")
+            Text(LocalizationManager.shared.localized("revert.checking"))
                 .font(AppFont.body())
                 .foregroundStyle(.secondary)
         }
@@ -157,7 +157,7 @@ struct AssistantRevertSheet: View {
 
             if !preview.stagedFiles.isEmpty {
                 issueSection(
-                    title: "Staged files",
+                    title: LocalizationManager.shared.localized("revert.staged_files"),
                     lines: preview.stagedFiles.map {
                         "\($0): Unstage this file first to keep revert predictable."
                     }
@@ -165,12 +165,12 @@ struct AssistantRevertSheet: View {
             }
 
             if !preview.unsupportedReasons.isEmpty {
-                issueSection(title: "Unsupported", lines: preview.unsupportedReasons)
+                issueSection(title: LocalizationManager.shared.localized("revert.unsupported"), lines: preview.unsupportedReasons)
             }
 
             if !preview.conflicts.isEmpty {
                 issueSection(
-                    title: "Conflicts",
+                    title: LocalizationManager.shared.localized("revert.conflicts"),
                     lines: preview.conflicts.map { "\($0.path): \($0.message)" }
                 )
             }
@@ -193,21 +193,21 @@ struct AssistantRevertSheet: View {
     private func previewStatusLabel(_ preview: RevertPreviewResult) -> some View {
         switch effectiveRiskLevel {
         case .safe:
-            Label("This response can be undone cleanly.", systemImage: "checkmark.circle.fill")
+            Label(LocalizationManager.shared.localized("revert.clean"), systemImage: "checkmark.circle.fill")
                 .font(AppFont.body(weight: .semibold))
                 .foregroundStyle(.green)
         case .warning:
             if preview.canRevert {
-                Label("Undo looks clean, but other chats touched some of these files.", systemImage: "exclamationmark.circle.fill")
+                Label(LocalizationManager.shared.localized("revert.partial"), systemImage: "exclamationmark.circle.fill")
                     .font(AppFont.body(weight: .semibold))
                     .foregroundStyle(.orange)
             } else {
-                Label("Could not safely undo this response.", systemImage: "exclamationmark.triangle.fill")
+                Label(LocalizationManager.shared.localized("revert.unsafe"), systemImage: "exclamationmark.triangle.fill")
                     .font(AppFont.body(weight: .semibold))
                     .foregroundStyle(.orange)
             }
         case .blocked:
-            Label("Could not safely undo this response.", systemImage: "exclamationmark.triangle.fill")
+            Label(LocalizationManager.shared.localized("revert.unsafe"), systemImage: "exclamationmark.triangle.fill")
                 .font(AppFont.body(weight: .semibold))
                 .foregroundStyle(.orange)
         }
@@ -215,7 +215,7 @@ struct AssistantRevertSheet: View {
 
     private func errorCard(_ errorMessage: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Error")
+            Text(LocalizationManager.shared.localized("revert.error"))
                 .font(AppFont.body(weight: .semibold))
                 .foregroundStyle(.primary)
             Text(errorMessage)

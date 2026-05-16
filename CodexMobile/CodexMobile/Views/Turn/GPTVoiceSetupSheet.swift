@@ -21,9 +21,9 @@ struct GPTVoiceSetupSheet: View {
                         )
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("GPT voice uses the ChatGPT session on your computer")
+                        Text(localized: "voice.setup.header")
                             .font(AppFont.subheadline(weight: .semibold))
-                        Text("MMS Remote does not keep a separate GPT voice login on the iPhone. It uses the ChatGPT session already active on your paired computer.")
+                        Text(localized: "voice.setup.subtitle")
                             .font(AppFont.caption())
                             .foregroundStyle(.secondary)
                     }
@@ -32,27 +32,27 @@ struct GPTVoiceSetupSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     infoStep(
                         number: "1",
-                        title: "You speak on the iPhone",
-                        detail: "MMS Remote records the voice clip locally on the phone when you hold to talk."
+                        title: LocalizationManager.shared.localized("voice.step.1.title"),
+                        detail: LocalizationManager.shared.localized("voice.step.1.detail")
                     )
                     infoStep(
                         number: "2",
-                        title: "The phone checks your paired computer",
-                        detail: "MMS Remote asks the paired computer bridge for the active ChatGPT session that is already connected there."
+                        title: LocalizationManager.shared.localized("voice.step.2.title"),
+                        detail: LocalizationManager.shared.localized("voice.step.2.detail")
                     )
                     infoStep(
                         number: "3",
-                        title: "GPT transcribes the clip",
-                        detail: "The voice clip is sent with that computer-backed GPT session so GPT can turn it into text."
+                        title: LocalizationManager.shared.localized("voice.step.3.title"),
+                        detail: LocalizationManager.shared.localized("voice.step.3.detail")
                     )
                     infoStep(
                         number: "4",
-                        title: "The text comes back to MMS Remote",
-                        detail: "The transcript returns to the app and gets dropped into your message composer."
+                        title: LocalizationManager.shared.localized("voice.step.4.title"),
+                        detail: LocalizationManager.shared.localized("voice.step.4.detail")
                     )
                 }
 
-                Text("In short: iPhone voice in, computer ChatGPT session for auth, GPT transcript back to the iPhone.")
+                Text(localized: "voice.setup.summary")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
 
@@ -61,7 +61,7 @@ struct GPTVoiceSetupSheet: View {
             .padding(20)
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
-            .navigationTitle("How GPT Voice Works")
+            .navigationTitle(LocalizationManager.shared.localized("voice.setup.title"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }

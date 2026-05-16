@@ -88,7 +88,7 @@ struct ComposerBottomBar: View {
                         .frame(width: 28, height: 28)
                         .background(Color(.systemGray2), in: Circle())
                 }
-                .accessibilityLabel("Resume queued messages")
+                .accessibilityLabel(LocalizationManager.shared.localized("composer.accessibility.resume"))
             }
 
             // Voice -> Stop/loading -> Send. New sends can look running before the turn id is interruptible.
@@ -105,7 +105,7 @@ struct ComposerBottomBar: View {
                 ProgressView()
                     .tint(Color(.label))
                     .frame(width: 32, height: 32)
-                    .accessibilityLabel("Starting run")
+                    .accessibilityLabel(LocalizationManager.shared.localized("composer.accessibility.starting"))
             } else if isThreadRunning {
                 Button {
                     HapticFeedback.shared.triggerImpactFeedback()
@@ -117,7 +117,7 @@ struct ComposerBottomBar: View {
                         .frame(width: 32, height: 32)
                         .background(Color(.label), in: Circle())
                 }
-                .accessibilityLabel("Stop current run")
+                .accessibilityLabel(LocalizationManager.shared.localized("composer.accessibility.stop"))
             }
 
             Button {
@@ -192,7 +192,7 @@ struct ComposerBottomBar: View {
                     onSetPlanModeArmed(newValue)
                 }
             )) {
-                Label("Plan mode", systemImage: "checklist")
+                Label(LocalizationManager.shared.localized("composer.mode.plan"), systemImage: "checklist")
             }
 
             if runtimeState.supportsFastMode {
@@ -200,18 +200,18 @@ struct ComposerBottomBar: View {
                     HapticFeedback.shared.triggerImpactFeedback(style: .light)
                     toggleFastMode()
                 } label: {
-                    Label("Fast Mode", systemImage: fastModePlusMenuIconName)
+                    Label(LocalizationManager.shared.localized("composer.mode.fast"), systemImage: fastModePlusMenuIconName)
                 }
             }
 
             Section {
-                Button("Photo library") {
+                Button(LocalizationManager.shared.localized("composer.photo_library")) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     onTapAddImage()
                 }
                 .disabled(remainingAttachmentSlots == 0)
 
-                Button("Take a photo") {
+                Button(LocalizationManager.shared.localized("composer.take_photo")) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     onTapTakePhoto()
                 }
@@ -226,14 +226,14 @@ struct ComposerBottomBar: View {
         }
         .tint(metaLabelColor)
         .disabled(isComposerInteractionLocked)
-        .accessibilityLabel("Composer options")
+        .accessibilityLabel(LocalizationManager.shared.localized("composer.accessibility.options"))
     }
 
     private var planModeIndicator: some View {
         HStack(spacing: 5) {
             Image(systemName: "checklist")
                 .font(metaSymbolFont)
-            Text("Plan")
+            Text(LocalizationManager.shared.localized("composer.plan_indicator"))
                 .font(metaTextFont)
                 .fontWeight(.regular)
                 .lineLimit(1)
@@ -303,9 +303,9 @@ private struct ComposerRuntimeMenuControl: View, Equatable {
     // One consolidated runtime pill: Effort + featured models + Speed as flat sections.
     var body: some View {
         Menu {
-            Section("Effort") {
+            Section(LocalizationManager.shared.localized("composer.effort")) {
                 if runtimeState.reasoningDisplayOptions.isEmpty {
-                    Text("No reasoning options")
+                    Text(LocalizationManager.shared.localized("composer.no_reasoning"))
                 } else {
                     ForEach(runtimeState.reasoningDisplayOptions, id: \.id) { option in
                         Button {
@@ -323,11 +323,11 @@ private struct ComposerRuntimeMenuControl: View, Equatable {
                 }
             }
 
-            Section("Change model") {
+            Section(LocalizationManager.shared.localized("composer.change_model")) {
                 if isLoadingModels {
-                    Text("Loading models...")
+                    Text(LocalizationManager.shared.localized("composer.loading_models"))
                 } else if orderedModelOptions.isEmpty {
-                    Text("No models available")
+                    Text(LocalizationManager.shared.localized("composer.no_models"))
                 } else {
                     ForEach(featuredModelOptions, id: \.id) { model in
                         Button {
@@ -339,7 +339,7 @@ private struct ComposerRuntimeMenuControl: View, Equatable {
                     }
 
                     if hasNonFeaturedModels {
-                        Button("Other models") {
+                        Button(LocalizationManager.shared.localized("composer.other_models")) {
                             HapticFeedback.shared.triggerImpactFeedback(style: .light)
                             DispatchQueue.main.async {
                                 showsAllModelsSheet = true
@@ -350,15 +350,15 @@ private struct ComposerRuntimeMenuControl: View, Equatable {
             }
 
             if runtimeState.supportsFastMode {
-                Section("Speed") {
+                Section(LocalizationManager.shared.localized("composer.speed")) {
                     Button {
                         HapticFeedback.shared.triggerImpactFeedback(style: .light)
                         runtimeActions.selectServiceTier(nil)
                     } label: {
                         if runtimeState.isSelectedServiceTier(nil) {
-                            Label("Normal", systemImage: "checkmark")
+                            Label(LocalizationManager.shared.localized("composer.mode.normal"), systemImage: "checkmark")
                         } else {
-                            Text("Normal")
+                            Text(LocalizationManager.shared.localized("composer.mode.normal"))
                         }
                     }
 
@@ -497,13 +497,13 @@ private struct AllModelsSheet: View {
         NavigationStack {
             Group {
                 if isLoadingModels {
-                    ProgressView("Loading models…")
+                    ProgressView(LocalizationManager.shared.localized("composer.loading_models"))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if models.isEmpty {
                     ContentUnavailableView(
-                        "No models available",
+                        LocalizationManager.shared.localized("composer.no_models"),
                         systemImage: "square.stack.3d.up.slash",
-                        description: Text("Reconnect to your local Codex bridge to refresh the model list.")
+                        description: Text(LocalizationManager.shared.localized("composer.no_models_description"))
                     )
                 } else {
                     List {
@@ -521,11 +521,11 @@ private struct AllModelsSheet: View {
                     .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("Choose model")
+            .navigationTitle(LocalizationManager.shared.localized("composer.choose_model"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button(LocalizationManager.shared.localized("composer.done")) { dismiss() }
                 }
             }
         }

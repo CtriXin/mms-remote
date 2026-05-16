@@ -157,10 +157,10 @@ struct RevenueCatPaywallView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 
 
-            Text("Unlock MMS Remote Pro")
+            Text(localized: "paywall.title")
                 .font(AppFont.system(size: 24, weight: .bold))
 
-            Text("Everything runs on your computer. Your phone is the remote.")
+            Text(localized: "paywall.subtitle")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -176,7 +176,7 @@ struct RevenueCatPaywallView: View {
 
     private var featureCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Here's what you'll get")
+            Text(localized: "paywall.features_title")
                 .font(AppFont.body(weight: .semibold))
                 .padding(.bottom, 2)
 
@@ -242,7 +242,7 @@ struct RevenueCatPaywallView: View {
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 0) {
-                    Button(subscriptions.isRestoring ? "Restoring..." : "Restore Purchase") {
+                    Button(subscriptions.isRestoring ? LocalizationManager.shared.localized("sub.button.restoring") : LocalizationManager.shared.localized("sub.button.restore")) {
                         Task {
                             await subscriptions.restorePurchases()
                         }
@@ -250,25 +250,25 @@ struct RevenueCatPaywallView: View {
                     .disabled(subscriptions.isPurchasing || subscriptions.isRestoring)
 
                     Text(" · ").foregroundStyle(.secondary)
-                    Button("Redeem Code") {
+                    Button(LocalizationManager.shared.localized("sub.button.redeem")) {
                         isPresentingOfferCodeRedemption = true
                     }
                     .disabled(subscriptions.isPurchasing || subscriptions.isRestoring)
 
                     if let managementURL {
                         Text(" · ").foregroundStyle(.secondary)
-                        Button("Manage") {
+                        Button(LocalizationManager.shared.localized("common.manage")) {
                             UIApplication.shared.open(managementURL)
                         }
                     }
 
                     Text(" · ").foregroundStyle(.secondary)
-                    Button("Privacy") {
+                    Button(LocalizationManager.shared.localized("sub.button.privacy")) {
                         UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
                     }
 
                     Text(" · ").foregroundStyle(.secondary)
-                    Button("Terms") {
+                    Button(LocalizationManager.shared.localized("sub.button.terms")) {
                         UIApplication.shared.open(AppEnvironment.termsOfUseURL)
                     }
                 }
@@ -277,7 +277,7 @@ struct RevenueCatPaywallView: View {
             }
 
             if hasProAccess {
-                Text("Pro is already active on this account.")
+                Text(localized: "paywall.active")
                     .font(AppFont.caption())
                     .foregroundStyle(.green)
             }
@@ -338,7 +338,7 @@ struct RevenueCatPaywallView: View {
                     Spacer()
 
                     if plan.isBestValue {
-                        Text("37% OFF")
+                        Text(localized: "paywall.discount")
                             .font(AppFont.caption2(weight: .semibold))
                             .foregroundStyle(isSelected ? accentForeground.opacity(0.9) : accent)
                             .padding(.horizontal, 8)
@@ -457,7 +457,7 @@ struct RevenueCatPaywallView: View {
     }
 
     private var selectedCallToActionTitle: String {
-        selectedPlan?.callToActionTitle ?? "Unlock MMS Remote Pro"
+        selectedPlan?.callToActionTitle ?? LocalizationManager.shared.localized("paywall.cta_fallback")
     }
 
     private var selectedFooterDescription: String {

@@ -19,7 +19,7 @@ struct TurnStatusSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
             }
-            .navigationTitle("Status")
+            .navigationTitle(LocalizationManager.shared.localized("common.status"))
             .navigationBarTitleDisplayMode(.inline)
             .adaptiveNavigationBar()
         }

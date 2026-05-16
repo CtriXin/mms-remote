@@ -57,12 +57,12 @@ struct SidebarLocalFolderBrowserSheet: View {
                     onSelect: openDirectory
                 )
             }
-            .navigationTitle("Add Local Folder")
+            .navigationTitle(LocalizationManager.shared.localized("folder.nav_title"))
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Search folders")
+            .searchable(text: $searchText, prompt: LocalizationManager.shared.localized("folder.search_prompt"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button(LocalizationManager.shared.localized("folder.button.close")) {
                         dismiss()
                     }
                 }
@@ -73,7 +73,7 @@ struct SidebarLocalFolderBrowserSheet: View {
                     }
                     .disabled(currentPath == nil || isCreatingFolder)
 
-                    Button("Use", action: useCurrentFolder)
+                    Button(LocalizationManager.shared.localized("folder.button.use"), action: useCurrentFolder)
                         .disabled(currentPath == nil)
                 }
             }
@@ -84,14 +84,14 @@ struct SidebarLocalFolderBrowserSheet: View {
         .task(id: folderSearchTaskID) {
             await updateFolderSearch()
         }
-        .alert("New Folder", isPresented: $isShowingNewFolderPrompt) {
-            TextField("Folder name", text: $newFolderName)
-            Button("Create") {
+        .alert(LocalizationManager.shared.localized("folder.alert.new_folder"), isPresented: $isShowingNewFolderPrompt) {
+            TextField(LocalizationManager.shared.localized("folder.placeholder.folder_name"), text: $newFolderName)
+            Button(LocalizationManager.shared.localized("folder.button.create")) {
                 Task { await createFolderAndSelect() }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {}
         } message: {
-            Text("Create this folder on your Mac and start a chat there.")
+            Text(localized: "folder.alert.message")
         }
     }
 
@@ -123,7 +123,7 @@ struct SidebarLocalFolderBrowserSheet: View {
             if let startPath {
                 await loadDirectory(startPath)
             } else {
-                errorMessage = "No local folders are available from this Mac."
+                errorMessage = LocalizationManager.shared.localized("folder.error.no_folders")
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -240,7 +240,7 @@ private struct SidebarLocalFolderLocationsSection: View {
 
     var body: some View {
         if !locations.isEmpty {
-            Section("Locations") {
+            Section(LocalizationManager.shared.localized("folder.section.locations")) {
                 ForEach(locations) { location in
                     Button {
                         onSelect(location.path)
@@ -261,7 +261,7 @@ private struct SidebarLocalFolderCurrentSection: View {
     let currentPath: String?
 
     var body: some View {
-        Section("Current Folder") {
+        Section(LocalizationManager.shared.localized("folder.section.current")) {
             if let currentPath {
                 SidebarLocalFolderRow(
                     iconSystemName: "folder.fill",
@@ -269,7 +269,7 @@ private struct SidebarLocalFolderCurrentSection: View {
                     subtitle: currentPath
                 )
             } else {
-                Text("Loading folders...")
+                Text(localized: "folder.loading")
                     .font(AppFont.body())
                     .foregroundStyle(.secondary)
             }
@@ -293,7 +293,7 @@ private struct SidebarLocalFolderEntriesSection: View {
     let onSelect: (String) -> Void
 
     var body: some View {
-        Section(searchQuery.isEmpty ? "Folders" : "Matching Folders") {
+        Section(searchQuery.isEmpty ? LocalizationManager.shared.localized("folder.section.folders") : LocalizationManager.shared.localized("folder.section.matching")) {
             if searchQuery.isEmpty {
                 folderBrowserRows
             } else {
@@ -310,7 +310,7 @@ private struct SidebarLocalFolderEntriesSection: View {
             } label: {
                 SidebarLocalFolderRow(
                     iconSystemName: "arrow.uturn.left",
-                    title: "Parent Folder",
+                    title: LocalizationManager.shared.localized("folder.row.parent"),
                     subtitle: parentPath
                 )
             }
@@ -319,12 +319,12 @@ private struct SidebarLocalFolderEntriesSection: View {
         if isLoading {
             HStack {
                 ProgressView()
-                Text("Loading")
+                Text(localized: "folder.loading_short")
                     .font(AppFont.body())
                     .foregroundStyle(.secondary)
             }
         } else if entries.isEmpty {
-            Text("No child folders here.")
+            Text(localized: "folder.empty")
                 .font(AppFont.body())
                 .foregroundStyle(.secondary)
         } else {
@@ -339,7 +339,7 @@ private struct SidebarLocalFolderEntriesSection: View {
         if isSearchingFolders {
             HStack {
                 ProgressView()
-                Text("Searching folders...")
+                Text(localized: "folder.searching")
                     .font(AppFont.body())
                     .foregroundStyle(.secondary)
             }
@@ -349,7 +349,7 @@ private struct SidebarLocalFolderEntriesSection: View {
                 .foregroundStyle(.red)
                 .fixedSize(horizontal: false, vertical: true)
         } else if searchResults.isEmpty {
-            Text("No matching folders under this folder.")
+            Text(localized: "folder.empty_search")
                 .font(AppFont.body())
                 .foregroundStyle(.secondary)
         } else {

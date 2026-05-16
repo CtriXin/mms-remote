@@ -94,12 +94,12 @@ struct SubscriptionGateView: View {
                 )
 
             VStack(spacing: 10) {
-                Text("MMS Remote Pro Required")
+                Text(localized: "sub.title.required")
                     .font(AppFont.system(size: 24, weight: .bold))
                     .foregroundStyle(primaryTextColor)
                     .multilineTextAlignment(.center)
 
-                Text("Unlock monthly, yearly, or lifetime access to connect your iPhone to Codex running on your computer.")
+                Text(localized: "sub.subtitle.unlock")
                     .font(AppFont.caption())
                     .foregroundStyle(secondaryTextColor)
                     .multilineTextAlignment(.center)
@@ -111,7 +111,7 @@ struct SubscriptionGateView: View {
 
     private var featureList: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("What you get")
+            Text(localized: "sub.feature_list_title")
                 .font(AppFont.system(size: 26, weight: .bold))
                 .foregroundStyle(primaryTextColor)
                 .padding(.horizontal, 20)
@@ -159,7 +159,7 @@ struct SubscriptionGateView: View {
 
     private var pricingCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Pricing")
+            Text(localized: "sub.pricing.title")
                 .font(AppFont.subheadline(weight: .semibold))
                 .foregroundStyle(primaryTextColor)
 
@@ -210,12 +210,12 @@ struct SubscriptionGateView: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .tint(accentColor)
-            Text("Loading pricing...")
+            Text(localized: "sub.pricing.loading")
                 .font(AppFont.caption(weight: .medium))
                 .foregroundStyle(primaryTextColor)
             }
 
-            Text("Monthly, yearly, and lifetime plans will appear here in a moment.")
+            Text(localized: "sub.pricing.loading_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(secondaryTextColor)
 
@@ -238,11 +238,11 @@ struct SubscriptionGateView: View {
 
     private var unavailablePricingCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Pricing is unavailable right now.")
+            Text(localized: "sub.pricing.unavailable")
                 .font(AppFont.caption(weight: .medium))
                 .foregroundStyle(primaryTextColor)
 
-            Text("We couldn't load the available plans yet. Try again in a moment.")
+            Text(localized: "sub.pricing.unavailable_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(secondaryTextColor)
 
@@ -251,7 +251,7 @@ struct SubscriptionGateView: View {
                     await subscriptions.loadOfferings()
                 }
             } label: {
-                Text("Retry pricing")
+                Text(localized: "sub.button.retry_pricing")
                     .font(AppFont.caption(weight: .semibold))
                     .foregroundStyle(ctaForegroundColor)
                     .frame(maxWidth: .infinity)
@@ -275,7 +275,7 @@ struct SubscriptionGateView: View {
     private var pricingPlaceholderRow: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
-                Text("MMS Remote Pro")
+                Text(localized: "sub.placeholder.pro")
                     .font(AppFont.subheadline(weight: .semibold))
                 Text("$0.00 / month")
                     .font(AppFont.caption())
@@ -300,7 +300,7 @@ struct SubscriptionGateView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "lock.open.fill")
                         .font(.system(size: 15, weight: .semibold))
-                    Text("Unlock Now")
+                    Text(localized: "sub.button.unlock_now")
                         .font(AppFont.body(weight: .semibold))
                 }
                 .foregroundStyle(ctaForegroundColor)
@@ -311,7 +311,7 @@ struct SubscriptionGateView: View {
             .buttonStyle(.plain)
 
             HStack(spacing: 0) {
-                Button(isRestoring ? "Restoring..." : "Restore Purchase") {
+                Button(isRestoring ? LocalizationManager.shared.localized("sub.button.restoring") : LocalizationManager.shared.localized("sub.button.restore")) {
                     Task {
                         await subscriptions.restorePurchases()
                     }
@@ -320,20 +320,20 @@ struct SubscriptionGateView: View {
 
                 Text(" · ").foregroundStyle(secondaryTextColor)
 
-                Button("Redeem Code") {
+                Button(LocalizationManager.shared.localized("sub.button.redeem")) {
                     isPresentingOfferCodeRedemption = true
                 }
                 .disabled(isPurchasing || isRestoring)
 
                 Text(" · ").foregroundStyle(secondaryTextColor)
 
-                Button("Privacy") {
+                Button(LocalizationManager.shared.localized("sub.button.privacy")) {
                     UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
                 }
 
                 Text(" · ").foregroundStyle(secondaryTextColor)
 
-                Button("Terms") {
+                Button(LocalizationManager.shared.localized("sub.button.terms")) {
                     UIApplication.shared.open(AppEnvironment.termsOfUseURL)
                 }
             }
@@ -487,12 +487,12 @@ struct SubscriptionBootstrapFailureView: View {
                         )
 
                     VStack(spacing: 10) {
-                        Text("Couldn’t load subscription status")
+                        Text(localized: "sub.error.load_status")
                             .font(AppFont.system(size: 24, weight: .bold))
                             .foregroundStyle(primaryTextColor)
                             .multilineTextAlignment(.center)
 
-                        Text("MMS Remote couldn’t confirm your Pro access yet. Check your connection, retry, or restore your App Store purchases.")
+                        Text(localized: "sub.error.load_status_hint")
                             .font(AppFont.caption())
                             .foregroundStyle(secondaryTextColor)
                             .multilineTextAlignment(.center)
@@ -512,7 +512,7 @@ struct SubscriptionBootstrapFailureView: View {
                                 await subscriptions.bootstrap()
                             }
                         } label: {
-                            Text("Retry")
+                            Text(localized: "sub.button.retry")
                                 .font(AppFont.body(weight: .semibold))
                                 .foregroundStyle(ctaForegroundColor)
                                 .frame(maxWidth: .infinity)
@@ -522,7 +522,7 @@ struct SubscriptionBootstrapFailureView: View {
                         .buttonStyle(.plain)
                         .disabled(subscriptions.bootstrapState == .loading || subscriptions.isRestoring)
 
-                        Button(subscriptions.isRestoring ? "Restoring..." : "Restore Purchases") {
+                        Button(subscriptions.isRestoring ? LocalizationManager.shared.localized("sub.button.restoring") : LocalizationManager.shared.localized("sub.button.restore_purchases")) {
                             Task {
                                 await subscriptions.restorePurchases()
                             }
@@ -537,13 +537,13 @@ struct SubscriptionBootstrapFailureView: View {
 
                 VStack(spacing: 10) {
                     HStack(spacing: 0) {
-                        Button("Privacy") {
+                        Button(LocalizationManager.shared.localized("sub.button.privacy")) {
                             UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
                         }
 
                         Text(" · ").foregroundStyle(secondaryTextColor)
 
-                        Button("Terms") {
+                        Button(LocalizationManager.shared.localized("sub.button.terms")) {
                             UIApplication.shared.open(AppEnvironment.termsOfUseURL)
                         }
                     }
@@ -590,34 +590,34 @@ private struct SubscriptionMacLoginInfoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("MMS Remote connects to Codex running on your computer. Buying Pro unlocks the app, but you still need Codex already logged in on that computer.")
+                    Text(localized: "sub.info.computer_login")
                         .font(AppFont.body())
 
                     infoStep(
                         number: 1,
-                        title: "Open Codex on your computer",
-                        body: "Use the Codex desktop app or the Codex CLI on the computer you want to pair."
+                        title: LocalizationManager.shared.localized("sub.info.step1_title"),
+                        body: LocalizationManager.shared.localized("sub.info.step1_body")
                     )
 
                     infoStep(
                         number: 2,
-                        title: "Log in there first",
-                        body: "Finish the account login flow on the computer before pairing from iPhone."
+                        title: LocalizationManager.shared.localized("sub.info.step2_title"),
+                        body: LocalizationManager.shared.localized("sub.info.step2_body")
                     )
 
                     infoStep(
                         number: 3,
-                        title: "Run mms-remote up",
-                        body: "The bridge prints a QR code. Scan that QR from the iPhone app after you have Pro access."
+                        title: LocalizationManager.shared.localized("sub.info.step3_title"),
+                        body: LocalizationManager.shared.localized("sub.info.step3_body")
                     )
                 }
                 .padding(20)
             }
-            .navigationTitle("Use with Your Computer")
+            .navigationTitle(LocalizationManager.shared.localized("sub.info.nav_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button(LocalizationManager.shared.localized("sub.button.done")) {
                         dismiss()
                     }
                 }

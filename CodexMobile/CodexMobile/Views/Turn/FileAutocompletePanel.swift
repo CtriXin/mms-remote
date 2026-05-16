@@ -45,7 +45,7 @@ struct FileAutocompletePanel: View {
         VStack(alignment: .leading, spacing: 0) {
             if items.isEmpty && pluginItems.isEmpty && !isLoading && !isLoadingPlugins {
                 let effectiveQuery = pluginQuery.isEmpty ? query : pluginQuery
-                Text("No files or plugins for @\(effectiveQuery)")
+                Text(String(format: LocalizationManager.shared.localized("autocomplete.no_files"), effectiveQuery))
                     .font(AppFont.footnote())
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)

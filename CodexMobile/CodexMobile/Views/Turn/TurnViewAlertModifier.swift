@@ -23,23 +23,23 @@ private struct TurnViewAlertModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .alert(
-                "Approval request",
+                LocalizationManager.shared.localized("message.approval_request"),
                 isPresented: $isApprovalAlertPresented,
                 presenting: alertApprovalRequest
             ) { request in
-                Button("Decline", role: .destructive) {
+                Button(LocalizationManager.shared.localized("common.decline"), role: .destructive) {
                     onDeclineApproval(request)
                 }
-                Button("Approve") {
+                Button(LocalizationManager.shared.localized("common.approve")) {
                     onApproveApproval(request)
                 }
             } message: { request in
                 Text(approvalAlertMessage(for: request))
             }
-            .alert("Nothing to Commit", isPresented: $isShowingNothingToCommitAlert) {
-                Button("OK", role: .cancel) {}
+            .alert(LocalizationManager.shared.localized("alert.nothing_to_commit"), isPresented: $isShowingNothingToCommitAlert) {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {}
             } message: {
-                Text("There are no changes to commit.")
+                Text(localized: "alert.no_changes")
             }
             .alert(
                 gitSyncAlert?.title ?? "Git",
@@ -60,23 +60,23 @@ private struct TurnViewAlertModifier: ViewModifier {
             } message: { alert in
                 Text(alert.message)
             }
-            .alert("Continue on Desktop App", isPresented: $isShowingMacHandoffConfirm) {
-                Button("Cancel", role: .cancel) {}
-                Button("Force Close & Continue") {
+            .alert(LocalizationManager.shared.localized("toolbar.continue_desktop"), isPresented: $isShowingMacHandoffConfirm) {
+                Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
+                Button(LocalizationManager.shared.localized("alert.force_close_button")) {
                     onConfirmMacHandoff()
                 }
             } message: {
-                Text("MMS Remote will force close and reopen Codex.app on this computer. Any desktop runs in progress will be stopped, and unsaved draft text there may be lost before this chat is opened.")
+                Text(localized: "alert.force_close_body")
             }
             .alert(
-                "Couldn't continue on desktop app",
+                LocalizationManager.shared.localized("alert.desktop_handoff_failed"),
                 isPresented: macHandoffErrorIsPresented
             ) {
-                Button("OK", role: .cancel) {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                     macHandoffErrorMessage = nil
                 }
             } message: {
-                Text(macHandoffErrorMessage ?? "Could not continue this chat on the desktop app.")
+                Text(macHandoffErrorMessage ?? LocalizationManager.shared.localized("alert.desktop_handoff_failed_message"))
             }
     }
 

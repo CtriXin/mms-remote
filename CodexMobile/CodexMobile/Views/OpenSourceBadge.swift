@@ -23,7 +23,7 @@ struct OpenSourceBadge: View {
                     .scaledToFit()
                     .frame(width: 14, height: 14)
 
-                Text("Open source")
+                Text(localized: "opensource.badge")
                     .font(AppFont.caption(weight: .medium))
             }
             .foregroundStyle(foregroundColor)
@@ -39,7 +39,7 @@ struct OpenSourceBadge: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open source on GitHub")
+        .accessibilityLabel(LocalizationManager.shared.localized("opensource.accessibility"))
     }
 
     private var foregroundColor: Color {

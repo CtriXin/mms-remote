@@ -25,14 +25,14 @@ struct SkillAutocompletePanel: View {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Searching skills...")
+                    Text(LocalizationManager.shared.localized("autocomplete.searching_skills"))
                         .font(AppFont.footnote())
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else if items.isEmpty {
-                Text("No skills for $\(query)")
+                Text(String(format: LocalizationManager.shared.localized("autocomplete.no_skills"), query))
                     .font(AppFont.footnote())
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 12)

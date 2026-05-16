@@ -81,7 +81,7 @@ struct UsageStatusSummaryContent: View {
         VStack(alignment: .leading, spacing: 14) {
             if showsRateLimitHeader {
                 HStack {
-                    Text("Rate limits")
+                    Text(localized: "usage.rate_limits")
                         .font(AppFont.subheadline(weight: .semibold))
 
                     Spacer(minLength: 12)
@@ -104,11 +104,11 @@ struct UsageStatusSummaryContent: View {
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             } else if isLoadingRateLimits {
-                Text("Loading current limits...")
+                Text(localized: "usage.loading")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             } else {
-                Text("Rate limits are unavailable for this account.")
+                Text(localized: "usage.unavailable")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             }
@@ -119,11 +119,11 @@ struct UsageStatusSummaryContent: View {
         let displayUsage = contextWindowUsage ?? .zero
 
         return VStack(alignment: .leading, spacing: 12) {
-            Text("Context window")
+            Text(localized: "usage.context_window")
                 .font(AppFont.subheadline(weight: .semibold))
 
             metricRow(
-                label: "Context",
+                label: LocalizationManager.shared.localized("usage.context"),
                 value: contextValue(for: displayUsage),
                 detail: contextDetail(for: displayUsage),
                 monospace: true
@@ -248,7 +248,7 @@ struct UsageStatusSummaryContent: View {
     }
 
     private func contextValue(for usage: ContextWindowUsage) -> String {
-        usage.tokenLimit > 0 ? "\(usage.percentRemaining)% left" : "0 used"
+        usage.tokenLimit > 0 ? "\(usage.percentRemaining)% " + LocalizationManager.shared.localized("usage.left") : LocalizationManager.shared.localized("usage.used")
     }
 
     private func contextDetail(for usage: ContextWindowUsage) -> String? {
@@ -271,7 +271,7 @@ struct UsageStatusSummaryContent: View {
         if calendar.isDate(resetsAt, inSameDayAs: now) {
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm"
-            return "resets \(formatter.string(from: resetsAt))"
+            return LocalizationManager.shared.localized("usage.resets") + " \(formatter.string(from: resetsAt))"
         }
 
         let formatter = DateFormatter()

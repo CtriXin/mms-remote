@@ -200,7 +200,7 @@ struct TurnDiffSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("\(chunks.count) file\(chunks.count == 1 ? "" : "s") changed")
+                        Text(String(format: chunks.count == 1 ? LocalizationManager.shared.localized("diff.file_changed") : LocalizationManager.shared.localized("diff.files_changed"), chunks.count))
                             .font(AppFont.mono(.subheadline))
                             .foregroundStyle(.secondary)
 
@@ -249,7 +249,7 @@ struct TurnDiffSheet: View {
             .adaptiveNavigationBar()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(LocalizationManager.shared.localized("common.done")) { dismiss() }
                 }
             }
         }

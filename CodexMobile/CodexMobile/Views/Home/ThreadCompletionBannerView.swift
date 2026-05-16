@@ -103,7 +103,7 @@ struct InAppToastBannerView<LeadingIcon: View>: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss notification")
+                .accessibilityLabel(LocalizationManager.shared.localized("banner.dismiss"))
             }
         }
         .padding(.horizontal, 14)

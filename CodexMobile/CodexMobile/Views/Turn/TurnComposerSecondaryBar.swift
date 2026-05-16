@@ -119,14 +119,14 @@ struct TurnComposerSecondaryBar: View {
 
     private var runtimePicker: some View {
         Menu {
-            Section("Continue in") {
+            Section(LocalizationManager.shared.localized("composer.continue_in")) {
                 Button {
                     HapticFeedback.shared.triggerImpactFeedback(style: .light)
                     if let url = URL(string: "https://chatgpt.com/codex") {
                         UIApplication.shared.open(url)
                     }
                 } label: {
-                    Label("Cloud", systemImage: "cloud")
+                    Label(LocalizationManager.shared.localized("composer.cloud"), systemImage: "cloud")
                 }
 
                 Button {
@@ -135,8 +135,8 @@ struct TurnComposerSecondaryBar: View {
                 } label: {
                     CodexWorktreeMenuLabelRow(
                         title: isCreatingGitWorktree
-                            ? "Preparing worktree..."
-                            : isWorktreeProject ? "Hand off to Local" : isEmptyThread ? "New worktree" : "Hand off to Worktree",
+                            ? LocalizationManager.shared.localized("composer.preparing_worktree")
+                            : isWorktreeProject ? LocalizationManager.shared.localized("composer.handoff_local") : isEmptyThread ? LocalizationManager.shared.localized("composer.new_worktree") : LocalizationManager.shared.localized("composer.handoff_worktree"),
                         pointSize: 12,
                         weight: .regular
                     )
@@ -146,7 +146,7 @@ struct TurnComposerSecondaryBar: View {
                 Button {
                     // Returning to Local is intentionally disabled until it can move code + branch safely.
                 } label: {
-                    TurnComposerRuntimeMenuRow(title: "Local") {
+                    TurnComposerRuntimeMenuRow(title: LocalizationManager.shared.localized("composer.local")) {
                         Image(systemName: "laptopcomputer")
                     }
                 }

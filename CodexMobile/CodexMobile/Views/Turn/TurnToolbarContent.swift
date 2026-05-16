@@ -83,7 +83,7 @@ struct TurnToolbarContent: ToolbarContent {
                     } label: {
                         HStack(spacing: 10) {
                             ResizableThreadActionSymbol(systemName: "arrow.left.arrow.right", pointSize: 13)
-                            Text("Continue on Desktop App")
+                            Text(LocalizationManager.shared.localized("toolbar.continue_desktop"))
                         }
                     }
                     .disabled(!canTapMacHandoff)
@@ -106,14 +106,14 @@ struct TurnToolbarContent: ToolbarContent {
                     } label: {
                         HStack(spacing: 10) {
                             ResizableThreadActionSymbol(systemName: "plus.app", pointSize: 13)
-                            Text("New chat")
+                            Text(LocalizationManager.shared.localized("toolbar.new_chat"))
                         }
                     }
                     .disabled(!canTapNewChat)
                 } label: {
                     TurnMacHandoffToolbarLabel(isLoading: isThreadActionLoading)
                 }
-                .accessibilityLabel("Thread actions")
+                .accessibilityLabel(LocalizationManager.shared.localized("toolbar.thread_actions"))
             }
         }
 
@@ -230,7 +230,7 @@ private struct TurnToolbarDiffTotalsLabel: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Repository diff total")
+        .accessibilityLabel(LocalizationManager.shared.localized("toolbar.diff_total"))
         .accessibilityValue(accessibilityValue)
     }
 
@@ -279,7 +279,7 @@ struct TurnThreadPathSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     if onRenameThread != nil {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Thread")
+                            Text(localized: "diff.thread")
                                 .font(AppFont.caption(weight: .semibold))
                                 .foregroundStyle(.secondary)
 
@@ -301,14 +301,14 @@ struct TurnThreadPathSheet: View {
                                         .contentShape(Circle())
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityLabel("Rename conversation")
+                                .accessibilityLabel(LocalizationManager.shared.localized("toolbar.rename"))
                             }
                         }
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 8) {
-                            Text("Path")
+                            Text(localized: "diff.path")
                                 .font(AppFont.caption(weight: .semibold))
                                 .foregroundStyle(.secondary)
 

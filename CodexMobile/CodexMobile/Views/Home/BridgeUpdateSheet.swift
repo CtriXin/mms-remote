@@ -30,7 +30,7 @@ struct BridgeUpdateSheet: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     if let command = prompt.command, !command.isEmpty {
-                        Text("Run this on your computer")
+                        Text(localized: "bridgeupdate.run_on_computer")
                             .font(AppFont.caption(weight: .semibold))
                             .foregroundStyle(.secondary)
 
@@ -56,7 +56,7 @@ struct BridgeUpdateSheet: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: didCopyCommand ? "checkmark" : "doc.on.doc")
                                         .font(.system(size: 13, weight: .semibold))
-                                    Text(didCopyCommand ? "Copied" : "Copy")
+                                    Text(didCopyCommand ? LocalizationManager.shared.localized("common.copied") : LocalizationManager.shared.localized("common.copy"))
                                         .font(AppFont.caption(weight: .semibold))
                                 }
                                 .padding(.horizontal, 12)
@@ -64,7 +64,7 @@ struct BridgeUpdateSheet: View {
                                 .background(Color(.secondarySystemFill), in: Capsule())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Copy bridge update command")
+                            .accessibilityLabel(LocalizationManager.shared.localized("bridgeupdate.accessibility.copy_command"))
                         }
                         .padding(14)
                         .background(
@@ -72,15 +72,15 @@ struct BridgeUpdateSheet: View {
                                 .fill(Color(.tertiarySystemFill).opacity(0.75))
                         )
                     } else {
-                        Text("Install the latest MMS Remote build on this iPhone, then come back here and reconnect.")
+                        Text(LocalizationManager.shared.localized("bridgeupdate.message.install_latest"))
                             .font(AppFont.body())
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 Text(prompt.command == nil
-                    ? "After the app finishes updating on your iPhone, reconnect to the computer bridge."
-                    : "After the package finishes updating, restart the bridge on your computer and come back here."
+                    ? LocalizationManager.shared.localized("bridgeupdate.after.app_update")
+                    : LocalizationManager.shared.localized("bridgeupdate.after.package_update")
                 )
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
@@ -94,7 +94,7 @@ struct BridgeUpdateSheet: View {
                                 ProgressView()
                                     .tint(.white)
                             }
-                            Text(isRetrying ? "Reconnecting..." : "I Updated It")
+                            Text(isRetrying ? LocalizationManager.shared.localized("bridgeupdate.button.reconnecting") : LocalizationManager.shared.localized("bridgeupdate.button.i_updated"))
                                 .font(AppFont.body(weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
@@ -105,7 +105,7 @@ struct BridgeUpdateSheet: View {
                     .buttonStyle(.plain)
                     .disabled(isRetrying)
 
-                    Button("Scan New QR Code", action: onScanNewQR)
+                    Button(LocalizationManager.shared.localized("bridgeupdate.button.scan_new_qr"), action: onScanNewQR)
                         .font(AppFont.body(weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -115,7 +115,7 @@ struct BridgeUpdateSheet: View {
                         )
                         .buttonStyle(.plain)
 
-                    Button("Not Now", role: .cancel, action: onDismiss)
+                    Button(LocalizationManager.shared.localized("common.not_now"), role: .cancel, action: onDismiss)
                         .font(AppFont.subheadline(weight: .medium))
                         .foregroundStyle(.secondary)
                         .buttonStyle(.plain)

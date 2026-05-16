@@ -28,20 +28,20 @@ struct SidebarNewChatProjectPickerSheet: View {
                                     .font(AppFont.body(weight: .medium))
                                     .foregroundStyle(.secondary)
                             ),
-                            title: "Add Local Folder",
-                            subtitle: "Browse or create a folder on your Mac."
+                            title: LocalizationManager.shared.localized("picker.add_local"),
+                            subtitle: LocalizationManager.shared.localized("picker.add_local_hint")
                         )
                     }
                     .buttonStyle(.plain)
                 } header: {
-                    Text("Choose a project for this chat")
+                    Text(localized: "picker.header")
                         .font(AppFont.caption())
                         .foregroundStyle(.secondary)
                         .textCase(nil)
                 }
 
                 if !choices.isEmpty {
-                    Section("Local") {
+                    Section(LocalizationManager.shared.localized("picker.section.local")) {
                         ForEach(choices) { choice in
                             Button {
                                 dismiss()
@@ -67,7 +67,7 @@ struct SidebarNewChatProjectPickerSheet: View {
                         }
                     }
 
-                    Section("Worktree") {
+                    Section(LocalizationManager.shared.localized("picker.section.worktree")) {
                         ForEach(choices) { choice in
                             Button {
                                 dismiss()
@@ -98,8 +98,8 @@ struct SidebarNewChatProjectPickerSheet: View {
                                     .font(AppFont.body(weight: .medium))
                                     .foregroundStyle(.secondary)
                             ),
-                            title: "Cloud",
-                            subtitle: "Start a chat without a working directory."
+                            title: LocalizationManager.shared.localized("picker.cloud"),
+                            subtitle: LocalizationManager.shared.localized("picker.cloud_hint")
                         )
                     }
                     .buttonStyle(.plain)
@@ -107,12 +107,12 @@ struct SidebarNewChatProjectPickerSheet: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
-            .navigationTitle("Start new chat")
+            .navigationTitle(LocalizationManager.shared.localized("picker.nav_title"))
             .navigationBarTitleDisplayMode(.inline)
             .tint(.primary)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button(LocalizationManager.shared.localized("picker.button.close")) {
                         dismiss()
                     }
                     .tint(.secondary)

@@ -14,11 +14,11 @@ enum PlanAccessoryStatus: Equatable {
     var label: String {
         switch self {
         case .pending:
-            return "Pending"
+            return LocalizationManager.shared.localized("plan.pending")
         case .inProgress:
-            return "In progress"
+            return LocalizationManager.shared.localized("plan.in_progress")
         case .completed:
-            return "Completed"
+            return LocalizationManager.shared.localized("plan.completed")
         }
     }
 
@@ -55,7 +55,7 @@ struct PlanAccessorySnapshot: Equatable {
     let stepStatuses: [CodexPlanStepStatus]
 
     init(
-        title: String = "Plan",
+        title: String = LocalizationManager.shared.localized("composer.plan_indicator"),
         summary: String,
         status: PlanAccessoryStatus,
         completedStepCount: Int,
@@ -95,7 +95,7 @@ struct PlanAccessorySnapshot: Equatable {
 
     var progressDescription: String {
         guard totalStepCount > 0 else { return status.label }
-        return "\(completedStepCount) of \(totalStepCount) complete"
+        return String(format: LocalizationManager.shared.localized("plan.progress"), completedStepCount, totalStepCount)
     }
 
     private static func resolveStatus(
@@ -124,7 +124,7 @@ struct PlanAccessorySnapshot: Equatable {
         }
 
         let body = normalizedPlanText(message.text)
-        return body ?? "Open plan details"
+        return body ?? LocalizationManager.shared.localized("plan.open_details")
     }
 
     // Filters placeholder copy so the compact UI only surfaces useful context.
@@ -190,9 +190,9 @@ struct PlanAccessoryCard: View {
         } trailing: {
             trailingMetric
         }
-        .accessibilityLabel("Open active plan")
+        .accessibilityLabel(LocalizationManager.shared.localized("plan.open"))
         .accessibilityValue("\(snapshot.status.label), \(snapshot.progressDescription)")
-        .accessibilityHint("Shows the current plan steps in a sheet")
+        .accessibilityHint(LocalizationManager.shared.localized("plan.hint"))
     }
 
     private var leadingMarker: some View {
@@ -459,7 +459,7 @@ private struct PlanAccessoryInContextPreview: View {
                 .frame(width: 32, height: 32)
                 .background(Color(.secondarySystemBackground), in: Circle())
 
-            Text("Ask Codex to continue...")
+            Text(localized: "plan.ask_continue")
                 .font(AppFont.body())
                 .foregroundStyle(.secondary)
 

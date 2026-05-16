@@ -93,7 +93,7 @@ private struct TurnTimelineToolBurstView: View {
     }
 
     private var summaryNounLabel: String {
-        group.hiddenCount == 1 ? "tool call" : "tool calls"
+        group.hiddenCount == 1 ? LocalizationManager.shared.localized("timeline.tool_call") : LocalizationManager.shared.localized("timeline.tool_calls")
     }
 
     var body: some View {
@@ -187,7 +187,7 @@ private struct TurnTimelinePreviousMessagesView: View {
     @State private var isExpanded = false
 
     private var title: String {
-        group.hiddenCount == 1 ? "1 previous message" : "\(group.hiddenCount) previous messages"
+        group.hiddenCount == 1 ? LocalizationManager.shared.localized("timeline.previous_message") : String(format: LocalizationManager.shared.localized("timeline.previous_messages"), group.hiddenCount)
     }
 
     var body: some View {
@@ -217,7 +217,7 @@ private struct TurnTimelinePreviousMessagesView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(title)
-            .accessibilityHint(isExpanded ? "Collapse previous messages" : "Expand previous messages")
+            .accessibilityHint(isExpanded ? LocalizationManager.shared.localized("timeline.collapse") : LocalizationManager.shared.localized("timeline.expand"))
 
             if isExpanded {
                 ForEach(group.messages) { message in
@@ -271,7 +271,7 @@ private struct TurnTimelineRowsSection: View {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Loading recent messages...")
+                    Text(LocalizationManager.shared.localized("timeline.loading_recent"))
                         .font(AppFont.caption())
                         .foregroundStyle(.secondary)
                 }
@@ -357,9 +357,9 @@ private struct TurnTimelineRowsSection: View {
 
     private var earlierMessagesButtonTitle: String {
         if isLoadingEarlierMessages {
-            return "Loading earlier messages..."
+            return LocalizationManager.shared.localized("timeline.loading_earlier")
         }
-        return earlierMessagesErrorMessage ?? "Load earlier messages"
+        return earlierMessagesErrorMessage ?? LocalizationManager.shared.localized("timeline.load_earlier")
     }
 }
 
@@ -409,7 +409,7 @@ private struct TurnTimelineFooterContainer<Composer: View>: View {
         .frame(width: 44, height: 44)
         .buttonStyle(TurnFloatingButtonPressStyle())
         .contentShape(Circle())
-        .accessibilityLabel("Scroll to latest message")
+        .accessibilityLabel(LocalizationManager.shared.localized("scroll.latest"))
         .transition(.opacity.combined(with: .scale(scale: 0.85)))
     }
 }
@@ -989,9 +989,9 @@ struct TurnTimelineView<EmptyState: View, Composer: View>: View {
                 Spacer()
                 ProgressView()
                     .controlSize(.large)
-                Text("Working on it...")
+                Text(LocalizationManager.shared.localized("timeline.working"))
                     .font(AppFont.title3(weight: .semibold))
-                Text("The run is still active. You can stop it below if needed.")
+                Text(LocalizationManager.shared.localized("timeline.run_active"))
                     .font(AppFont.body())
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -1168,9 +1168,9 @@ struct TurnTimelineView<EmptyState: View, Composer: View>: View {
             Spacer()
             ProgressView()
                 .controlSize(.large)
-            Text("Loading chat...")
+            Text(LocalizationManager.shared.localized("timeline.loading_chat"))
                 .font(AppFont.title3(weight: .semibold))
-            Text("Preparing recent messages for this conversation.")
+            Text(LocalizationManager.shared.localized("timeline.preparing"))
                 .font(AppFont.body())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

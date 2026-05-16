@@ -40,7 +40,7 @@ struct AboutMMSRemoteView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                    Button(LocalizationManager.shared.localized("common.done")) { dismiss() }
                 }
             }
         }

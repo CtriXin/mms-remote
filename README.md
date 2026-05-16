@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="CodexMobile/CodexMobile/Assets.xcassets/AppLogo.imageset/mms-remote-logo.svg" alt="MMS Remote" />
+  <img src="CodexMobile/CodexMobile/Assets.xcassets/AppLogo.imageset/app-logo-3d.png" alt="MMS Remote" width="200" height="200" />
 </p>
 
 # MMS Remote

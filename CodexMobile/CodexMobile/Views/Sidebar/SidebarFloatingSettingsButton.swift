@@ -22,7 +22,7 @@ struct SidebarFloatingSettingsButton: View {
         }
         .buttonStyle(.plain)
         .contentShape(Circle())
-        .accessibilityLabel("Settings")
+        .accessibilityLabel(LocalizationManager.shared.localized("sidebar.settings"))
     }
 }
 

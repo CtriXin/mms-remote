@@ -55,15 +55,15 @@ private enum TurnGitBranchPickerMode: String, Identifiable {
     var id: String { rawValue }
 
     var sectionTitle: String {
-        "Branches"
+        LocalizationManager.shared.localized("branch.section")
     }
 
     var navigationTitle: String {
         switch self {
         case .currentBranch:
-            return "Current Branch"
+            return LocalizationManager.shared.localized("branch.title.current")
         case .pullRequestTarget:
-            return "Base Branch"
+            return LocalizationManager.shared.localized("branch.title.base")
         }
     }
 }
@@ -100,7 +100,7 @@ struct TurnGitBranchSelector: View, Equatable {
         if !normalizedCurrentBranch.isEmpty {
             return normalizedCurrentBranch
         }
-        return normalizedDefaultBranch ?? "Branch"
+        return normalizedDefaultBranch ?? LocalizationManager.shared.localized("branch.default_fallback")
     }
 
     static func == (lhs: TurnGitBranchSelector, rhs: TurnGitBranchSelector) -> Bool {
@@ -275,10 +275,10 @@ struct TurnGitBranchPickerSheet: View {
         }
 
         if allowsSelectingCurrentBranch, gitWorktreePathsByBranch[branch] != nil {
-            return "Open worktree"
+            return LocalizationManager.shared.localized("branch.open_worktree")
         }
 
-        return "Open elsewhere"
+        return LocalizationManager.shared.localized("branch.open_elsewhere")
     }
 
     var body: some View {
@@ -334,9 +334,9 @@ struct TurnGitBranchPickerSheet: View {
 
                 if orderedBranches.isEmpty {
                     ContentUnavailableView(
-                        "No branches found",
+                        LocalizationManager.shared.localized("branch.no_results"),
                         systemImage: "arrow.triangle.branch",
-                        description: Text("Try a different search or refresh the branch list.")
+                        description: Text(LocalizationManager.shared.localized("branch.search_hint"))
                     )
                     .frame(maxWidth: .infinity, alignment: .center)
                     .listRowBackground(Color.clear)
@@ -350,7 +350,7 @@ struct TurnGitBranchPickerSheet: View {
                             onCreateBranch(suggestedCreateBranchName)
                             dismiss()
                         } label: {
-                            Label("Create and checkout '\(suggestedCreateBranchName)'", systemImage: "plus")
+                            Label(String(format: LocalizationManager.shared.localized("branch.create_checkout"), suggestedCreateBranchName), systemImage: "plus")
                         }
                         .disabled(isLoading || isSwitching)
                     }
@@ -360,7 +360,7 @@ struct TurnGitBranchPickerSheet: View {
                         newBranchName = fromSearch.isEmpty ? "mms-remote/" : fromSearch
                         isShowingCreateBranchPrompt = true
                     } label: {
-                        Label("New branch...", systemImage: "plus")
+                        Label(LocalizationManager.shared.localized("branch.new_branch"), systemImage: "plus")
                     }
                     .disabled(isLoading || isSwitching)
                 }
@@ -371,9 +371,9 @@ struct TurnGitBranchPickerSheet: View {
                     onRefresh()
                 } label: {
                     if isSwitching {
-                        Text("Switching...")
+                        Text(LocalizationManager.shared.localized("branch.switching"))
                     } else {
-                        Text(isLoading ? "Refreshing..." : "Reload branch list")
+                        Text(isLoading ? LocalizationManager.shared.localized("branch.refreshing") : LocalizationManager.shared.localized("branch.reload"))
                     }
                 }
                 .disabled(isLoading || isSwitching)
@@ -384,13 +384,13 @@ struct TurnGitBranchPickerSheet: View {
         .listStyle(.insetGrouped)
         .listSectionSpacing(.compact)
         .environment(\.defaultMinListRowHeight, 28)
-        .searchable(text: $searchText, prompt: "Search branches")
-        .alert("New branch", isPresented: $isShowingCreateBranchPrompt) {
+        .searchable(text: $searchText, prompt: LocalizationManager.shared.localized("branch.search_prompt"))
+        .alert(LocalizationManager.shared.localized("branch.alert.new"), isPresented: $isShowingCreateBranchPrompt) {
             TextField("mms-remote/my-feature", text: $newBranchName)
-            Button("Cancel", role: .cancel) {
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
                 newBranchName = ""
             }
-            Button("Create") {
+            Button(LocalizationManager.shared.localized("branch.button.create")) {
                 let branchName = mmsRemoteNormalizedCreatedBranchName(newBranchName)
                 guard !branchName.isEmpty else { return }
                 onCreateBranch(branchName)
@@ -399,7 +399,7 @@ struct TurnGitBranchPickerSheet: View {
             }
             .disabled(!isNewBranchNameValid)
         } message: {
-            Text("Branch will be created locally and checked out. Uncommitted changes stay with this working copy.")
+            Text(LocalizationManager.shared.localized("branch.alert.message"))
         }
     }
 }
@@ -423,10 +423,10 @@ private struct TurnGitBranchOptionRow: View {
 
                 HStack(spacing: 4) {
                     if isCurrent {
-                        TurnGitBranchBadge(title: "Current")
+                        TurnGitBranchBadge(title: LocalizationManager.shared.localized("branch.badge.current"))
                     }
                     if isDefault {
-                        TurnGitBranchBadge(title: "Default")
+                        TurnGitBranchBadge(title: LocalizationManager.shared.localized("branch.badge.default"))
                     }
                     if let checkedOutBadgeTitle {
                         TurnGitBranchBadge(title: checkedOutBadgeTitle)

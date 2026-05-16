@@ -48,7 +48,7 @@ struct StructuredUserInputCardView: View {
 
     private var headerRow: some View {
         HStack(alignment: .center, spacing: 8) {
-            Text("Questions")
+            Text(LocalizationManager.shared.localized("common.questions"))
                 .font(AppFont.mono(.caption))
                 .foregroundStyle(.secondary)
 
@@ -195,7 +195,7 @@ struct StructuredUserInputCardView: View {
 
     private var progressHeader: some View {
         HStack(alignment: .center, spacing: 8) {
-            Text("\(currentQuestionIndex + 1) of \(questions.count)")
+            Text("\(currentQuestionIndex + 1) / \(questions.count)")
                 .font(AppFont.mono(.caption2))
                 .foregroundStyle(.secondary)
 
@@ -254,7 +254,7 @@ struct StructuredUserInputCardView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(AppFont.system(size: 11, weight: .semibold))
-                        Text("Back")
+                        Text(localized: "common.back")
                             .font(AppFont.subheadline(weight: .medium))
                     }
                     .padding(.horizontal, 14)
@@ -307,7 +307,7 @@ struct StructuredUserInputCardView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text("Next")
+                Text(localized: "common.next")
                     .font(AppFont.subheadline(weight: .medium))
                 Image(systemName: "chevron.right")
                     .font(AppFont.system(size: 11, weight: .semibold))
@@ -342,7 +342,7 @@ struct StructuredUserInputCardView: View {
                         .controlSize(.small)
                         .tint(Color.white)
                 }
-                Text(isSubmitting ? "Sending..." : "Send")
+                Text(isSubmitting ? LocalizationManager.shared.localized("common.sending") : LocalizationManager.shared.localized("common.send"))
                     .font(AppFont.subheadline(weight: .medium))
             }
             .padding(.horizontal, 20)

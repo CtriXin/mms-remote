@@ -79,23 +79,23 @@ struct TurnGitActionsToolbarButton: View {
     private var syncStatusAccessibilityValue: String? {
         switch gitSyncState {
         case "not_initialized":
-            return "Git is not initialized"
+            return LocalizationManager.shared.localized("git.not_initialized")
         case "up_to_date":
-            return "Repository up to date"
+            return LocalizationManager.shared.localized("git.up_to_date")
         case "ahead_only":
-            return "Local branch ahead of remote"
+            return LocalizationManager.shared.localized("git.ahead")
         case "behind_only":
-            return "Remote branch ahead of local branch"
+            return LocalizationManager.shared.localized("git.behind")
         case "diverged":
-            return "Local and remote branches diverged"
+            return LocalizationManager.shared.localized("git.diverged")
         case "dirty":
-            return "Local repository has uncommitted changes"
+            return LocalizationManager.shared.localized("git.dirty")
         case "dirty_and_behind":
-            return "Local changes exist and remote branch moved ahead"
+            return LocalizationManager.shared.localized("git.dirty_and_behind")
         case "no_upstream":
-            return "Branch not published yet"
+            return LocalizationManager.shared.localized("git.no_upstream")
         case "detached_head":
-            return "Current branch unavailable"
+            return LocalizationManager.shared.localized("git.detached")
         default:
             return nil
         }
@@ -104,22 +104,22 @@ struct TurnGitActionsToolbarButton: View {
     var body: some View {
         Menu {
             if gitSyncState == "not_initialized" {
-                Section("Setup") {
+                Section(LocalizationManager.shared.localized("git.setup")) {
                     actionButton(for: .initialize)
                 }
             } else {
-                Section("Update") {
+                Section(LocalizationManager.shared.localized("git.update")) {
                     actionButton(for: .syncNow)
                 }
 
-                Section("Write") {
+                Section(LocalizationManager.shared.localized("git.write")) {
                     ForEach([TurnGitActionKind.commit, .push, .commitAndPush, .commitPushCreatePR, .createPR], id: \.self) { action in
                         actionButton(for: action)
                     }
                 }
 
                 if !recoveryActions.isEmpty {
-                    Section("Recovery") {
+                    Section(LocalizationManager.shared.localized("git.recovery")) {
                         ForEach(recoveryActions, id: \.self) { action in
                             actionButton(for: action)
                         }
@@ -149,8 +149,8 @@ struct TurnGitActionsToolbarButton: View {
         .frame(minWidth: minToolbarButtonSize, minHeight: minToolbarButtonSize)
         .contentShape(Circle())
         .adaptiveToolbarItem(in: Circle())
-        .accessibilityLabel("Git actions")
-        .accessibilityValue(loadingTitle ?? syncStatusAccessibilityValue ?? "Repository status unavailable")
+        .accessibilityLabel(LocalizationManager.shared.localized("git.actions"))
+        .accessibilityValue(loadingTitle ?? syncStatusAccessibilityValue ?? LocalizationManager.shared.localized("git.status_unavailable"))
     }
 
     private var recoveryActions: [TurnGitActionKind] {

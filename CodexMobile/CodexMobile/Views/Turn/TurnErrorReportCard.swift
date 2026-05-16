@@ -43,12 +43,12 @@ struct TurnErrorReportCard: View {
             HapticFeedback.shared.triggerImpactFeedback(style: .light)
             onReport()
         } label: {
-            Text("Report")
+            Text(LocalizationManager.shared.localized("issue.report_short"))
                 .font(AppFont.caption(weight: .medium))
                 .foregroundStyle(Color(.systemRed))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Report issue")
+        .accessibilityLabel(LocalizationManager.shared.localized("issue.report"))
     }
 
     private var dismissButton: some View {
@@ -63,6 +63,6 @@ struct TurnErrorReportCard: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Dismiss issue")
+        .accessibilityLabel(LocalizationManager.shared.localized("issue.dismiss"))
     }
 }

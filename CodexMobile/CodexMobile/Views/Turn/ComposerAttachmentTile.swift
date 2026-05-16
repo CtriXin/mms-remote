@@ -57,7 +57,7 @@ struct ComposerAttachmentTile: View {
                     .foregroundStyle(.white, .black.opacity(0.65))
             }
             .offset(x: 8, y: -8)
-            .accessibilityLabel("Remove image")
+            .accessibilityLabel(LocalizationManager.shared.localized("message.remove_image"))
         }
     }
 

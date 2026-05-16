@@ -129,7 +129,7 @@ struct TurnWorktreeHandoffOverlay: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Branch name")
+                Text(LocalizationManager.shared.localized("worktree.branch_name"))
                     .font(AppFont.subheadline(weight: .semibold))
                     .foregroundStyle(.primary)
 
@@ -157,7 +157,7 @@ struct TurnWorktreeHandoffOverlay: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Base branch")
+                Text(LocalizationManager.shared.localized("worktree.base_branch"))
                     .font(AppFont.subheadline(weight: .semibold))
                     .foregroundStyle(.primary)
 
@@ -176,7 +176,7 @@ struct TurnWorktreeHandoffOverlay: View {
                             .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                     )
 
-                Text("Starts from this base branch.")
+                Text(LocalizationManager.shared.localized("worktree.starts_from"))
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             }

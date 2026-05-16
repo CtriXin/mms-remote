@@ -249,7 +249,7 @@ struct ProposedPlanResultCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Proposed plan")
+            Text(localized: "plan.proposed")
                 .font(AppFont.subheadline(weight: .semibold))
                 .foregroundStyle(.primary)
 
@@ -268,7 +268,7 @@ struct ProposedPlanResultCard: View {
                             Image(systemName: "arrow.right.circle.fill")
                                 .font(AppFont.system(size: 14, weight: .semibold))
                         }
-                        Text(isImplementationLocked ? "Starting implementation…" : "Implement plan")
+                        Text(isImplementationLocked ? LocalizationManager.shared.localized("plan.starting_implementation") : LocalizationManager.shared.localized("plan.implement"))
                             .font(AppFont.subheadline(weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
@@ -342,11 +342,11 @@ struct PlanExecutionSheet: View {
                 .padding(16)
             }
             .background(Color(.systemBackground))
-            .navigationTitle("Active plan")
+            .navigationTitle(LocalizationManager.shared.localized("plan.nav_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button(LocalizationManager.shared.localized("common.done")) {
                         dismiss()
                     }
                 }
@@ -428,14 +428,14 @@ struct StructuredUserInputAccessory: View {
 
     var body: some View {
         Button(action: onTap) {
-            PlanModeCardContainer(title: "Input needed", showsProgress: false) {
+            PlanModeCardContainer(title: LocalizationManager.shared.localized("plan.input_needed"), showsProgress: false) {
                 HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(questionCount == 1 ? "Codex needs one answer" : "Codex needs \(questionCount) answers")
+                        Text(questionCount == 1 ? LocalizationManager.shared.localized("plan.needs_one_answer") : String(format: LocalizationManager.shared.localized("plan.needs_answers"), questionCount))
                             .font(AppFont.subheadline(weight: .medium))
                             .foregroundStyle(.primary)
 
-                        Text("Open the prompt to review the plan and respond.")
+                        Text(localized: "plan.review_prompt")
                             .font(AppFont.caption())
                             .foregroundStyle(.secondary)
                     }
@@ -473,11 +473,11 @@ struct StructuredUserInputSheet: View {
                 .padding(16)
             }
             .background(Color(.systemBackground))
-            .navigationTitle("Questions")
+            .navigationTitle(LocalizationManager.shared.localized("common.questions"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button(LocalizationManager.shared.localized("common.done")) {
                         dismiss()
                     }
                 }

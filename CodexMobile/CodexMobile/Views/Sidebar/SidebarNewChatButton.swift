@@ -27,7 +27,7 @@ struct SidebarNewChatButton: View {
                             .font(AppFont.title3(weight: .regular))
                     }
 
-                    Text("New Chat")
+                    Text(localized: "sidebar.new_chat")
                         .font(AppFont.body(weight: .medium))
                 }
 

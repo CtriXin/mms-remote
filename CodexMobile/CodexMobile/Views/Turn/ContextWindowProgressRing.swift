@@ -47,7 +47,7 @@ struct ContextWindowProgressRing: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Context window")
+        .accessibilityLabel(LocalizationManager.shared.localized("context.window_accessibility"))
         .accessibilityValue(usageAccessibilityValue)
         .popover(isPresented: $isShowingPopover) {
             popoverContent
@@ -68,7 +68,7 @@ struct ContextWindowProgressRing: View {
             contextPlacement: .bottom,
             refreshControl: onRefreshStatus.map { _ in
                 UsageStatusRefreshControl(
-                    title: "Refresh",
+                    title: LocalizationManager.shared.localized("button.refresh"),
                     isRefreshing: isRefreshing,
                     action: { refreshStatus() }
                 )
@@ -79,7 +79,7 @@ struct ContextWindowProgressRing: View {
     }
 
     private var usageAccessibilityValue: String {
-        "\(usage?.percentUsed ?? 0) percent used"
+        String(format: LocalizationManager.shared.localized("context.percent_used"), usage?.percentUsed ?? 0)
     }
 
     private func ringColor(for usage: ContextWindowUsage) -> Color {

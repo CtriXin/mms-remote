@@ -48,14 +48,14 @@ struct QueuedDraftsPanel: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!canRestoreDrafts)
-                    .accessibilityLabel("Move draft into input")
+                    .accessibilityLabel(LocalizationManager.shared.localized("draft.move"))
 
                     if canSteerDrafts {
                         Button {
                             HapticFeedback.shared.triggerImpactFeedback(style: .light)
                             onSteer(draft.id)
                         } label: {
-                            Text("Steer")
+                            Text(LocalizationManager.shared.localized("draft.steer"))
                                 .font(AppFont.system(size: 12, weight: .medium))
                                 .foregroundStyle(.primary)
                                 .padding(.horizontal, 10)

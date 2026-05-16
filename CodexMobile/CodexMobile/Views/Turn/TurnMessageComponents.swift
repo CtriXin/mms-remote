@@ -261,30 +261,371 @@ struct MarkdownTextView: View {
             profile: profile,
             usesCache: usesCaches
         )
-        let attributedText = usesCaches
-            ? CachingMarkdownParser.attributedString(for: transformed)
-            : NativeMarkdownRenderer.attributedString(for: transformed)
-        let baseView = Text(attributedText)
-            .font(AppFont.body())
-            .lineSpacing(2)
-
-        let renderedContent = Group {
-            if enablesSelection {
-                baseView
-                    .textSelection(.enabled)
-            } else {
-                baseView
-            }
-        }
+        let blocks = MarkdownBlockParser.blocks(in: transformed)
 
         if constrainsToAvailableWidth {
-            renderedContent
+            MarkdownBlockContentView(
+                blocks: blocks,
+                profile: profile,
+                enablesSelection: enablesSelection,
+                usesCaches: usesCaches
+            )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .clipped()
         } else {
-            renderedContent
+            MarkdownBlockContentView(
+                blocks: blocks,
+                profile: profile,
+                enablesSelection: enablesSelection,
+                usesCaches: usesCaches
+            )
         }
+    }
+}
+
+private struct MarkdownBlockContentView: View {
+    let blocks: [MarkdownRenderBlock]
+    let profile: MarkdownRenderProfile
+    let enablesSelection: Bool
+    let usesCaches: Bool
+
+    var body: some View {
+        if blocks.count == 1, case .markdown(let text) = blocks[0].kind {
+            MarkdownAttributedTextView(
+                text: text,
+                profile: profile,
+                enablesSelection: enablesSelection,
+                usesCaches: usesCaches
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(blocks) { block in
+                    switch block.kind {
+                    case .markdown(let text):
+                        MarkdownAttributedTextView(
+                            text: text,
+                            profile: profile,
+                            enablesSelection: enablesSelection,
+                            usesCaches: usesCaches
+                        )
+                    case .table(let table):
+                        MarkdownTableBlockView(table: table)
+                    case .code(let language, let code):
+                        MarkdownCodeBlockView(language: language, code: code)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MarkdownAttributedTextView: View {
+    let text: String
+    let profile: MarkdownRenderProfile
+    var enablesSelection: Bool = false
+    var usesCaches: Bool = true
+    var font: Font = AppFont.body()
+
+    var body: some View {
+        let attributedText = usesCaches
+            ? CachingMarkdownParser.attributedString(for: text)
+            : NativeMarkdownRenderer.attributedString(for: text)
+        let baseView = Text(attributedText)
+            .font(font)
+            .lineSpacing(2)
+
+        if enablesSelection {
+            baseView.textSelection(.enabled)
+        } else {
+            baseView
+        }
+    }
+}
+
+private struct MarkdownRenderBlock: Identifiable {
+    enum Kind {
+        case markdown(String)
+        case table(MarkdownTableBlock)
+        case code(language: String?, code: String)
+    }
+
+    let id: Int
+    let kind: Kind
+}
+
+private struct MarkdownTableBlock {
+    let headers: [String]
+    let rows: [[String]]
+}
+
+private enum MarkdownBlockParser {
+    nonisolated static func blocks(in text: String) -> [MarkdownRenderBlock] {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard !lines.isEmpty else {
+            return [MarkdownRenderBlock(id: 0, kind: .markdown(""))]
+        }
+
+        var blocks: [MarkdownRenderBlock] = []
+        var markdownLines: [String] = []
+        var index = 0
+
+        func appendMarkdownIfNeeded() {
+            let markdown = markdownLines.joined(separator: "\n")
+            markdownLines.removeAll(keepingCapacity: true)
+            guard !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            blocks.append(MarkdownRenderBlock(id: blocks.count, kind: .markdown(markdown)))
+        }
+
+        while index < lines.count {
+            let trimmedLine = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if let fence = fencedCodeBlock(startingAt: index, lines: lines) {
+                appendMarkdownIfNeeded()
+                blocks.append(
+                    MarkdownRenderBlock(
+                        id: blocks.count,
+                        kind: .code(language: fence.language, code: fence.code)
+                    )
+                )
+                index = fence.nextIndex
+                continue
+            }
+
+            if let table = tableBlock(startingAt: index, lines: lines) {
+                appendMarkdownIfNeeded()
+                blocks.append(MarkdownRenderBlock(id: blocks.count, kind: .table(table.table)))
+                index = table.nextIndex
+                continue
+            }
+
+            markdownLines.append(lines[index])
+            index += 1
+
+            if trimmedLine.isEmpty, !markdownLines.isEmpty {
+                appendMarkdownIfNeeded()
+            }
+        }
+
+        appendMarkdownIfNeeded()
+        return blocks.isEmpty ? [MarkdownRenderBlock(id: 0, kind: .markdown(text))] : blocks
+    }
+
+    nonisolated private static func fencedCodeBlock(startingAt index: Int, lines: [String]) -> (language: String?, code: String, nextIndex: Int)? {
+        guard index < lines.count else { return nil }
+        let opener = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard opener.hasPrefix("```") || opener.hasPrefix("~~~") else { return nil }
+        let marker = String(opener.prefix(3))
+        let language = opener.dropFirst(3).trimmingCharacters(in: .whitespacesAndNewlines)
+        var codeLines: [String] = []
+        var cursor = index + 1
+
+        while cursor < lines.count {
+            let candidate = lines[cursor].trimmingCharacters(in: .whitespacesAndNewlines)
+            if candidate.hasPrefix(marker) {
+                return (
+                    language: language.isEmpty ? nil : String(language),
+                    code: codeLines.joined(separator: "\n"),
+                    nextIndex: cursor + 1
+                )
+            }
+            codeLines.append(lines[cursor])
+            cursor += 1
+        }
+
+        return (
+            language: language.isEmpty ? nil : String(language),
+            code: codeLines.joined(separator: "\n"),
+            nextIndex: cursor
+        )
+    }
+
+    nonisolated private static func tableBlock(startingAt index: Int, lines: [String]) -> (table: MarkdownTableBlock, nextIndex: Int)? {
+        guard index + 1 < lines.count,
+              let headers = pipeCells(in: lines[index]),
+              let delimiters = pipeCells(in: lines[index + 1]),
+              headers.count >= 2,
+              delimiters.count == headers.count,
+              delimiters.allSatisfy(isDelimiterCell) else {
+            return nil
+        }
+
+        var rows: [[String]] = []
+        var cursor = index + 2
+
+        while cursor < lines.count {
+            let trimmed = lines[cursor].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, let cells = pipeCells(in: lines[cursor]) else { break }
+            rows.append(normalizedRow(cells, columnCount: headers.count))
+            cursor += 1
+        }
+
+        return (
+            table: MarkdownTableBlock(
+                headers: normalizedRow(headers, columnCount: headers.count),
+                rows: rows
+            ),
+            nextIndex: cursor
+        )
+    }
+
+    nonisolated private static func pipeCells(in line: String) -> [String]? {
+        var source = line.trimmingCharacters(in: .whitespaces)
+        guard source.contains("|") else { return nil }
+        if source.first == "|" { source.removeFirst() }
+        if source.last == "|" { source.removeLast() }
+
+        var cells: [String] = []
+        var current = ""
+        var isEscaped = false
+        var backtickCount = 0
+
+        for character in source {
+            if character == "`" && !isEscaped {
+                backtickCount += 1
+                current.append(character)
+                continue
+            }
+            if character == "|" && !isEscaped && backtickCount.isMultiple(of: 2) {
+                cells.append(current.trimmingCharacters(in: .whitespaces))
+                current = ""
+            } else {
+                current.append(character)
+            }
+            isEscaped = character == "\\" && !isEscaped
+            if character != "\\" {
+                isEscaped = false
+            }
+        }
+        cells.append(current.trimmingCharacters(in: .whitespaces))
+        return cells.count >= 2 ? cells : nil
+    }
+
+    nonisolated private static func isDelimiterCell(_ cell: String) -> Bool {
+        let normalized = cell
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "")
+        guard normalized.count >= 3, normalized.contains("-") else { return false }
+        return normalized.allSatisfy { $0 == "-" || $0 == ":" }
+    }
+
+    nonisolated private static func normalizedRow(_ cells: [String], columnCount: Int) -> [String] {
+        if cells.count == columnCount { return cells }
+        if cells.count > columnCount { return Array(cells.prefix(columnCount)) }
+        return cells + Array(repeating: "", count: columnCount - cells.count)
+    }
+}
+
+private struct MarkdownTableBlockView: View {
+    let table: MarkdownTableBlock
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var columnWidth: CGFloat {
+        switch table.headers.count {
+        case 0...2:
+            return 156
+        case 3:
+            return 132
+        default:
+            return 124
+        }
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: true) {
+            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    ForEach(table.headers.indices, id: \.self) { index in
+                        cell(table.headers[index], isHeader: true)
+                    }
+                }
+                ForEach(table.rows.indices, id: \.self) { rowIndex in
+                    GridRow {
+                        ForEach(table.headers.indices, id: \.self) { columnIndex in
+                            cell(value(in: table.rows[rowIndex], at: columnIndex), isHeader: false)
+                        }
+                    }
+                }
+            }
+            .background(tableBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(.separator).opacity(0.5), lineWidth: 0.5)
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func cell(_ text: String, isHeader: Bool) -> some View {
+        MarkdownAttributedTextView(
+            text: text.isEmpty ? " " : text,
+            profile: .assistantProse,
+            usesCaches: true,
+            font: isHeader ? AppFont.caption(weight: .semibold) : AppFont.caption()
+        )
+        .foregroundStyle(isHeader ? Color.primary : Color.primary.opacity(0.92))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(width: columnWidth, alignment: .topLeading)
+        .background(isHeader ? headerBackground : tableBackground)
+        .overlay(
+            Rectangle()
+                .stroke(Color(.separator).opacity(0.35), lineWidth: 0.5)
+        )
+    }
+
+    private func value(in row: [String], at index: Int) -> String {
+        index < row.count ? row[index] : ""
+    }
+
+    private var tableBackground: Color {
+        colorScheme == .dark
+            ? Color(.secondarySystemBackground).opacity(0.55)
+            : Color(.secondarySystemBackground)
+    }
+
+    private var headerBackground: Color {
+        colorScheme == .dark
+            ? Color(.tertiarySystemBackground).opacity(0.9)
+            : Color(.tertiarySystemBackground)
+    }
+}
+
+private struct MarkdownCodeBlockView: View {
+    let language: String?
+    let code: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let language, !language.isEmpty {
+                Text(language.uppercased())
+                    .font(AppFont.mono(.caption2))
+                    .foregroundStyle(.secondary)
+            }
+            ScrollView(.horizontal, showsIndicators: true) {
+                Text(code.isEmpty ? " " : code)
+                    .font(AppFont.mono(.caption))
+                    .foregroundStyle(.primary)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.top, language == nil ? 0 : 8)
+        .background(codeBackground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(.separator).opacity(0.45), lineWidth: 0.5)
+        )
+    }
+
+    private var codeBackground: Color {
+        colorScheme == .dark
+            ? Color(.secondarySystemBackground).opacity(0.7)
+            : Color(.secondarySystemBackground)
     }
 }
 
@@ -1272,7 +1613,7 @@ struct MessageRow: View, Equatable {
                         HapticFeedback.shared.triggerImpactFeedback(style: .light)
                         UIPasteboard.general.string = text
                     } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
+                        Label(LocalizationManager.shared.localized("common.copy"), systemImage: "doc.on.doc")
                     }
                 }
                 if isRetryAvailable, message.role == .user, !text.isEmpty {
@@ -1280,7 +1621,7 @@ struct MessageRow: View, Equatable {
                         HapticFeedback.shared.triggerImpactFeedback(style: .light)
                         onRetryUserMessage(text)
                     } label: {
-                        Label("Retry", systemImage: "arrow.clockwise")
+                        Label(LocalizationManager.shared.localized("common.retry"), systemImage: "arrow.clockwise")
                     }
                 }
             }
@@ -1863,7 +2204,7 @@ struct MessageRow: View, Equatable {
                             HStack(spacing: 4) {
                                 Image(systemName: "doc.text.magnifyingglass")
                                     .font(AppFont.system(size: 10, weight: .medium))
-                                Text("Diff")
+                                Text(localized: "message.diff")
                                 DiffCountsLabel(additions: totalAdditions, deletions: totalDeletions)
                             }
                             .font(AppFont.mono(.body))
@@ -1874,7 +2215,7 @@ struct MessageRow: View, Equatable {
                         .buttonStyle(.plain)
                         .sheet(isPresented: $isShowingBlockDiffSheet) {
                             TurnDiffSheet(
-                                title: "Changes",
+                                title: LocalizationManager.shared.localized("diff.changes"),
                                 entries: entries,
                                 bodyText: accessory.blockDiffText ?? "",
                                 messageID: message.id
@@ -1975,14 +2316,14 @@ struct MessageRow: View, Equatable {
                     usesMarkdownSelection: usesMarkdownSelection
                 )
             } label: {
-                Label("Select Text", systemImage: "text.cursor")
+                Label(LocalizationManager.shared.localized("common.select_text"), systemImage: "text.cursor")
             }
 
             Button {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 UIPasteboard.general.string = trimmedText
             } label: {
-                Label("Copy", systemImage: "doc.on.doc")
+                Label(LocalizationManager.shared.localized("common.copy"), systemImage: "doc.on.doc")
             }
         }
     }
@@ -2075,7 +2416,7 @@ private struct SelectableMessageTextSheet: View {
             .adaptiveNavigationBar()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button(LocalizationManager.shared.localized("common.done")) { dismiss() }
                 }
             }
         }
@@ -2311,8 +2652,8 @@ private struct CommandExecutionStatusCard: View {
                     onDismiss: { previewImage = nil }
                 )
             }
-            .alert("Image Preview", isPresented: imagePreviewErrorIsPresented, actions: {
-                Button("OK", role: .cancel) {
+            .alert(LocalizationManager.shared.localized("alert.image_preview"), isPresented: imagePreviewErrorIsPresented, actions: {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                     imagePreviewError = nil
                 }
             }, message: {
@@ -2360,7 +2701,7 @@ private struct CommandExecutionStatusCard: View {
                 .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Image")
+                    Text(localized: "message.image")
                         .font(AppFont.caption(weight: .medium))
                         .foregroundStyle(.secondary)
                     Text(reference.fileName)
@@ -2537,7 +2878,7 @@ private struct AssistantWorkspaceImagePreviewScreen: View {
                     Button {
                         Task { await loadPreview(force: true) }
                     } label: {
-                        Label("Retry", systemImage: "arrow.clockwise")
+                        Label(LocalizationManager.shared.localized("common.retry"), systemImage: "arrow.clockwise")
                             .font(AppFont.subheadline(weight: .semibold))
                             .padding(.horizontal, 16)
                             .frame(height: 40)
@@ -2823,7 +3164,7 @@ struct ApprovalBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Approval request", systemImage: "checkmark.shield")
+            Label(LocalizationManager.shared.localized("message.approval_request"), systemImage: "checkmark.shield")
                 .font(AppFont.subheadline())
 
             if let command = request.command, !command.isEmpty {
@@ -2841,13 +3182,13 @@ struct ApprovalBanner: View {
             }
 
             HStack {
-                Button("Approve", action: {
+                Button(LocalizationManager.shared.localized("common.approve"), action: {
                     HapticFeedback.shared.triggerImpactFeedback()
                     onApprove()
                 })
                     .buttonStyle(.borderedProminent)
 
-                Button("Deny", role: .destructive, action: {
+                Button(LocalizationManager.shared.localized("common.decline"), role: .destructive, action: {
                     HapticFeedback.shared.triggerImpactFeedback()
                     onDecline()
                 })

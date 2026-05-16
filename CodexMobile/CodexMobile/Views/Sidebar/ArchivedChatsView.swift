@@ -27,7 +27,7 @@ struct ArchivedChatsView: View {
                     Image(systemName: "archivebox")
                         .font(.system(size: 36))
                         .foregroundStyle(.tertiary)
-                    Text("No archived chats")
+                    Text(localized: "sidebar.no_archived_chats")
                         .font(AppFont.subheadline())
                         .foregroundStyle(.secondary)
                 }
@@ -41,7 +41,7 @@ struct ArchivedChatsView: View {
                 .listStyle(.insetGrouped)
             }
         }
-        .navigationTitle("Archived Chats")
+        .navigationTitle(Text(localized: "settings.archived_chats"))
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog(
             "Remove \"\(threadPendingDeletion?.displayTitle ?? "conversation")\" from this phone?",
@@ -51,17 +51,17 @@ struct ArchivedChatsView: View {
             ),
             titleVisibility: .visible
         ) {
-            Button("Remove from Phone", role: .destructive) {
+            Button(LocalizationManager.shared.localized("sidebar.remove_from_phone"), role: .destructive) {
                 if let thread = threadPendingDeletion {
                     codex.deleteThreadLocally(thread.id)
                 }
                 threadPendingDeletion = nil
             }
-            Button("Cancel", role: .cancel) {
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
                 threadPendingDeletion = nil
             }
         } message: {
-            Text("This only removes the chat from MMS Remote on this phone. Nothing is removed from your computer or Codex observer.")
+            Text(localized: "sidebar.remove_confirm")
         }
     }
 
@@ -86,7 +86,7 @@ struct ArchivedChatsView: View {
             Button(role: .destructive) {
                 threadPendingDeletion = thread
             } label: {
-                Label("Remove", systemImage: "trash")
+                Label(LocalizationManager.shared.localized("sidebar.remove"), systemImage: "trash")
             }
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -94,7 +94,7 @@ struct ArchivedChatsView: View {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 codex.unarchiveThread(thread.id)
             } label: {
-                Label("Unarchive", systemImage: "tray.and.arrow.up")
+                Label(LocalizationManager.shared.localized("sidebar.unarchive"), systemImage: "tray.and.arrow.up")
             }
             .tint(.blue)
         }
@@ -103,13 +103,13 @@ struct ArchivedChatsView: View {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 codex.unarchiveThread(thread.id)
             } label: {
-                Label("Unarchive", systemImage: "tray.and.arrow.up")
+                Label(LocalizationManager.shared.localized("sidebar.unarchive"), systemImage: "tray.and.arrow.up")
             }
 
             Button(role: .destructive) {
                 threadPendingDeletion = thread
             } label: {
-                Label("Remove from Phone", systemImage: "trash")
+                Label(LocalizationManager.shared.localized("sidebar.remove_from_phone"), systemImage: "trash")
             }
         }
     }

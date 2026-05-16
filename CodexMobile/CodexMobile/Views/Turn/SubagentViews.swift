@@ -366,7 +366,7 @@ private struct SubagentAgentDetailSheet: View {
                     }
 
                     if instructionText == nil, latestUpdateText == nil {
-                        Text("No extra details yet.")
+                        Text(LocalizationManager.shared.localized("subagent.no_details"))
                             .font(AppFont.footnote())
                             .foregroundStyle(.secondary)
                     }
@@ -378,7 +378,7 @@ private struct SubagentAgentDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .principal) { titleText }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button(LocalizationManager.shared.localized("common.done")) { dismiss() }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -388,7 +388,7 @@ private struct SubagentAgentDetailSheet: View {
                         onOpen()
                     } label: {
                         HStack(spacing: 8) {
-                            Text("Open child thread")
+                            Text(LocalizationManager.shared.localized("subagent.open_child"))
                             Image(systemName: "arrow.right")
                         }
                         .font(AppFont.body(weight: .semibold))
@@ -426,7 +426,7 @@ private struct SubagentAgentDetailSheet: View {
                 }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Status")
+                Text(LocalizationManager.shared.localized("common.status"))
                     .font(AppFont.caption(weight: .semibold))
                     .foregroundStyle(.secondary)
                 Text(statusText)

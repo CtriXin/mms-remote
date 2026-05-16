@@ -22,12 +22,12 @@ private struct ThreadRenamePromptModifier: ViewModifier {
     let onRename: (String) -> Void
 
     func body(content: Content) -> some View {
-        content.alert("Rename Conversation", isPresented: $state.isPresented) {
-            TextField("Name", text: $state.draftTitle)
-            Button("Rename") {
+        content.alert(LocalizationManager.shared.localized("rename.title"), isPresented: $state.isPresented) {
+            TextField(LocalizationManager.shared.localized("rename.placeholder"), text: $state.draftTitle)
+            Button(LocalizationManager.shared.localized("rename.button.rename")) {
                 commitRename()
             }
-            Button("Cancel", role: .cancel) {}
+            Button(LocalizationManager.shared.localized("rename.button.cancel"), role: .cancel) {}
         }
     }
 

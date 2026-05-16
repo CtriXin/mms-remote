@@ -108,7 +108,7 @@ struct HomeEmptyStateView<AuthSection: View, Footer: View>: View {
                 .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("MMS Remote")
+        .navigationTitle(Text(localized: "sidebar.title"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if connectionPhase == .connecting {

@@ -63,8 +63,8 @@ struct OnboardingView: View {
         }
         .preferredColorScheme(.dark)
         .alert("Install Codex CLI First", isPresented: $isShowingCodexInstallReminder) {
-            Button("Stay Here", role: .cancel) {}
-            Button("Continue Anyway") {
+            Button(LocalizationManager.shared.localized("onboarding.stay"), role: .cancel) {}
+            Button(LocalizationManager.shared.localized("onboarding.continue")) {
                 advanceToNextPage()
             }
         } message: {

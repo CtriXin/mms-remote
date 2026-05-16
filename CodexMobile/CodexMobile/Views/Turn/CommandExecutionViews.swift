@@ -814,7 +814,7 @@ struct CommandExecutionDetailSheet: View {
 
     private var commandSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Command", systemImage: "terminal.fill")
+            Label(LocalizationManager.shared.localized("composer.placeholder.command"), systemImage: "terminal.fill")
                 .font(AppFont.mono(.caption))
                 .foregroundStyle(commandAccent)
 
@@ -833,19 +833,19 @@ struct CommandExecutionDetailSheet: View {
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let cwd = details?.cwd, !cwd.isEmpty {
-                metadataRow(label: "Directory", value: cwd)
+                metadataRow(label: LocalizationManager.shared.localized("command.directory"), value: cwd)
             }
             if let exitCode = details?.exitCode {
                 metadataRow(
-                    label: "Exit code",
+                    label: LocalizationManager.shared.localized("command.exit_code"),
                     value: "\(exitCode)",
                     valueColor: exitCode == 0 ? .green : .red
                 )
             }
             if let durationMs = details?.durationMs {
-                metadataRow(label: "Duration", value: formattedDuration(durationMs))
+                metadataRow(label: LocalizationManager.shared.localized("command.duration"), value: formattedDuration(durationMs))
             }
-            metadataRow(label: "Status", value: status.statusLabel, valueColor: status.accent.color)
+            metadataRow(label: LocalizationManager.shared.localized("command.status"), value: status.statusLabel, valueColor: status.accent.color)
         }
     }
 
@@ -872,7 +872,7 @@ struct CommandExecutionDetailSheet: View {
                 HStack(spacing: 6) {
                     Image(systemName: isOutputExpanded ? "chevron.down" : "chevron.right")
                         .font(AppFont.system(size: 10, weight: .semibold))
-                    Text("Output (last \(CommandExecutionDetails.maxOutputLines) lines)")
+                    Text(String(format: LocalizationManager.shared.localized("command.output"), CommandExecutionDetails.maxOutputLines))
                         .font(AppFont.mono(.caption))
                 }
                 .foregroundStyle(.secondary)

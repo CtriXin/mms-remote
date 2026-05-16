@@ -54,14 +54,14 @@ struct WhatsNewSheet: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("What's New")
+            Text(localized: "whatsnew.title")
                 .font(AppFont.title2(weight: .bold))
 
             Text("MMS Remote \(version)")
                 .font(AppFont.mono(.subheadline))
                 .foregroundStyle(.secondary)
 
-            Text("Here’s what changed in this build.")
+            Text(localized: "whatsnew.subtitle")
                 .font(AppFont.body())
                 .foregroundStyle(.secondary)
         }
@@ -87,7 +87,7 @@ struct WhatsNewSheet: View {
     }
 
     private var visibilityNote: some View {
-        Text("We'll only show this once for each app version.")
+        Text(localized: "whatsnew.note")
             .font(AppFont.caption())
             .foregroundStyle(.secondary)
     }
@@ -106,7 +106,7 @@ struct WhatsNewSheet: View {
             .frame(height: 64)
             .allowsHitTesting(false)
 
-            PrimaryCapsuleButton(title: "Got It") {
+            PrimaryCapsuleButton(title: LocalizationManager.shared.localized("whatsnew.button.got_it")) {
                 onDismiss()
             }
             .padding(.horizontal, 24)
