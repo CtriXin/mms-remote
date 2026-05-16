@@ -44,6 +44,7 @@
 		DAAD0C0C717F9415C3E9D21A /* MMSRemoteMenuBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0B9CCCCC45E47616AB452FA /* MMSRemoteMenuBarApp.swift */; };
 		DC6E023DD6E4FA68DF3D7FDE /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E5E1FA12CF5120C8C8A64111 /* Cocoa.framework */; };
 		E1A2B3C4D5E6F708192A3B4C /* QRScannerPairingValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3B4D /* QRScannerPairingValidatorTests.swift */; };
+		E9A1B2C3D4E5F60718293A10 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = E9A1B2C3D4E5F60718293A11 /* SwiftTerm */; };
 		F1B2C3D4E5F60718293A4B10 /* CodexGPTAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B2C3D4E5F60718293A4B11 /* CodexGPTAccountTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -124,6 +125,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C04E214D2F71D4DB00AA3193 /* StoreKit.framework in Frameworks */,
+				E9A1B2C3D4E5F60718293A10 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -356,6 +358,9 @@
 				C09A76B02F4B8D7B003B3F3A /* CodexMobile */,
 			);
 			name = CodexMobile;
+			packageProductDependencies = (
+				E9A1B2C3D4E5F60718293A11 /* SwiftTerm */,
+			);
 			productName = CodexMobile;
 			productReference = C09A76AE2F4B8D7B003B3F3A /* CodexMobile.app */;
 			productType = "com.apple.product-type.application";
@@ -385,6 +390,7 @@
 			mainGroup = C09A76A52F4B8D7B003B3F3A;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				E9A1B2C3D4E5F60718293A12 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C09A76AF2F4B8D7B003B3F3A /* Products */;
@@ -719,7 +725,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = CodexMobile/CodexMobile.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 60;
 				DEVELOPMENT_TEAM = 2HJP9YYL3H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -738,7 +744,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7.24;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mms.remote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -766,7 +772,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = CodexMobile/CodexMobile.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 60;
 				DEVELOPMENT_TEAM = 2HJP9YYL3H;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -785,7 +791,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7.24;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mms.remote;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -919,6 +925,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E9A1B2C3D4E5F60718293A12 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = exactVersion;
+				version = 1.11.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E9A1B2C3D4E5F60718293A11 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E9A1B2C3D4E5F60718293A12 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C09A76A62F4B8D7B003B3F3A /* Project object */;
 }

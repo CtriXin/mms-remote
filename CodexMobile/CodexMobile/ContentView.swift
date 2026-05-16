@@ -21,6 +21,12 @@ private enum RootSheetRoute: Identifiable, Equatable {
     }
 }
 
+private enum MainAppTab: Hashable {
+    case chats
+    case terminal
+    case settings
+}
+
 struct ContentView: View {
     @Environment(CodexService.self) private var codex
     @Environment(SubscriptionService.self) private var subscriptions
@@ -34,8 +40,9 @@ struct ContentView: View {
     @State private var isSidebarPrewarmed = false
     @State private var selectedThread: CodexThread?
     @State private var navigationPath = NavigationPath()
+    @State private var selectedAppTab: MainAppTab = .chats
+    @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
     @State private var showSettings = false
-    @State private var isShowingTerminalHub = false
     @State private var isShowingManualScanner = false
     @State private var hasDismissedAutomaticScanner = false
     @State private var scannerCanReturnToOnboarding = false
@@ -99,6 +106,9 @@ struct ContentView: View {
             }
             .onChange(of: showSettings) { _, show in
                 if show {
+                    if isSidebarOpen {
+                        selectedThread = nil
+                    }
                     navigationPath.append("settings")
                     showSettings = false
                 }
@@ -212,20 +222,20 @@ struct ContentView: View {
                 isPresented: missingNotificationThreadAlertIsPresented,
                 presenting: codex.missingNotificationThreadPrompt
             ) { _ in
-                Button("Not Now", role: .cancel) {
+                Button(LocalizationManager.shared.localized("common.not_now"), role: .cancel) {
                     codex.missingNotificationThreadPrompt = nil
                 }
-                Button("Start New Chat") {
+                Button(LocalizationManager.shared.localized("common.start_new_chat")) {
                     codex.missingNotificationThreadPrompt = nil
                     Task {
                         await startNewThreadFromMissingNotificationAlert()
                     }
                 }
             } message: { _ in
-                Text("This chat is no longer available. Start a new chat instead?")
+                Text(LocalizationManager.shared.localized("alert.chat_deleted_message"))
             }
             .alert("Pairing Error", isPresented: manualPairingErrorAlertIsPresented) {
-                Button("OK", role: .cancel) {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                     manualPairingErrorMessage = nil
                 }
             } message: {
@@ -240,11 +250,11 @@ struct ContentView: View {
                     submitManualPairingCode()
                 }
 
-                Button("Cancel", role: .cancel) {
+                Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
                     manualPairingCode = ""
                 }
             } message: {
-                Text("Paste the pairing code shown in the terminal on your computer or in your phone shell.")
+                Text(LocalizationManager.shared.localized("alert.pairing_code_hint"))
             }
     }
 
@@ -343,7 +353,42 @@ struct ContentView: View {
     }
 
     private var mainAppBody: some View {
+        TabView(selection: $selectedAppTab) {
+            chatAppBody
+                .tabItem {
+                    Label(LocalizationManager.shared.localized("tab.chats"), systemImage: "bubble.left.and.bubble.right")
+                }
+                .tag(MainAppTab.chats)
+
+            terminalTabBody
+                .tabItem {
+                    Label(LocalizationManager.shared.localized("tab.terminal"), systemImage: "terminal")
+                }
+                .tag(MainAppTab.terminal)
+
+            settingsTabBody
+                .tabItem {
+                    Label(LocalizationManager.shared.localized("tab.settings"), systemImage: "gearshape")
+                }
+                .tag(MainAppTab.settings)
+        }
+        .background(Color(.systemBackground))
+        .toolbarBackground(Color(.systemBackground), for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .onChange(of: selectedAppTab) { previousTab, tab in
+            if previousTab == .terminal, tab != .terminal {
+                Task {
+                    await codex.stopAllTerminalStreams()
+                }
+            }
+            guard tab != .chats else { return }
+            dismissChatDrawerForTabSwitch()
+        }
+    }
+
+    private var chatAppBody: some View {
         GeometryReader { proxy in
+            let _ = LocalizationManager.shared.currentLanguage
             let currentSidebarWidth = effectiveSidebarWidth(for: proxy.size.width)
             let currentSidebarRevealWidth = sidebarRevealWidth(for: currentSidebarWidth)
 
@@ -400,6 +445,43 @@ struct ContentView: View {
         .simultaneousGesture(edgeDragGesture)
     }
 
+    private var terminalAppBody: some View {
+        NavigationStack {
+            if useLegacyTerminalInterface {
+                TerminalHubView(onClose: nil)
+                    .adaptiveNavigationBar()
+            } else {
+                SwiftTerminalHubView()
+                    .adaptiveNavigationBar()
+            }
+        }
+    }
+
+    private var settingsAppBody: some View {
+        NavigationStack {
+            SettingsView()
+                .adaptiveNavigationBar()
+        }
+    }
+
+    @ViewBuilder
+    private var terminalTabBody: some View {
+        if selectedAppTab == .terminal {
+            terminalAppBody
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private var settingsTabBody: some View {
+        if selectedAppTab == .settings {
+            settingsAppBody
+        } else {
+            Color.clear
+        }
+    }
+
     // MARK: - Layers
 
     private var mainNavigationLayer: some View {
@@ -424,14 +506,7 @@ struct ContentView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         hamburgerButton
                     }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        terminalToolbarButton
-                    }
                 }
-        } else if isShowingTerminalHub {
-            TerminalHubView {
-                isShowingTerminalHub = false
-            }
         } else if let thread = selectedThread {
             TurnView(
                 thread: thread,
@@ -447,9 +522,6 @@ struct ContentView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         hamburgerButton
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        terminalToolbarButton
                     }
                 }
         } else {
@@ -494,27 +566,8 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     hamburgerButton
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    terminalToolbarButton
-                }
             }
         }
-    }
-
-    private var terminalToolbarButton: some View {
-        Button {
-            HapticFeedback.shared.triggerImpactFeedback(style: .light)
-            isShowingTerminalHub = true
-            closeSidebar()
-        } label: {
-            Image(systemName: "terminal")
-                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                .padding(8)
-                .contentShape(Circle())
-                .adaptiveToolbarItem(in: Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Terminals")
     }
 
     private var hamburgerButton: some View {
@@ -764,6 +817,17 @@ struct ContentView: View {
         HapticFeedback.shared.triggerImpactFeedback(style: .light)
         let shouldOpenSidebar = !isSidebarOpen
         setSidebar(open: shouldOpenSidebar)
+    }
+
+    private func dismissChatDrawerForTabSwitch() {
+        isSearchActive = false
+        dismissActiveKeyboard()
+        withAnimation(Self.sidebarSpring) {
+            isSidebarOpen = false
+            sidebarDragOffset = 0
+        }
+        sidebarGestureAutoCommitted = false
+        resetSidebarGestureDebug()
     }
 
     private func closeSidebar() {
@@ -1292,12 +1356,12 @@ struct ContentView: View {
     // Keeps QR and code recovery as one quiet secondary row under the main reconnect CTA.
     private var reconnectSecondaryActions: some View {
         HStack(spacing: 10) {
-            secondaryReconnectActionButton("New QR Code") {
+            secondaryReconnectActionButton(LocalizationManager.shared.localized("common.new_qr_code")) {
                 presentManualScannerAfterStoppingReconnect()
             }
             .disabled(isPreparingManualScanner)
 
-            secondaryReconnectActionButton("Pair with Code") {
+            secondaryReconnectActionButton(LocalizationManager.shared.localized("common.pair_with_code")) {
                 presentManualPairingEntryAfterStoppingReconnect()
             }
             .disabled(isPreparingManualScanner || isResolvingManualPairingCode)
@@ -1306,7 +1370,7 @@ struct ContentView: View {
 
     // Keeps the destructive saved-pair action visually separate from the reconnect controls.
     private var reconnectFooterAction: some View {
-        Button("Forget Pair") {
+        Button(LocalizationManager.shared.localized("settings.forget_pair")) {
             codex.forgetReconnectCandidate()
         }
         .font(AppFont.caption(weight: .semibold))
@@ -1468,18 +1532,18 @@ private struct NewChatOpeningStateView: View {
                 .controlSize(.regular)
 
             VStack(spacing: 4) {
-                Text("Starting new chat...")
+                Text(LocalizationManager.shared.localized("common.starting_new_chat"))
                     .font(AppFont.headline())
                     .foregroundStyle(.primary)
 
-                Text("Preparing an empty conversation.")
+                Text(LocalizationManager.shared.localized("common.preparing_conversation"))
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemBackground))
-        .navigationTitle("New Chat")
+        .navigationTitle(LocalizationManager.shared.localized("common.new_chat"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

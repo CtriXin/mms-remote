@@ -7,27 +7,62 @@ import SwiftUI
 import StoreKit
 import UIKit
 
+
+enum AppThemeMode: String, CaseIterable, Identifiable {
+    static let storageKey = "codex.themeMode"
+
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var preferredColorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+
+    var localizedTitle: String {
+        switch self {
+        case .system: return LocalizationManager.shared.localized("settings.theme_system")
+        case .light: return LocalizationManager.shared.localized("settings.theme_light")
+        case .dark: return LocalizationManager.shared.localized("settings.theme_dark")
+        }
+    }
+}
+
 struct SettingsView: View {
     @AppStorage("codex.appFontStyle") private var appFontStyleRawValue = AppFont.defaultStoredStyleRawValue
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                SettingsArchivedChatsCard()
-                SettingsAppearanceCard(appFontStyle: appFontStyleBinding)
-                SettingsNotificationsCard()
-                SettingsGPTAccountCard()
-                SettingsSubscriptionCard()
-                SettingsBridgeVersionCard()
+                SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_codex"))
                 SettingsRuntimeDefaultsCard()
-                SettingsAboutCard()
                 SettingsUsageCard()
+                SettingsGPTAccountCard()
+                SettingsArchivedChatsCard()
+
+                SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_terminal"))
+                SettingsTerminalCard()
+                SettingsBridgeVersionCard()
                 SettingsConnectionCard()
+
+                SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_app"))
+                SettingsAppearanceCard(appFontStyle: appFontStyleBinding)
+                SettingsLanguageCard()
+                SettingsNotificationsCard()
+                SettingsSubscriptionCard()
+                SettingsAppVersionCard()
+                SettingsAboutCard()
             }
             .padding()
         }
         .font(AppFont.body())
-        .navigationTitle("Settings")
+        .navigationTitle(Text(localized: "settings.title"))
     }
 
     private var appFontStyleBinding: Binding<AppFont.Style> {
@@ -35,6 +70,23 @@ struct SettingsView: View {
             get: { AppFont.Style(rawValue: appFontStyleRawValue) ?? AppFont.defaultStyle },
             set: { appFontStyleRawValue = $0.rawValue }
         )
+    }
+}
+
+private struct SettingsSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(AppFont.title3(weight: .semibold))
+            Rectangle()
+                .fill(Color.primary.opacity(0.10))
+                .frame(height: 1)
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
     }
 }
 
@@ -46,12 +98,12 @@ private struct SettingsRuntimeDefaultsCard: View {
     private let settingsAccentColor = Color(.plan)
 
     var body: some View {
-        SettingsCard(title: "Runtime defaults") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.runtime_defaults")) {
             HStack {
-                Text("Model")
+                Text(localized: "settings.model")
                 Spacer()
                 Picker("Model", selection: runtimeModelSelection) {
-                    Text("Auto").tag(runtimeAutoValue)
+                    Text(localized: "settings.auto").tag(runtimeAutoValue)
                     ForEach(runtimeModelOptions, id: \.id) { model in
                         Text(TurnComposerMetaMapper.modelTitle(for: model))
                             .tag(model.id)
@@ -63,10 +115,10 @@ private struct SettingsRuntimeDefaultsCard: View {
             }
 
             HStack {
-                Text("Reasoning")
+                Text(localized: "settings.reasoning")
                 Spacer()
                 Picker("Reasoning", selection: runtimeReasoningSelection) {
-                    Text("Auto").tag(runtimeAutoValue)
+                    Text(localized: "settings.auto").tag(runtimeAutoValue)
                     ForEach(runtimeReasoningOptions, id: \.id) { option in
                         Text(option.title).tag(option.effort)
                     }
@@ -79,10 +131,10 @@ private struct SettingsRuntimeDefaultsCard: View {
 
             if codex.selectedModelSupportsServiceTier(.fast) {
                 HStack {
-                    Text("Speed")
+                    Text(localized: "settings.speed")
                     Spacer()
                     Picker("Speed", selection: runtimeServiceTierSelection) {
-                        Text("Normal").tag(runtimeNormalValue)
+                        Text(localized: "settings.normal").tag(runtimeNormalValue)
                         ForEach(CodexServiceTier.allCases, id: \.rawValue) { tier in
                             Text(tier.displayName).tag(tier.rawValue)
                         }
@@ -94,7 +146,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             }
 
             HStack {
-                Text("Access")
+                Text(localized: "settings.access")
                 Spacer()
                 Picker("Access", selection: runtimeAccessSelection) {
                     ForEach(CodexAccessMode.allCases, id: \.self) { mode in
@@ -109,7 +161,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             Divider()
 
             HStack {
-                Text("Git writer model")
+                Text(localized: "settings.git_writer_model")
                 Spacer()
                 Picker("Git writer model", selection: gitWriterModelSelection) {
                     ForEach(gitWriterModelOptions, id: \.id) { model in
@@ -123,7 +175,7 @@ private struct SettingsRuntimeDefaultsCard: View {
                 .disabled(gitWriterModelOptions.isEmpty)
             }
 
-            Text("Used for AI-generated commit messages and PR drafts. Defaults to GPT-5.4 Mini when available.")
+            Text(localized: "settings.git_writer_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
         }
@@ -194,7 +246,7 @@ private struct SettingsConnectionCard: View {
     private let settingsAccentColor = Color(.plan)
 
     var body: some View {
-        SettingsCard(title: "Connection") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.connection")) {
             if let trustedPairPresentation = codex.trustedPairPresentation {
                 SettingsTrustedComputerCard(
                     presentation: trustedPairPresentation,
@@ -204,7 +256,7 @@ private struct SettingsConnectionCard: View {
                     }
                 )
             } else {
-                Text("No paired computer")
+                Text(localized: "settings.no_paired_computer")
                     .font(AppFont.subheadline(weight: .semibold))
                     .foregroundStyle(.primary)
             }
@@ -244,19 +296,19 @@ private struct SettingsConnectionCard: View {
                     .foregroundStyle(.secondary)
 
                 if !codex.isConnected {
-                    Text("Saved on this iPhone. It will sync to the paired computer the next time the bridge reconnects.")
+                    Text(localized: "settings.saved_on_iphone")
                         .font(AppFont.caption())
                         .foregroundStyle(.secondary)
                 }
             }
 
             if codex.isConnected {
-                SettingsButton("Disconnect", role: .destructive) {
+                SettingsButton(LocalizationManager.shared.localized("settings.disconnect"), role: .destructive) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     disconnectRelay()
                 }
             } else if codex.hasTrustedMacReconnectCandidate {
-                SettingsButton("Forget Pair", role: .destructive) {
+                SettingsButton(LocalizationManager.shared.localized("settings.forget_pair"), role: .destructive) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     codex.forgetTrustedMac()
                 }
@@ -342,15 +394,15 @@ private struct SettingsConnectionCard: View {
 
 private struct SettingsSubscriptionCard: View {
     var body: some View {
-        SettingsCard(title: "Access") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.access")) {
             HStack {
-                Text("Status")
+                Text(localized: "settings.status")
                 Spacer()
-                Text("Local build")
+                Text(localized: "settings.local_build")
                     .foregroundStyle(.green)
             }
 
-            Text("This source build does not enable an App Store subscription gate.")
+            Text(localized: "settings.local_build_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
         }
@@ -425,7 +477,7 @@ private struct SettingsUsageCard: View {
     @State private var isRefreshing = false
 
     var body: some View {
-        SettingsCard(title: "Usage") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.usage")) {
             UsageStatusSummaryContent(
                 contextWindowUsage: nil,
                 showsContextWindowSection: false,
@@ -482,16 +534,171 @@ private struct SettingsUsageCard: View {
     }
 }
 
+private struct SettingsLanguageCard: View {
+    @State private var languageRefreshToken = UUID()
+
+    var body: some View {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.language")) {
+            HStack {
+                Text(LocalizationManager.shared.localized("settings.language"))
+                Spacer()
+                Picker("Language", selection: Binding(
+                    get: { LocalizationManager.shared.currentLanguage },
+                    set: { LocalizationManager.shared.currentLanguage = $0 }
+                )) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+        }
+        .id(languageRefreshToken)
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageRefreshToken = UUID()
+        }
+    }
+}
+
+private struct SettingsTerminalCard: View {
+    @Environment(CodexService.self) private var codex
+
+    @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
+    @AppStorage("terminal.darkCanvas") private var useDarkTerminalCanvas = true
+    @AppStorage("terminal.openVisibleOnCreate") private var openVisibleOnCreate = false
+    @AppStorage(TerminalFontFamily.storageKey) private var terminalFontFamilyRaw = TerminalFontFamily.defaultStoredRawValue
+    @AppStorage(TerminalVisibleAppPreference.storageKey) private var terminalVisibleAppRaw = TerminalVisibleAppPreference.defaultStoredRawValue
+    @State private var isShowingTmuxCheatsheet = false
+
+    private let settingsAccentColor = Color(.plan)
+
+    var body: some View {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.terminal")) {
+            Button {
+                isShowingTmuxCheatsheet = true
+            } label: {
+                HStack(spacing: 12) {
+                    Label(LocalizationManager.shared.localized("terminal.cheatsheet.title"), systemImage: "questionmark.circle")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(AppFont.caption(weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            Text(LocalizationManager.shared.localized("terminal.settings.tmux_cheatsheet_hint"))
+                .font(AppFont.caption())
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            Toggle(LocalizationManager.shared.localized("terminal.settings.legacy_fallback"), isOn: $useLegacyTerminalInterface)
+                .tint(settingsAccentColor)
+
+            Text(LocalizationManager.shared.localized("terminal.settings.legacy_fallback_hint"))
+                .font(AppFont.caption())
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            Toggle(LocalizationManager.shared.localized("terminal.settings.dark_canvas"), isOn: $useDarkTerminalCanvas)
+                .tint(settingsAccentColor)
+
+            HStack {
+                Text(LocalizationManager.shared.localized("terminal.settings.font"))
+                Spacer()
+                Picker("Terminal Font", selection: terminalFontBinding) {
+                    ForEach(TerminalFontFamily.allCases) { family in
+                        Text(family.localizedTitle).tag(family)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .tint(settingsAccentColor)
+            }
+
+            Text(LocalizationManager.shared.localized("terminal.settings.font_hint"))
+                .font(AppFont.caption())
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            HStack {
+                Text(LocalizationManager.shared.localized("terminal.settings.visible_app"))
+                Spacer()
+                Picker("Mac Terminal App", selection: visibleAppBinding) {
+                    ForEach(TerminalVisibleAppPreference.allCases) { app in
+                        Text(app.localizedTitle).tag(app)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .tint(settingsAccentColor)
+            }
+
+            Toggle(LocalizationManager.shared.localized("terminal.settings.open_visible_on_create"), isOn: $openVisibleOnCreate)
+                .tint(settingsAccentColor)
+        }
+        .sheet(isPresented: $isShowingTmuxCheatsheet) {
+            NavigationStack {
+                TmuxCheatsheetView(sessionName: codex.selectedTerminalPane?.sessionName)
+                    .navigationTitle(LocalizationManager.shared.localized("terminal.cheatsheet.title"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(LocalizationManager.shared.localized("settings.close")) {
+                                isShowingTmuxCheatsheet = false
+                            }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
+        }
+    }
+
+    private var terminalFontBinding: Binding<TerminalFontFamily> {
+        Binding(
+            get: { TerminalFontFamily(rawValue: terminalFontFamilyRaw) ?? .hackNerdFont },
+            set: { terminalFontFamilyRaw = $0.rawValue }
+        )
+    }
+
+    private var visibleAppBinding: Binding<TerminalVisibleAppPreference> {
+        Binding(
+            get: { TerminalVisibleAppPreference(rawValue: terminalVisibleAppRaw) ?? .auto },
+            set: { terminalVisibleAppRaw = $0.rawValue }
+        )
+    }
+}
+
 private struct SettingsAppearanceCard: View {
     @Binding var appFontStyle: AppFont.Style
+    @AppStorage(AppThemeMode.storageKey) private var appThemeModeRawValue = AppThemeMode.system.rawValue
     @AppStorage("codex.useLiquidGlass") private var useLiquidGlass = true
     @AppStorage(UserBubbleColor.storageKey) private var userBubbleColorRawValue = UserBubbleColor.defaultStoredRawValue
     private let settingsAccentColor = Color(.plan)
 
     var body: some View {
-        SettingsCard(title: "Appearance") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.appearance")) {
             HStack {
-                Text("Font")
+                Text(localized: "settings.theme")
+                Spacer()
+                Picker("Theme", selection: appThemeModeBinding) {
+                    ForEach(AppThemeMode.allCases) { mode in
+                        Text(mode.localizedTitle).tag(mode)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .tint(settingsAccentColor)
+            }
+
+            Divider()
+
+            HStack {
+                Text(localized: "settings.font")
                 Spacer()
                 Picker("Font", selection: $appFontStyle) {
                     ForEach(AppFont.Style.allCases) { style in
@@ -506,7 +713,7 @@ private struct SettingsAppearanceCard: View {
             Divider()
 
             HStack {
-                Text("Message Bubble")
+                Text(localized: "settings.message_bubble")
                 Menu {
                     ForEach(UserBubbleColor.allCases) { color in
                         Button {
@@ -530,7 +737,7 @@ private struct SettingsAppearanceCard: View {
                     .frame(maxWidth: .infinity, minHeight: 28, alignment: .trailing)
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Message Bubble color")
+                .accessibilityLabel(LocalizationManager.shared.localized("settings.message_bubble"))
                 .accessibilityValue(selectedUserBubbleColor.title)
                 .tint(settingsAccentColor)
             }
@@ -548,6 +755,13 @@ private struct SettingsAppearanceCard: View {
         }
     }
 
+    private var appThemeModeBinding: Binding<AppThemeMode> {
+        Binding(
+            get: { AppThemeMode(rawValue: appThemeModeRawValue) ?? .system },
+            set: { appThemeModeRawValue = $0.rawValue }
+        )
+    }
+
     private var selectedUserBubbleColor: UserBubbleColor {
         UserBubbleColor(rawValue: userBubbleColorRawValue) ?? .default
     }
@@ -563,8 +777,8 @@ private struct SettingsPetCompanionSection: View {
         Group {
             Toggle(isOn: petEnabledBinding) {
                 HStack(spacing: 8) {
-                    Text("Companion Pet")
-                    Text("BETA")
+                    Text(localized: "settings.companion_pet")
+                    Text(localized: "settings.beta")
                         .font(.system(size: 10, weight: .semibold))
                         .tracking(0.5)
                         .foregroundStyle(settingsAccentColor)
@@ -586,7 +800,7 @@ private struct SettingsPetCompanionSection: View {
                         .foregroundStyle(.secondary)
                 } else {
                     HStack {
-                        Text("Pet")
+                        Text(localized: "settings.pet")
                         Spacer()
                         Picker("Pet", selection: selectedPetBinding) {
                             ForEach(petStore.availablePets) { pet in
@@ -612,7 +826,7 @@ private struct SettingsPetCompanionSection: View {
                         .foregroundStyle(.red)
                 }
 
-                SettingsButton("Refresh Pets", isLoading: petStore.isLoading) {
+                SettingsButton(LocalizationManager.shared.localized("settings.refresh_pets"), isLoading: petStore.isLoading) {
                     HapticFeedback.shared.triggerImpactFeedback(style: .light)
                     Task {
                         await petStore.refreshPets(codex: codex)
@@ -663,22 +877,22 @@ private struct SettingsNotificationsCard: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        SettingsCard(title: "Notifications") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.notifications")) {
             HStack(spacing: 10) {
                 Image(systemName: "bell.badge")
                     .foregroundStyle(.primary)
-                Text("Status")
+                Text(localized: "settings.status")
                 Spacer()
                 Text(statusLabel)
                     .foregroundStyle(.secondary)
             }
 
-            Text("Used for local alerts when a run finishes while the app is in background.")
+            Text(localized: "settings.notifications_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
 
             if codex.notificationAuthorizationStatus == .notDetermined {
-                SettingsButton("Allow notifications") {
+                SettingsButton(LocalizationManager.shared.localized("settings.allow_notifications")) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     Task {
                         await codex.requestNotificationPermission()
@@ -687,7 +901,7 @@ private struct SettingsNotificationsCard: View {
             }
 
             if codex.notificationAuthorizationStatus == .denied {
-                SettingsButton("Open iOS Settings") {
+                SettingsButton(LocalizationManager.shared.localized("settings.open_ios_settings")) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                         UIApplication.shared.open(url)
@@ -724,7 +938,7 @@ private struct SettingsGPTAccountCard: View {
     @State private var isShowingMacLoginInfo = false
 
     var body: some View {
-        SettingsCard(title: "ChatGPT voice mode") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.chatgpt_voice_mode")) {
             Button {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 isShowingMacLoginInfo = true
@@ -732,7 +946,7 @@ private struct SettingsGPTAccountCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .font(AppFont.subheadline(weight: .medium))
-                    Text("Info")
+                    Text(localized: "settings.info")
                         .font(AppFont.subheadline(weight: .medium))
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -755,14 +969,33 @@ private struct SettingsGPTAccountCard: View {
     }
 }
 
+private struct SettingsAppVersionCard: View {
+    var body: some View {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.app_version")) {
+            HStack(spacing: 10) {
+                Text(localized: "settings.current_build")
+                Spacer()
+                Text(appVersion)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+        return "\(version) (\(build))"
+    }
+}
+
 private struct SettingsBridgeVersionCard: View {
     @Environment(CodexService.self) private var codex
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        SettingsCard(title: "Bridge Version") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.bridge_version")) {
             HStack(spacing: 10) {
-                Text("Status")
+                Text(localized: "settings.status")
                 Spacer()
                 SettingsStatusPill(label: versionStatusLabel)
             }
@@ -902,12 +1135,12 @@ private struct SettingsArchivedChatsCard: View {
     }
 
     var body: some View {
-        SettingsCard(title: "Archived Chats") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.archived_chats")) {
             NavigationLink {
                 ArchivedChatsView()
             } label: {
                 HStack {
-                    Label("Archived Chats", systemImage: "archivebox")
+                    Label(LocalizationManager.shared.localized("settings.archived_chats"), systemImage: "archivebox")
                         .font(AppFont.subheadline(weight: .medium))
                     Spacer()
                     if archivedCount > 0 {
@@ -929,8 +1162,8 @@ private struct SettingsAboutCard: View {
     @State private var isShowingAbout = false
 
     var body: some View {
-        SettingsCard(title: "About") {
-            Text("Chats are End-to-end encrypted between your iPhone and Mac. The relay only sees ciphertext and connection metadata after the secure handshake completes.")
+        SettingsCard(title: LocalizationManager.shared.localized("settings.about")) {
+            Text(localized: "settings.security_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
 
@@ -1038,7 +1271,7 @@ private struct SettingsTrustedComputerCard: View {
                         )
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Computer")
+                        Text(localized: "settings.computer")
                             .font(AppFont.caption(weight: .semibold))
                             .foregroundStyle(.secondary)
 
@@ -1063,7 +1296,7 @@ private struct SettingsTrustedComputerCard: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Edit computer name")
+                .accessibilityLabel(LocalizationManager.shared.localized("settings.edit_computer_name"))
             }
 
             HStack(spacing: 8) {
@@ -1145,7 +1378,7 @@ private struct SettingsComputerNameSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                        Text("Computer name")
+                        Text(localized: "settings.computer_name")
                         .font(AppFont.subheadline(weight: .semibold))
                         .foregroundStyle(.primary)
 
@@ -1165,19 +1398,19 @@ private struct SettingsComputerNameSheet: View {
                             .fill(Color(.secondarySystemFill))
                     )
 
-                Text("This nickname stays on this iPhone and appears anywhere this computer is shown.")
+                Text(localized: "settings.computer_name_hint")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 10) {
-                    SettingsButton("Use Default", role: .cancel) {
+                    SettingsButton(LocalizationManager.shared.localized("settings.use_default"), role: .cancel) {
                         nickname = ""
                         dismiss()
                     }
                     .opacity(canResetToDefault ? 1 : 0.5)
                     .disabled(!canResetToDefault)
 
-                    SettingsButton("Save") {
+                    SettingsButton(LocalizationManager.shared.localized("settings.save")) {
                         nickname = draftNickname
                         dismiss()
                     }
@@ -1190,11 +1423,11 @@ private struct SettingsComputerNameSheet: View {
             .padding(20)
             .presentationDetents([.height(300)])
             .presentationDragIndicator(.visible)
-            .navigationTitle("Edit Computer Name")
+            .navigationTitle(Text(localized: "settings.edit_computer_name"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button(LocalizationManager.shared.localized("settings.close")) {
                         dismiss()
                     }
                 }

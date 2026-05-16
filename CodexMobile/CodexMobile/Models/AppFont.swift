@@ -215,6 +215,34 @@ enum AppFont {
         return nil
     }
 
+    private static func candidateTerminalMonoFaceNames(for weight: Font.Weight, family: TerminalFontFamily) -> [String] {
+        switch family {
+        case .hackNerdFont:
+            switch weight {
+            case .bold, .heavy, .black, .semibold:
+                return ["HackNFM-Bold", "Hack Nerd Font Mono Bold", "HackNFM-Regular"]
+            default:
+                return ["HackNFM-Regular", "Hack Nerd Font Mono Regular"]
+            }
+        case .jetBrainsMono:
+            return candidateMonoFaceNames(for: weight, style: .jetBrainsMono)
+        case .geistMono:
+            return candidateMonoFaceNames(for: weight, style: .geistMono)
+        case .systemMono:
+            return []
+        }
+    }
+
+    private static func resolvedTerminalMonoFaceName(for weight: Font.Weight, size: CGFloat) -> String? {
+        for faceName in candidateTerminalMonoFaceNames(for: weight, family: TerminalFontFamily.current) {
+            if UIFont(name: faceName, size: size) != nil {
+                return faceName
+            }
+        }
+
+        return resolvedMonoFaceName(for: weight, size: size)
+    }
+
     private static func resolvedMonoUIFont(
         size: CGFloat,
         weight: Font.Weight,
@@ -249,6 +277,24 @@ enum AppFont {
         resolvedMonoUIFont(size: size, weight: weight, fallbackTextStyle: textStyle)
     }
 
+    static func terminalMonoUIFont(size: CGFloat, weight: Font.Weight = .regular, textStyle: UIFont.TextStyle = .body) -> UIFont {
+        let adjustedSize = max(size + monoSizeAdjustment(), 1)
+        let metrics = UIFontMetrics(forTextStyle: textStyle)
+
+        if TerminalFontFamily.current != .systemMono,
+           let faceName = resolvedTerminalMonoFaceName(for: weight, size: adjustedSize),
+           let font = UIFont(name: faceName, size: adjustedSize) {
+            return metrics.scaledFont(for: font)
+        }
+
+        if let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: textStyle)
+            .withDesign(.monospaced) {
+            return UIFont(descriptor: descriptor, size: 0)
+        }
+
+        return UIFont.monospacedSystemFont(ofSize: size, weight: uiKitWeight(for: weight))
+    }
+
     // Mirrors the active monospaced family inside HTML renderers such as Mermaid fallback blocks.
     static var webMonospaceFontStack: String {
         switch preferredMonoStyle {
@@ -257,6 +303,29 @@ enum AppFont {
         case .jetBrainsMono, .system, .geist:
             return "\"JetBrains Mono\", \"Geist Mono\", ui-monospace, monospace"
         }
+    }
+
+    static var terminalWebMonospaceFontStack: String {
+        switch TerminalFontFamily.current {
+        case .hackNerdFont:
+            return "\"Hack Nerd Font Mono\", \"JetBrains Mono\", ui-monospace, monospace"
+        case .geistMono:
+            return "\"Geist Mono\", \"Hack Nerd Font Mono\", ui-monospace, monospace"
+        case .jetBrainsMono:
+            return "\"JetBrains Mono\", \"Hack Nerd Font Mono\", ui-monospace, monospace"
+        case .systemMono:
+            return "ui-monospace, monospace"
+        }
+    }
+
+    private static func terminalMonoFont(size: CGFloat, weight: Font.Weight, style: Font.TextStyle) -> Font {
+        let adjustedSize = max(size + monoSizeAdjustment(), 1)
+        if TerminalFontFamily.current != .systemMono,
+           let faceName = resolvedTerminalMonoFaceName(for: weight, size: adjustedSize) {
+            return .custom(faceName, size: adjustedSize, relativeTo: style)
+        }
+
+        return .system(style, design: .monospaced, weight: weight)
     }
 
     private static func proseFont(
@@ -338,6 +407,25 @@ enum AppFont {
             return monoFont(size: 18, weight: .medium, style: .title3)
         default:
             return monoFont(size: 15, weight: .regular, style: .body)
+        }
+    }
+
+    static func terminalMono(_ style: Font.TextStyle) -> Font {
+        switch style {
+        case .body:
+            return terminalMonoFont(size: 15, weight: .regular, style: .body)
+        case .callout:
+            return terminalMonoFont(size: 14.5, weight: .regular, style: .callout)
+        case .subheadline:
+            return terminalMonoFont(size: 14, weight: .regular, style: .subheadline)
+        case .caption:
+            return terminalMonoFont(size: 11, weight: .regular, style: .caption)
+        case .caption2:
+            return terminalMonoFont(size: 10, weight: .regular, style: .caption2)
+        case .title3:
+            return terminalMonoFont(size: 18, weight: .medium, style: .title3)
+        default:
+            return terminalMonoFont(size: 15, weight: .regular, style: .body)
         }
     }
 

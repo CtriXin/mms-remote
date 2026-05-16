@@ -1,5 +1,5 @@
 // FILE: TerminalHubView.swift
-// Purpose: Basic managed terminal mode UI for listing panes, viewing snapshots, and sending input.
+// Purpose: Managed terminal mode UI for listing panes, rendering SwiftTerm snapshots, and sending input.
 // Layer: View
 // Exports: TerminalHubView
 // Depends on: SwiftUI, UIKit, CodexService, TerminalModels, AppFont
@@ -10,8 +10,11 @@ import UIKit
 struct TerminalHubView: View {
     @Environment(CodexService.self) private var codex
 
-    let onClose: () -> Void
+    let onClose: (() -> Void)?
 
+    @AppStorage("terminal.experimentalSwiftTermRenderer") private var useExperimentalSwiftTermRenderer = false
+    @AppStorage(TerminalFontFamily.storageKey) private var terminalFontFamilyRaw = TerminalFontFamily.defaultStoredRawValue
+    @AppStorage(TerminalVisibleAppPreference.storageKey) private var terminalVisibleAppRaw = TerminalVisibleAppPreference.defaultStoredRawValue
     @State private var commandDraft = ""
     @State private var newTerminalName = ""
     @State private var newTerminalCwd = "/"
@@ -23,11 +26,20 @@ struct TerminalHubView: View {
     @State private var isOpeningVisibleTerminal = false
     @State private var isClosingTerminal = false
     @State private var isShowingCreateTerminalSheet = false
+    @State private var isShowingTmuxCheatsheet = false
     @State private var panePendingClose: ManagedTerminalPane?
     @State private var localErrorMessage: String?
     @State private var visibleTerminalPanes: [ManagedTerminalPane] = []
     @State private var localSelectedTerminalPaneTarget: String?
     @State private var terminalDebugLine = "Terminal list not loaded yet."
+    @State private var pendingTerminalInputRefreshTask: Task<Void, Never>?
+    @State private var terminalFocusRequestID = 0
+    @State private var terminalCopyRequestID = 0
+    @State private var terminalPasteRequestID = 0
+    @State private var terminalControlModifierRequestID = 0
+    @State private var terminalMetaModifierRequestID = 0
+    @State private var lastStableViewportSignature = ""
+    @FocusState private var isCommandFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,20 +53,29 @@ struct TerminalHubView: View {
                 terminalContent
             }
         }
-        .navigationTitle("Terminals")
+        .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Chats", action: onClose)
+            if let onClose {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(LocalizationManager.shared.localized("terminal.toolbar.chats"), action: onClose)
+                }
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    isShowingTmuxCheatsheet = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.tmux_help"))
+
                 Button {
                     openCreateTerminalSheet()
                 } label: {
                     Image(systemName: "plus")
                 }
                 .disabled(!codex.isConnected || isCreatingTerminal)
-                .accessibilityLabel("New terminal")
+                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.new_terminal"))
 
                 Button(role: .destructive) {
                     panePendingClose = selectedVisiblePane
@@ -66,7 +87,7 @@ struct TerminalHubView: View {
                     }
                 }
                 .disabled(!codex.isConnected || selectedVisiblePane == nil || isClosingTerminal)
-                .accessibilityLabel("Close selected terminal")
+                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.close_terminal"))
 
                 Button {
                     openSelectedPaneOnMac()
@@ -78,7 +99,7 @@ struct TerminalHubView: View {
                     }
                 }
                 .disabled(!codex.isConnected || selectedVisiblePane == nil || isOpeningVisibleTerminal)
-                .accessibilityLabel("Open selected terminal on Mac")
+                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.open_on_mac"))
 
                 Button {
                     refreshTerminals()
@@ -90,7 +111,7 @@ struct TerminalHubView: View {
                     }
                 }
                 .disabled(!codex.isConnected || isRefreshing || codex.isLoadingTerminals)
-                .accessibilityLabel("Refresh terminals")
+                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.refresh"))
             }
         }
         .task {
@@ -104,27 +125,27 @@ struct TerminalHubView: View {
         .task(id: selectedVisiblePaneTarget) {
             await pollSelectedPaneSnapshot(paneId: selectedVisiblePaneTarget)
         }
-        .alert("Terminal Error", isPresented: terminalErrorIsPresented) {
-            Button("OK", role: .cancel) {
+        .alert(LocalizationManager.shared.localized("terminal.alert.error_title"), isPresented: terminalErrorIsPresented) {
+            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                 localErrorMessage = nil
                 codex.terminalLastErrorMessage = nil
             }
         } message: {
-            Text(localErrorMessage ?? codex.terminalLastErrorMessage ?? "Terminal request failed.")
+            Text(localErrorMessage ?? codex.terminalLastErrorMessage ?? LocalizationManager.shared.localized("terminal.alert.error_message"))
         }
         .confirmationDialog(
-            "Close Terminal?",
+            LocalizationManager.shared.localized("terminal.dialog.close_title"),
             isPresented: closeDialogIsPresented,
             titleVisibility: .visible
         ) {
             if let pane = panePendingClose {
-                Button("Close \(pane.displayTitle)", role: .destructive) {
+                Button(String(format: LocalizationManager.shared.localized("terminal.close_pane"), pane.displayTitle), role: .destructive) {
                     closePane(pane)
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {}
         } message: {
-            Text("Kills tmux pane \(panePendingClose?.paneKey ?? "") on Mac and phone.")
+            Text(String(format: LocalizationManager.shared.localized("terminal.dialog.close_message"), panePendingClose?.paneKey ?? ""))
         }
         .sheet(isPresented: $isShowingCreateTerminalSheet) {
             NavigationStack {
@@ -132,17 +153,32 @@ struct TerminalHubView: View {
                     createTerminalCard
                         .padding(20)
                 }
-                .navigationTitle("New Terminal")
+                .navigationTitle(LocalizationManager.shared.localized("terminal.new_terminal"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") {
+                        Button(LocalizationManager.shared.localized("sidebar.cancel")) {
                             isShowingCreateTerminalSheet = false
                         }
                     }
                 }
             }
             .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $isShowingTmuxCheatsheet) {
+            NavigationStack {
+                TmuxCheatsheetView(sessionName: selectedVisiblePane?.sessionName)
+                    .navigationTitle(LocalizationManager.shared.localized("terminal.cheatsheet.title"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(LocalizationManager.shared.localized("settings.close")) {
+                                isShowingTmuxCheatsheet = false
+                            }
+                        }
+                    }
+            }
+            .presentationDetents([.large])
         }
     }
 
@@ -153,160 +189,250 @@ struct TerminalHubView: View {
                 .padding(.vertical, 10)
                 .background(Color(.secondarySystemBackground))
 
-            Text(terminalDebugLine)
-                .font(AppFont.mono(.caption2))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
-                .background(Color(.secondarySystemBackground))
-
             Divider()
 
             terminalSnapshotView
 
             Divider()
 
-            inputBar
+            terminalControlsBar
                 .padding(12)
                 .background(Color(.systemBackground))
         }
     }
 
     private var paneStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+        HStack(spacing: 10) {
+            if let pane = selectedVisiblePane {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(pane.displayTitle)
+                        .font(AppFont.subheadline(weight: .semibold))
+                        .lineLimit(1)
+                    Text(pane.paneKey)
+                        .font(AppFont.mono(.caption2))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                )
+                .contextMenu {
+                    paneContextMenu(for: pane)
+                }
+            } else {
+                Text(LocalizationManager.shared.localized("terminal.status.no_pane"))
+                    .font(AppFont.subheadline(weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Menu {
                 ForEach(displayedTerminalPanes) { pane in
                     Button {
                         attachPane(pane)
                     } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(pane.displayTitle)
-                                .font(AppFont.caption(weight: .semibold))
-                                .lineLimit(1)
-                            Text(pane.paneKey)
-                                .font(AppFont.mono(.caption2))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(minWidth: 118, alignment: .leading)
-                        .background(paneChipBackground(for: pane), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(paneChipBorder(for: pane), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button {
-                            copyJoinCommand(for: pane)
-                        } label: {
-                            Label("Copy Join Command", systemImage: "terminal")
-                        }
-
-                        Button {
-                            copyPaneAddress(for: pane)
-                        } label: {
-                            Label("Copy Pane Address", systemImage: "number")
-                        }
-
-                        Button {
-                            openVisiblePaneOnMac(pane)
-                        } label: {
-                            Label("Open on Mac", systemImage: "display")
-                        }
-
-                        Button(role: .destructive) {
-                            panePendingClose = pane
-                        } label: {
-                            Label("Close Terminal", systemImage: "xmark.circle")
-                        }
+                        Label(pane.displayTitle, systemImage: isSelected(pane) ? "checkmark.circle.fill" : "terminal")
                     }
                 }
+            } label: {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 38, height: 38)
+                    .background(Color(.systemBackground), in: Circle())
             }
+            .disabled(displayedTerminalPanes.isEmpty)
         }
     }
 
     private var terminalSnapshotView: some View {
-        ScrollViewReader { proxy in
-            ScrollView([.vertical, .horizontal]) {
-                Text(currentSnapshotDisplayText)
-                    .font(AppFont.mono(.caption))
-                    .foregroundStyle(Color(red: 0.86, green: 0.89, blue: 0.92))
-                    .lineSpacing(1)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: true, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .id("terminal-bottom")
-            }
-            .background(Color(red: 0.06, green: 0.065, blue: 0.075))
-            .onChange(of: currentSnapshotText) { _, _ in
-                proxy.scrollTo("terminal-bottom", anchor: .bottom)
+        Group {
+            if isSwiftTermRendererActive {
+                SwiftTermTerminalView(
+                    paneTarget: selectedVisiblePaneTarget,
+                    snapshotText: currentSnapshotText,
+                    isConnected: codex.isConnected,
+                    focusRequestID: terminalFocusRequestID,
+                    copyRequestID: terminalCopyRequestID,
+                    pasteRequestID: terminalPasteRequestID,
+                    controlModifierRequestID: terminalControlModifierRequestID,
+                    metaModifierRequestID: terminalMetaModifierRequestID,
+                    onSendData: sendTerminalData,
+                    onResize: resizeTerminalFromRenderer
+                )
+                .background(Color(red: 0.025, green: 0.027, blue: 0.032))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .simultaneousGesture(TapGesture().onEnded { focusTerminal() })
+            } else {
+                stableSnapshotTextView
             }
         }
     }
 
-    private var inputBar: some View {
-        VStack(spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(quickKeys) { key in
-                        Button(key.label) {
-                            sendKey(key)
-                        }
-                        .font(AppFont.caption(weight: .semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(Color(.secondarySystemBackground), in: Capsule())
-                        .buttonStyle(.plain)
-                        .disabled(!canSendInput)
+    private var stableSnapshotTextView: some View {
+        GeometryReader { geometry in
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(currentSnapshotDisplayText)
+                            .font(AppFont.terminalMono(.caption))
+                            .foregroundStyle(Color(.label))
+                            .lineSpacing(1)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                        Color.clear
+                            .frame(height: 1)
+                            .id("terminal-bottom")
                     }
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .topLeading)
                 }
-            }
-
-            HStack(spacing: 10) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(codex.selectedTerminalPane == nil ? Color(.tertiaryLabel) : .green)
-                        .frame(width: 6, height: 6)
-                    Text(codex.selectedTerminalPane == nil ? "No pane" : "Live")
-                        .font(AppFont.caption2(weight: .semibold))
-                        .foregroundStyle(.secondary)
+                .background(Color(.systemBackground))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isCommandFieldFocused = true
                 }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 7)
-                .background(Color(.secondarySystemBackground), in: Capsule())
-
-                TextField("Command", text: $commandDraft, axis: .vertical)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(AppFont.mono(.body))
-                    .lineLimit(1...3)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .onSubmit { sendCommand() }
-
-                Button {
-                    sendCommand()
-                } label: {
-                    if isSendingInput {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "paperplane.fill")
-                    }
+                .onAppear {
+                    resizeStableTerminalIfNeeded(size: geometry.size)
+                    proxy.scrollTo("terminal-bottom", anchor: .bottom)
                 }
-                .frame(width: 44, height: 44)
-                .foregroundStyle(Color(.systemBackground))
-                .background(Color.primary, in: Circle())
-                .buttonStyle(.plain)
-                .disabled(!canSendInput || commandDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .onChange(of: geometry.size) { _, newSize in
+                    resizeStableTerminalIfNeeded(size: newSize)
+                }
+                .onChange(of: currentSnapshotText) { _, _ in
+                    proxy.scrollTo("terminal-bottom", anchor: .bottom)
+                }
             }
         }
+    }
+
+    private var terminalControlsBar: some View {
+        VStack(spacing: 10) {
+            if isSwiftTermRendererActive {
+                swiftTermInputControls
+            } else {
+                stableCommandInputBar
+            }
+
+            LazyVGrid(columns: quickKeyColumns, spacing: 8) {
+                if isSwiftTermRendererActive {
+                    terminalActionButton(LocalizationManager.shared.localized("terminal.button.ctrl")) {
+                        requestControlModifier()
+                    }
+                    terminalActionButton(LocalizationManager.shared.localized("terminal.button.alt")) {
+                        requestMetaModifier()
+                    }
+                    terminalActionButton(LocalizationManager.shared.localized("terminal.button.cmd_c")) {
+                        copyTerminalSelection()
+                    }
+                    terminalActionButton(LocalizationManager.shared.localized("terminal.button.cmd_v")) {
+                        pasteClipboardIntoTerminal()
+                    }
+                }
+                ForEach(quickKeys) { key in
+                    Button(key.label) {
+                        sendKey(key)
+                    }
+                    .font(AppFont.caption(weight: .semibold))
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(Color(.secondarySystemBackground), in: Capsule())
+                    .buttonStyle(.plain)
+                    .disabled(!canSendInput)
+                }
+            }
+        }
+    }
+
+    private var swiftTermInputControls: some View {
+        HStack(spacing: 8) {
+            liveStatusBadge
+
+            Button {
+                focusTerminal()
+            } label: {
+                Label(LocalizationManager.shared.localized("terminal.keyboard"), systemImage: "keyboard")
+                    .font(AppFont.caption2(weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+            .disabled(!canSendInput)
+
+            Spacer(minLength: 8)
+
+            Button {
+                copyTerminalSelection()
+            } label: {
+                Label(LocalizationManager.shared.localized("terminal.button.copy"), systemImage: "doc.on.doc")
+                    .labelStyle(.iconOnly)
+            }
+            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+            .disabled(!canSendInput)
+
+            Button {
+                pasteClipboardIntoTerminal()
+            } label: {
+                Label(LocalizationManager.shared.localized("terminal.button.paste"), systemImage: "doc.on.clipboard")
+                    .labelStyle(.iconOnly)
+            }
+            .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+            .disabled(!canSendInput)
+        }
+    }
+
+    private var stableCommandInputBar: some View {
+        HStack(spacing: 10) {
+            liveStatusBadge
+
+            TextField(LocalizationManager.shared.localized("terminal.placeholder.command"), text: $commandDraft, axis: .vertical)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(AppFont.mono(.body))
+                .lineLimit(1...3)
+                .focused($isCommandFieldFocused)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .submitLabel(.send)
+                .onSubmit { sendCommandFromDraft() }
+
+            Button {
+                sendCommandFromDraft()
+            } label: {
+                if isSendingInput {
+                    ProgressView()
+                } else {
+                    Image(systemName: "paperplane.fill")
+                }
+            }
+            .frame(width: 44, height: 44)
+            .foregroundStyle(Color(.systemBackground))
+            .background(Color.primary, in: Circle())
+            .buttonStyle(.plain)
+            .disabled(!canSendInput || commandDraft.isEmpty)
+        }
+    }
+
+    private var liveStatusBadge: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(codex.selectedTerminalPane == nil ? Color(.tertiaryLabel) : .green)
+                .frame(width: 6, height: 6)
+            Text(codex.selectedTerminalPane == nil ? LocalizationManager.shared.localized("terminal.status.no_pane") : LocalizationManager.shared.localized("terminal.status.live"))
+                .font(AppFont.caption2(weight: .semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(Color(.secondarySystemBackground), in: Capsule())
     }
 
     private var emptyState: some View {
@@ -315,9 +441,9 @@ struct TerminalHubView: View {
             Image(systemName: "terminal")
                 .font(.system(size: 46, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text("No managed terminals")
+            Text(LocalizationManager.shared.localized("terminal.no_managed"))
                 .font(AppFont.title3(weight: .semibold))
-            Text("Create a tmux-managed terminal on your Mac bridge, then control it from this phone.")
+            Text(LocalizationManager.shared.localized("terminal.create_hint"))
                 .font(AppFont.callout())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -337,28 +463,28 @@ struct TerminalHubView: View {
 
     private var createTerminalCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("New Terminal")
+            Text(localized: "terminal.new_terminal")
                 .font(AppFont.subheadline(weight: .semibold))
-            TextField("Name", text: $newTerminalName)
+            TextField(LocalizationManager.shared.localized("terminal.placeholder.name"), text: $newTerminalName)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            TextField("Mac cwd, e.g. /Users/me/project", text: $newTerminalCwd)
+            TextField(LocalizationManager.shared.localized("terminal.placeholder.cwd"), text: $newTerminalCwd)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            TextField("Command (optional)", text: $newTerminalCommand)
+            TextField(LocalizationManager.shared.localized("terminal.placeholder.command_optional"), text: $newTerminalCommand)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
-            Toggle("Open Mac terminal app", isOn: $openVisibleTerminalOnMac)
+            Toggle(LocalizationManager.shared.localized("terminal.toggle.open_mac_app"), isOn: $openVisibleTerminalOnMac)
                 .font(AppFont.callout())
             Button {
                 createTerminal()
             } label: {
                 HStack {
                     if isCreatingTerminal { ProgressView() }
-                    Text("Create Managed Terminal")
+                    Text(localized: "terminal.button.create")
                         .font(AppFont.body(weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -373,7 +499,7 @@ struct TerminalHubView: View {
     private var terminalOfflineBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.slash")
-            Text("Connect to your Mac bridge before using managed terminals.")
+            Text(localized: "terminal.offline_banner")
                 .font(AppFont.caption(weight: .medium))
         }
         .foregroundStyle(.secondary)
@@ -399,16 +525,20 @@ struct TerminalHubView: View {
             return currentSnapshot?.content ?? ""
         }
         return selectedVisiblePane == nil
-            ? "Select a pane, then use refresh or input to load output."
-            : "Loading terminal output..."
+            ? LocalizationManager.shared.localized("terminal.snapshot.select_hint")
+            : LocalizationManager.shared.localized("terminal.snapshot.loading")
     }
 
     private var currentSnapshotDisplayText: String {
-        sanitizeTerminalDisplayText(currentSnapshotText)
+        trimTerminalBlankEdges(sanitizeTerminalDisplayText(currentSnapshotText))
     }
 
     private var canSendInput: Bool {
         codex.isConnected && selectedVisiblePaneTarget != nil && !isSendingInput
+    }
+
+    private var terminalVisibleApp: TerminalVisibleAppPreference {
+        TerminalVisibleAppPreference(rawValue: terminalVisibleAppRaw) ?? .auto
     }
 
     private var displayedTerminalPanes: [ManagedTerminalPane] {
@@ -441,17 +571,19 @@ struct TerminalHubView: View {
             .ctrlC,
             .ctrlD,
             .ctrlZ,
-            .ctrlA,
-            .ctrlE,
-            .home,
-            .end,
-            .pageUp,
-            .pageDown,
             .up,
             .down,
             .left,
             .right,
         ]
+    }
+
+    private var quickKeyColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 58), spacing: 8)]
+    }
+
+    private var isSwiftTermRendererActive: Bool {
+        false && useExperimentalSwiftTermRenderer
     }
 
     private var terminalErrorIsPresented: Binding<Bool> {
@@ -477,6 +609,42 @@ struct TerminalHubView: View {
         )
     }
 
+    private func terminalActionButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .font(AppFont.caption(weight: .semibold))
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .background(Color(.secondarySystemBackground), in: Capsule())
+            .buttonStyle(.plain)
+            .disabled(!canSendInput)
+    }
+
+    @ViewBuilder
+    private func paneContextMenu(for pane: ManagedTerminalPane) -> some View {
+        Button {
+            copyJoinCommand(for: pane)
+        } label: {
+            Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "terminal")
+        }
+
+        Button {
+            copyPaneAddress(for: pane)
+        } label: {
+            Label(LocalizationManager.shared.localized("terminal.context.copy_address"), systemImage: "number")
+        }
+
+        Button {
+            openVisiblePaneOnMac(pane)
+        } label: {
+            Label(LocalizationManager.shared.localized("terminal.context.open_mac"), systemImage: "display")
+        }
+
+        Button(role: .destructive) {
+            panePendingClose = pane
+        } label: {
+            Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
+        }
+    }
+
     private func paneChipBackground(for pane: ManagedTerminalPane) -> Color {
         isSelected(pane) ? Color.primary.opacity(0.12) : Color(.systemBackground)
     }
@@ -494,11 +662,7 @@ struct TerminalHubView: View {
     }
 
     private func paneMatches(_ pane: ManagedTerminalPane, target: String) -> Bool {
-        pane.requestTarget == target
-            || pane.paneId == target
-            || pane.paneKey == target
-            || pane.paneAddress == target
-            || pane.target == target
+        pane.matches(target: target)
     }
 
     private func refreshTerminals() {
@@ -516,7 +680,7 @@ struct TerminalHubView: View {
             rememberTerminalList(list, source: source)
             if let target = selectedVisiblePaneTarget {
                 do {
-                    try await codex.refreshTerminalSnapshot(paneId: target)
+                    try await refreshPaneSnapshot(paneId: target)
                 } catch {
                     terminalDebugLine = "terminal/snapshot failed target=\(target): \(error.localizedDescription)"
                     codex.terminalLastErrorMessage = nil
@@ -556,7 +720,7 @@ struct TerminalHubView: View {
         while !Task.isCancelled {
             guard codex.isConnected, selectedVisiblePaneTarget == paneId else { return }
             do {
-                try await codex.refreshTerminalSnapshot(paneId: paneId)
+                try await refreshPaneSnapshot(paneId: paneId)
             } catch {
                 if !Task.isCancelled {
                     terminalDebugLine = "terminal/snapshot failed target=\(paneId): \(error.localizedDescription)"
@@ -585,8 +749,22 @@ struct TerminalHubView: View {
         }
     }
 
-    private func sendCommand() {
-        let command = commandDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func sendEnterFromInput() {
+        Task {
+            isSendingInput = true
+            defer { isSendingInput = false }
+            do {
+                let target = selectedVisiblePaneTarget
+                try await codex.sendTerminalKey(.enter, paneId: target)
+                scheduleTerminalInputRefresh(target: target)
+            } catch {
+                localErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func sendCommandFromDraft() {
+        let command = commandDraft
         guard !command.isEmpty else { return }
         commandDraft = ""
         Task {
@@ -596,8 +774,7 @@ struct TerminalHubView: View {
                 let target = selectedVisiblePaneTarget
                 try await codex.sendTerminalText(command, paneId: target)
                 try await codex.sendTerminalKey(.enter, paneId: target)
-                try? await Task.sleep(nanoseconds: 180_000_000)
-                try await codex.refreshTerminalSnapshot(paneId: target)
+                scheduleTerminalInputRefresh(target: target)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -605,14 +782,141 @@ struct TerminalHubView: View {
     }
 
     private func sendKey(_ key: ManagedTerminalKey) {
+        if isSwiftTermRendererActive {
+            focusTerminal()
+        }
+        if !isSwiftTermRendererActive {
+            if key == .enter, !commandDraft.isEmpty {
+                sendCommandFromDraft()
+                return
+            }
+            if key == .backspace, !commandDraft.isEmpty {
+                commandDraft.removeLast()
+                return
+            }
+            if key == .tab, !commandDraft.isEmpty {
+                flushDraftThenSendKey(.tab)
+                return
+            }
+        }
         Task {
             do {
                 let target = selectedVisiblePaneTarget
                 try await codex.sendTerminalKey(key, paneId: target)
-                try? await Task.sleep(nanoseconds: 120_000_000)
-                try await codex.refreshTerminalSnapshot(paneId: target)
+                scheduleTerminalInputRefresh(target: target)
             } catch {
                 localErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func flushDraftThenSendKey(_ key: ManagedTerminalKey) {
+        let draft = commandDraft
+        commandDraft = ""
+        Task {
+            isSendingInput = true
+            defer { isSendingInput = false }
+            do {
+                let target = selectedVisiblePaneTarget
+                if !draft.isEmpty {
+                    try await codex.sendTerminalText(draft, paneId: target)
+                }
+                try await codex.sendTerminalKey(key, paneId: target)
+                scheduleTerminalInputRefresh(target: target)
+            } catch {
+                localErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func sendTerminalData(_ data: Data) {
+        guard !data.isEmpty else { return }
+        let target = selectedVisiblePaneTarget
+        Task {
+            do {
+                try await codex.sendTerminalData(data, paneId: target)
+                scheduleTerminalInputRefresh(target: target)
+            } catch {
+                localErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func pasteClipboardIntoTerminal() {
+        if isSwiftTermRendererActive {
+            terminalPasteRequestID += 1
+        } else if let text = UIPasteboard.general.string, !text.isEmpty {
+            commandDraft += text
+        }
+    }
+
+    private func copyTerminalSelection() {
+        if isSwiftTermRendererActive {
+            terminalCopyRequestID += 1
+        } else {
+            UIPasteboard.general.string = currentSnapshotDisplayText
+        }
+    }
+
+    private func requestControlModifier() {
+        guard isSwiftTermRendererActive else { return }
+        terminalControlModifierRequestID += 1
+    }
+
+    private func requestMetaModifier() {
+        guard isSwiftTermRendererActive else { return }
+        terminalMetaModifierRequestID += 1
+    }
+
+    private func focusTerminal() {
+        terminalFocusRequestID += 1
+    }
+
+    @discardableResult
+    private func refreshPaneSnapshot(paneId: String?) async throws -> ManagedTerminalSnapshot {
+        try await codex.refreshTerminalSnapshot(
+            paneId: paneId,
+            preserveAnsi: isSwiftTermRendererActive,
+            joinWrapped: false,
+            viewportOnly: true
+        )
+    }
+
+    @MainActor
+    private func scheduleTerminalInputRefresh(target: String?) {
+        pendingTerminalInputRefreshTask?.cancel()
+        pendingTerminalInputRefreshTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled else { return }
+            _ = try? await refreshPaneSnapshot(paneId: target)
+        }
+    }
+
+    private func resizeTerminalFromRenderer(cols: Int, rows: Int) {
+        guard cols > 0, rows > 0 else { return }
+        let target = selectedVisiblePaneTarget
+        Task {
+            do {
+                try await codex.resizeTerminalPane(paneId: target, cols: cols, rows: rows)
+                scheduleTerminalInputRefresh(target: target)
+            } catch {
+                terminalDebugLine = "terminal/resize failed cols=\(cols) rows=\(rows): \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func resizeStableTerminalIfNeeded(size: CGSize) {
+        guard !isSwiftTermRendererActive, let target = selectedVisiblePaneTarget else { return }
+        let dimensions = stableTerminalDimensions(for: size)
+        let signature = "\(target):\(dimensions.cols)x\(dimensions.rows)"
+        guard signature != lastStableViewportSignature else { return }
+        lastStableViewportSignature = signature
+        Task {
+            do {
+                try await codex.resizeTerminalPane(paneId: target, cols: dimensions.cols, rows: dimensions.rows)
+                scheduleTerminalInputRefresh(target: target)
+            } catch {
+                terminalDebugLine = "terminal/stable-resize failed cols=\(dimensions.cols) rows=\(dimensions.rows): \(error.localizedDescription)"
             }
         }
     }
@@ -627,7 +931,10 @@ struct TerminalHubView: View {
             isOpeningVisibleTerminal = true
             defer { isOpeningVisibleTerminal = false }
             do {
-                try await codex.openVisibleTerminalPane(paneRequestTarget(pane))
+                try await codex.openVisibleTerminalPane(
+                    paneRequestTarget(pane),
+                    visibleApp: terminalVisibleApp.rpcValue
+                )
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -686,7 +993,8 @@ struct TerminalHubView: View {
                     command: newTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
                     cols: 96,
                     rows: 32,
-                    openVisible: openVisibleTerminalOnMac
+                    openVisible: openVisibleTerminalOnMac,
+                    visibleApp: terminalVisibleApp.rpcValue
                 )
                 newTerminalName = ""
                 isShowingCreateTerminalSheet = false
@@ -744,21 +1052,162 @@ struct TerminalHubView: View {
         return true
     }
 
-    private func sanitizeTerminalDisplayText(_ text: String) -> String {
-        var scalars = String.UnicodeScalarView()
-        scalars.reserveCapacity(text.unicodeScalars.count)
-        for scalar in text.unicodeScalars {
-            scalars.append(isUnsupportedTerminalDisplayScalar(scalar) ? UnicodeScalar(32)! : scalar)
+    private func stableTerminalDimensions(for size: CGSize) -> (cols: Int, rows: Int) {
+        (
+            cols: stableTerminalColumns(for: size.width),
+            rows: max(8, min(80, Int(max(size.height - 24, 1) / 15)))
+        )
+    }
+
+    private func stableTerminalColumns(for width: CGFloat) -> Int {
+        max(36, min(120, Int(max(width - 28, 1) / 7.4)))
+    }
+
+    private func wrapTerminalDisplayText(_ text: String, columns: Int) -> String {
+        guard columns > 0 else { return text }
+        let expanded = text.replacingOccurrences(of: "\t", with: "    ")
+        return expanded
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .flatMap { wrapTerminalLine(String($0), columns: columns) }
+            .joined(separator: "\n")
+    }
+
+    private func wrapTerminalLine(_ line: String, columns: Int) -> [String] {
+        guard !line.isEmpty else { return [""] }
+        var lines: [String] = []
+        var current = ""
+        var currentWidth = 0
+        for character in line {
+            let width = terminalDisplayWidth(of: character)
+            if currentWidth + width > columns, !current.isEmpty {
+                lines.append(current)
+                current = ""
+                currentWidth = 0
+            }
+            current.append(character)
+            currentWidth += width
         }
-        return String(scalars)
+        lines.append(current)
+        return lines
+    }
+
+    private func terminalDisplayWidth(of character: Character) -> Int {
+        guard let scalar = character.unicodeScalars.first else { return 1 }
+        let value = scalar.value
+        if (0x0300...0x036F).contains(value) {
+            return 0
+        }
+        if (0x1100...0x115F).contains(value)
+            || (0x2E80...0xA4CF).contains(value)
+            || (0xAC00...0xD7A3).contains(value)
+            || (0xF900...0xFAFF).contains(value)
+            || (0xFE10...0xFE19).contains(value)
+            || (0xFE30...0xFE6F).contains(value)
+            || (0xFF00...0xFF60).contains(value)
+            || (0xFFE0...0xFFE6).contains(value) {
+            return 2
+        }
+        return 1
+    }
+
+    private func trimTerminalBlankEdges(_ text: String) -> String {
+        TerminalTextUtilities.trimBlankEdges(text)
+    }
+
+    private func sanitizeTerminalDisplayText(_ text: String) -> String {
+        TerminalTextUtilities.sanitizeDisplayText(text)
+    }
+
+    private func isTerminalControlScalar(_ scalar: UnicodeScalar) -> Bool {
+        TerminalTextUtilities.isControlScalar(scalar)
     }
 
     private func isUnsupportedTerminalDisplayScalar(_ scalar: UnicodeScalar) -> Bool {
-        let value = scalar.value
-        return value == 0xFFFD
-            || (0xE000...0xF8FF).contains(value)
-            || (0xF0000...0xFFFFD).contains(value)
-            || (0x100000...0x10FFFD).contains(value)
+        TerminalTextUtilities.isUnsupportedDisplayScalar(scalar)
+    }
+
+}
+
+struct TmuxCheatsheetView: View {
+    let sessionName: String?
+
+    private var sessionPlaceholder: String {
+        let trimmed = sessionName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "<session>" : trimmed
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(LocalizationManager.shared.localized("terminal.cheatsheet.summary"))
+                    .font(AppFont.callout())
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                tmuxCheatsheetSection(
+                    titleKey: "terminal.cheatsheet.mental_model.title",
+                    bodyKey: "terminal.cheatsheet.mental_model.body",
+                    command: "Ghostty -> tmux client -> tmux pane -> Claude/Codex"
+                )
+
+                tmuxCheatsheetSection(
+                    titleKey: "terminal.cheatsheet.attach.title",
+                    bodyKey: "terminal.cheatsheet.attach.body",
+                    command: "tmux ls\nmms-remote terminal join \(sessionPlaceholder)\ntmux attach -t \(sessionPlaceholder)"
+                )
+
+                tmuxCheatsheetSection(
+                    titleKey: "terminal.cheatsheet.detach.title",
+                    bodyKey: "terminal.cheatsheet.detach.body",
+                    command: "Ctrl-b\nthen d"
+                )
+
+                tmuxCheatsheetSection(
+                    titleKey: "terminal.cheatsheet.scroll.title",
+                    bodyKey: "terminal.cheatsheet.scroll.body",
+                    command: "Ctrl-b [\nPgUp / PgDn / mouse wheel\nq"
+                )
+
+                tmuxCheatsheetSection(
+                    titleKey: "terminal.cheatsheet.resize.title",
+                    bodyKey: "terminal.cheatsheet.resize.body",
+                    command: "Ctrl-b : resize-window -A\ntmux resize-window -A\ntmux set -g window-size largest"
+                )
+
+                tmuxCheatsheetSection(
+                    titleKey: "terminal.cheatsheet.kill.title",
+                    bodyKey: "terminal.cheatsheet.kill.body",
+                    command: "Ctrl-c, then Ctrl-c again\nCtrl-b x, then y\ntmux kill-session -t \(sessionPlaceholder)"
+                )
+            }
+            .padding(20)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private func tmuxCheatsheetSection(
+        titleKey: String,
+        bodyKey: String,
+        command: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(LocalizationManager.shared.localized(titleKey))
+                .font(AppFont.subheadline(weight: .semibold))
+            Text(LocalizationManager.shared.localized(bodyKey))
+                .font(AppFont.caption())
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(command)
+                .font(AppFont.mono(.caption))
+                .foregroundStyle(Color(.label))
+                .textSelection(.enabled)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

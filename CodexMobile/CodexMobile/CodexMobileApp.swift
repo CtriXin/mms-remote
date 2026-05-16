@@ -10,6 +10,7 @@ import SwiftUI
 struct CodexMobileApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @UIApplicationDelegateAdaptor(CodexMobileAppDelegate.self) private var appDelegate
+    @AppStorage(AppThemeMode.storageKey) private var appThemeModeRawValue = AppThemeMode.system.rawValue
     @State private var codexService: CodexService
     @State private var petCompanionStore: PetCompanionStore
     @State private var petCompanionStatusStore: PetCompanionStatusStore
@@ -31,6 +32,7 @@ struct CodexMobileApp: App {
                 .environment(petCompanionStore)
                 .environment(petCompanionStatusStore)
                 .environment(subscriptionService)
+                .preferredColorScheme((AppThemeMode(rawValue: appThemeModeRawValue) ?? .system).preferredColorScheme)
                 .task {
                     await subscriptionService.bootstrap()
                 }
