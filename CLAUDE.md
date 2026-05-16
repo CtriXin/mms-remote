@@ -18,6 +18,16 @@ This repo is local-first now. Do not reintroduce hosted-service assumptions, rem
 - For open-source/self-hosted safety, do not log live relay `sessionId` values or other bearer-like pairing identifiers in server logs; redact or hash them instead.
 - Keep user-facing answers compact by default unless the user explicitly asks for more detail.
 
+## Localization guardrails
+
+- All new user-facing iOS text must be localizable from the first implementation.
+- Add every new key in both `zh-Hans` and `en` tables; do not ship one-language-only strings in normal UI.
+- Keep technical product names and protocol terms such as `Codex`, `Terminal`, `tmux`, `Bridge`, `iTerm2`, `Ghostty`, `SwiftTerm`, and `QR` in English unless the existing UI already translates them.
+- Prefer one shared localization surface: `LocalizationManager.shared.localized(key)` or existing verified localized SwiftUI wrappers.
+- Do not add ad-hoc SwiftUI overloads like `navigationTitle(localized:)` or `Label(localized:)` unless they are explicitly implemented and build-verified on simulator and device targets.
+- For navigation titles, alerts, labels, buttons, placeholders, accessibility labels, and empty states, use localization keys instead of hardcoded strings.
+- Debug logs, developer-only comments, test names, and protocol payload constants do not need localization.
+
 ## iOS runtime + timeline guardrails
 
 - `turn/started` may not include a usable `turnId`: keep the per-thread running fallback.
@@ -40,6 +50,8 @@ This repo is local-first now. Do not reintroduce hosted-service assumptions, rem
 
 ## Build guardrails
 
+- For every iterative release, bump marketing version by scope: patch/small change increments `Z` in `X.Y.Z`, medium change increments `Y`, rebuild-level change increments `X`.
+- Deployment/install scripts may auto-increment build number; keep app Settings displaying version/build so the installed app can be matched to the current code change.
 - Do not run Xcode tests unless the user explicitly asks. Do not decide to run them on your own.
 - Markdown files inside Xcode-synced groups can still produce harmless warnings.
 - For small iOS/mobile fixes, prefer inspection and targeted edits over simulator runs by default.

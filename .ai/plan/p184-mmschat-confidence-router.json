@@ -1,0 +1,20 @@
+{
+  "schema": "moebius.task_confidence_router.host_override.v1",
+  "generated_at": "2026-05-16T08:33:04Z",
+  "generated_at_bjt": "2026-05-16 16:33:04 BJT",
+  "task": "mmschat-execution-plan-v2",
+  "target_plan": ".ai/plan/mmschat-execution-plan-v2.md",
+  "automatic_router_note": "Previous heuristic returned quick_direct because request text did not trip axes; host override treats this as large real product task with safe Phase0 first.",
+  "mode": "governed_real_task_phase0_then_reassess",
+  "lane": "OMO/OpenCode fresh P-agent for Phase0 evidence spike",
+  "pilot_now": false,
+  "pilot_later_condition": "Use Pilot-lite/crosscheck only after S0/S3 if P0 protocol/store/transcript choices remain ambiguous.",
+  "risk_level": "medium_high_due_dirty_worktree_live_claude_boundaries",
+  "humangate": [
+    "S1 provider/model live resume matrix",
+    "S2 live send-keys",
+    "new paid/live Claude session",
+    "deploy/push/destructive/global config"
+  ],
+  "first_dispatch_prompt": "/Users/xin/auto-skills/CtriXin-repo/moebius/.ai/plan/p184-mmschat-phase0-s0-s3-omo.md"
+}

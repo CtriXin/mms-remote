@@ -1,0 +1,38 @@
+{
+  "task_id": "swift-terminal-polish-v2",
+  "goal": "Implement compact chord UI with letters/digits, fix Swift tab theme/style bleed, add bottom Settings tab, bump version/build.",
+  "status": "handoff-ready",
+  "owner": "Codex",
+  "cli": "codex",
+  "model": "GPT-5",
+  "next_action": "New session read .ai/plan/swift-terminal-polish-handbook.md and implement the three requested UI polish tasks.",
+  "constraints": [
+    "Always respond Chinese-simplified; keep technical terms English",
+    "Do not run Xcode tests unless user explicitly asks",
+    "Preserve existing Terminal/CLI tab behavior",
+    "Every iOS code change must bump version/build",
+    "Do not log live pairing codes/session IDs"
+  ],
+  "refs": [
+    ".ai/plan/swift-terminal-polish-handbook.md",
+    "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift",
+    "CodexMobile/CodexMobile/ContentView.swift",
+    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+    "mms-remote-bridge/src/tmux-adapter.js",
+    "mms-remote-bridge/test/terminal-hub.test.js"
+  ],
+  "changed_files_current_slice": [
+    ".ai/plan/swift-terminal-polish-handbook.md",
+    ".ai/plan/current.md",
+    ".ai/plan/handoff.md",
+    ".ai/plan/packet.json",
+    ".ai/plan/packet.toon"
+  ],
+  "expected_output": "1.7.5 build 41 installed; compact chord UI; readable theme; Settings bottom tab; tests/build/deploy recorded.",
+  "read_order": [
+    ".ai/plan/swift-terminal-polish-handbook.md",
+    ".ai/plan/current.md",
+    ".ai/plan/handoff.md"
+  ],
+  "writeback_required": true
+}

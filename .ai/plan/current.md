@@ -1,69 +1,51 @@
-# Current Handoff — MMS Remote Terminal
+# Current Handoff — Terminal SwiftTerm Stabilization
 
-- timestamp: 2026-05-15 16:47 +0800
+- timestamp: 2026-05-16T04:30:00-04:00
 - owner: Codex
 - CLI: codex
 - model: GPT-5
-- task_id: ios-terminal-running-branch
-- status: merged to `main`; branch-wins merge complete
-- next_action: start next task from `main` and integrate SwiftTerm as the iOS Terminal renderer
+- task_id: swift-terminal-shortcut-view-split
+- status: installed `1.7.24 build 60` on `song的iPhone`; launch blocked because device locked; user smoke pending
 
-## Goal
+## Stable Checkpoint
 
-Phone Terminal controls Mac tmux-managed terminal panes while Codex Chat remains a separate app entry point.
+- User confirmed `1.7.23 build 59` looked fine before this slice.
+- Stable renderer remains trusted/default.
+- SwiftTerm live renderer remains experimental.
+- Keep legacy/fallback Terminal path until explicit approval to delete.
+- Do not run Xcode tests unless explicitly requested.
 
-## Current Truth
+## Completed Slice
 
-- active worktree: `/Users/xin/auto-skills/CtriXin-repo/mms-remote`
-- branch: `main`
-- merge commit: `98072a8 merge: adopt ios terminal running branch`
-- merged running branch: `codex/ios-remote-22e6243`
-- merged running commit: `b7196688f9c26c9ed23407d8fd19c00143a0255f`
-- base: `22e624367783234245d0b0724c34212f79722e84`
-- backup of old main before merge: `codex/backup-main-before-ios-terminal-merge-20260515`
-- user-tested status: real phone no longer stuck on `Terminal Error`
-- known-good anchor from previous rescue: `3fa85e4bcb8189636fa044832f2558beb85627c7`
+- Low-risk refactor only: split shortcut/key bar UI into `SwiftTerminalShortcutViews.swift`.
+- No intended behavior change to Terminal/CLI tab, stable renderer, shortcuts, chord panel, pinned picker, or SwiftTerm stream path.
+- `SwiftTerminalHubView.swift` reduced from 2109 lines to 1857 lines.
+- Version/build: `1.7.24 build 60`.
 
-## Current Changes
+## Validation Done
 
-- iOS Terminal background list polling no longer surfaces modal `Terminal Error` alerts; manual refresh still reports errors.
-- Ghostty visible open now uses AppleScript `new tab` / `new window` instead of `open -n`, avoiding duplicate restored tab layouts.
-- iTerm2 visible open now prefers a new tab in the current window, falling back to a new window.
-- Terminal quick keys include Enter, Backspace, Ctrl-C/D/Z/A/E, Tab, Esc, Home/End, PgUp/PgDn, and arrows.
-- Current SwiftUI terminal snapshot viewer is a stopgap dark terminal surface with horizontal+vertical scrolling and no automatic line wrapping.
-- Full iTerm/Ghostty-like rendering still requires a real terminal renderer such as SwiftTerm or xterm.js.
+1. Node terminal tests: passed `27/27`.
+2. iOS generic Debug build: passed.
+3. iOS device Debug build for `song的iPhone`: passed.
+4. App Info.plist verified: `CFBundleShortVersionString=1.7.24`, `CFBundleVersion=60`.
+5. Installed on `song的iPhone` only.
+6. Launch blocked: iPhone locked (`FBSOpenApplicationRequestDenied`, `Locked`).
+7. Xcode tests not run per project rule.
 
-## Next Task
+## Device Safety
 
-- Implement SwiftTerm as the iOS Terminal renderer.
-- Goal: make phone Terminal look and behave like a real terminal, not a styled log view.
-- Keep current SwiftUI viewer only as fallback/debug path until SwiftTerm is stable.
-- Do not ship an ugly half-renderer as final UX.
+- `devicectl` song device id: `009568BB-3B27-5C91-A94D-34B683F6BCD5`.
+- `xcodebuild` destination id: `00008150-0008781C36D9401C`.
+- Do not install to `iPhone 15 ProX雨`.
 
-## SwiftTerm Acceptance
+## User Smoke Focus
 
-- ANSI colors render.
-- Box drawing, separators, progress bars, prompt lines, and wide CJK text do not drift or wrap incorrectly.
-- Cursor movement, clear screen, and shell prompt editing work.
-- `top`/`htop`/`less`/`vim` render acceptably or fail gracefully with clear limitations.
-- Theme defaults to a polished dark terminal style; font uses existing bundled mono first, later optional Nerd Font.
-
-## Todo / Not Now
-
-- Add a Terminal setting for preferred Mac visible terminal app: `auto`, Ghostty, iTerm2, or Terminal.app.
-- Show the same selector in create/open flows later if UX needs per-launch override.
-- Default stays `auto` for now: Ghostty -> iTerm2 -> Terminal.app.
-- Use installed-app detection only for availability/labels; do not block manual selection unless launch fails.
-
-## Validation
-
-- `node --test test/terminal-visible-launcher.test.js test/terminal-hub.test.js test/mms-remote-cli.test.js` passed: 32/32.
-- `xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -configuration Debug -destination 'platform=iOS Simulator,id=4F06CB43-A708-44E5-8418-ABF70A2D4887' -derivedDataPath .build/DerivedData build` succeeded.
-- Full `npm test` earlier had 307/308 passing; only `bridge-desktop-ipc-integration.test.js` timed out, not adjacent to terminal launcher changes.
-
-## Boundaries
-
-- Do not promise automatic capture of arbitrary existing Terminal.app/iTerm2/Ghostty panes unless they join tmux.
-- Keep local-first Bridge/QR/daemon workflow.
-- Do not run Xcode tests unless user explicitly asks.
-- Before further terminal-renderer work, decide SwiftTerm native renderer vs WKWebView+xterm.js.
+- Settings/About shows `1.7.24 build 60`.
+- Terminal stable renderer content visible; no blank screen or double display.
+- Input, paste, Enter, Backspace, arrows, Ctrl-C.
+- Shortcut bar expanded/collapsed behavior unchanged.
+- Pinned keys picker opens, toggles, and drag-reorders pinned keys.
+- Chord panel opens, closes, resizes, and sends modifier+key combos.
+- Cheatsheet sheet opens/closes.
+- tmux pane previous/next switch refreshes.
+- CLI/legacy fallback unchanged.

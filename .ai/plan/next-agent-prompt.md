@@ -1,88 +1,142 @@
-# Next Agent Prompt — SwiftTerm Renderer
+# Next Agent Prompt — Terminal-First MMS Remote
 
-你在 `/Users/xin/auto-skills/CtriXin-repo/mms-remote` 工作。始终用简体中文回复，technical terms 保留 English。
+## Latest Stable Slice
+
+- Latest user-confirmed stable build: `1.7.23 build 59` on `song的iPhone`.
+- Latest installed build: `1.7.24 build 60`; phone launch blocked because device locked, so user smoke pending.
+- Latest slice is low-risk refactor only: `SwiftTerminalShortcutViews.swift` extracted shortcut/key bar UI from `SwiftTerminalHubView.swift`.
+- Validation passed: Node terminal tests `27/27`, iOS generic Debug build, iOS device Debug build, install on `song的iPhone`.
+- Xcode tests not run by rule.
 
 ## Current Truth
 
-- `main` 是当前真相。
-- `main` merge commit: `98072a8 merge: adopt ios terminal running branch`
-- merged running commit: `b7196688f9c26c9ed23407d8fd19c00143a0255f`
-- old main backup: `codex/backup-main-before-ios-terminal-merge-20260515`
+- `main` 是当前真相，但工作区有未提交改动；不要重置或覆盖。
 - 用户真机确认：之前一直弹 `Terminal Error` 的问题已消失。
+- 当前产品决策：MMS Remote 采用底部 `Tab Bar`，分成 `Chats` 和 `Terminal` 两个入口。
+- `Chats` 是 lightweight Codex companion。
+- `Terminal` 是 first-class mobile terminal，控制 Mac tmux-managed panes。
 
-## Task
+## First Read
 
-接入 SwiftTerm，替换当前 iOS Terminal 的 SwiftUI `Text` snapshot viewer。
+1. `.ai/plan/current.md`
+2. `.ai/plan/handoff.md`
+3. `.ai/plan/packet.json`
+4. `CodexMobile/CodexMobile/ContentView.swift`
+5. `CodexMobile/CodexMobile/Views/Terminal/TerminalHubView.swift`
+6. `CodexMobile/CodexMobile/Views/Terminal/SwiftTermTerminalView.swift`
+7. `CodexMobile/CodexMobile/Services/CodexService+Terminal.swift`
+8. `mms-remote-bridge/src/terminal-hub.js`
+9. `mms-remote-bridge/src/tmux-adapter.js`
 
-目标：手机 Terminal 看起来和行为都像真实 terminal，不要“能跑但很丑”的最终状态。
+## Product Rules
 
-## Key Constraints
+- Keep Bottom Tab Bar. Do not move Terminal back into Chat toolbar.
+- Do not make Sidebar segmented switch unless user explicitly reverses decision.
+- Do not build a Dashboard launcher unless product strategy changes.
+- Do not copy full Codex App. Official open-source reference is `openai/codex` / CLI / SDK / App Server / Skills, not full App UI.
+- Terminal UX should reference iTerm/Ghostty quality: spacing, keyboard behavior, readable ANSI, stable full-screen app rendering.
 
-- Local-first only: Mac bridge, QR/local relay, tmux-managed panes.
-- 不要重新引入 hosted-service 假设或 hardcoded production domains。
-- 不要承诺自动接管任意已有 Terminal.app/iTerm2/Ghostty 窗口；可靠边界是 tmux-managed panes。
-- 不要跑 Xcode tests，除非用户明确要求。可以跑 targeted Node tests 和 iOS build。
-- 保持 Chat/Terminal 共存，Terminal 不要污染 Chat timeline。
-- 不要破坏 current visible terminal open behavior：Ghostty/iTerm2 优先 new tab，不复制整套 tabs。
+## Localization Rules
 
-## Relevant Files
+- Treat localization as part of every UI change, not a cleanup task.
+- Every new visible iOS string needs both `zh-Hans` and `en` entries.
+- Keep technical terms in English: `Codex`, `Terminal`, `tmux`, `Bridge`, `iTerm2`, `Ghostty`, `SwiftTerm`, `QR`.
+- Use the shared localization layer only: `LocalizationManager.shared.localized(key)` or verified localized SwiftUI wrappers.
+- Do not invent per-view APIs such as `navigationTitle(localized:)` / `Label(localized:)`; SwiftUI overload ambiguity can break device builds.
+- Include navigation titles, alerts, buttons, placeholders, empty states, and accessibility text.
+- Exempt only developer logs, comments, tests, and protocol constants.
 
-- `CodexMobile/CodexMobile/Views/Terminal/TerminalHubView.swift`
-- `CodexMobile/CodexMobile/Models/TerminalModels.swift`
-- `CodexMobile/CodexMobile/Services/CodexService+Terminal.swift`
-- `mms-remote-bridge/src/tmux-adapter.js`
-- `mms-remote-bridge/src/terminal-hub.js`
-- `mms-remote-bridge/src/terminal-visible-launcher.js`
-- `mms-remote-bridge/test/terminal-hub.test.js`
-- `mms-remote-bridge/test/terminal-visible-launcher.test.js`
+## Current Work In Progress
 
-## Implementation Direction
+- `ContentView.swift` now has `Chats` and `Terminal` tabs.
+- `TerminalHubView.onClose` is optional; independent Terminal tab hides old `Chats` button.
+- Other current dirty changes include SwiftTerm renderer attempt, ANSI snapshot params, terminal bytes input, resize, copy/paste/modifier requests, tmux tests.
+- Important rescue: SwiftTerm snapshot renderer caused phone lag/no cursor/no visible echo. It is now behind `terminal.experimentalSwiftTermRenderer` and defaults off. Do not turn it back on by default until output is stream/control-mode based.
+- Latest foundation patch hard-disables the experimental SwiftTerm snapshot path, removes horizontal Terminal UI scroll, wraps output, resizes tmux to the phone viewport, strips unsupported PUA glyphs, and sends input edits directly to tmux.
 
-- Use SwiftTerm as first choice. xterm.js/WKWebView only fallback.
-- Keep current SwiftUI text viewer as fallback/debug path while SwiftTerm stabilizes.
-- Feed SwiftTerm ANSI-preserved terminal output. Bridge may need `capture-pane -e` path, size negotiation, resize on view geometry, and eventually incremental output.
-- Use polished dark terminal theme from start.
-- Use existing bundled mono fonts first. Nerd Font support can be a later task, but broken PUA glyph boxes should not dominate UI.
-- Add feature flag or fallback switch if needed.
+## Must Fix Next
 
-## Acceptance
+1. Phone-verify stable fallback first:
+   - no horizontal terminal output scroll
+   - no clipped/centered terminal viewport
+   - no missing-glyph boxes in common prompts
+   - typing appears through tmux echo
+   - Enter
+   - Tab
+   - paste
+   - Ctrl-C
+   - Ctrl-D
+2. Keep stable snapshot + direct input as default until SwiftTerm has real stream/control-mode semantics.
+3. Make SwiftTerm compile and run as experimental terminal canvas only.
+4. Verify input execution:
+   - tap focus
+   - soft keyboard
+   - hardware keyboard
+   - Enter
+   - paste
+   - Ctrl-C
+   - Ctrl-D
+5. Replace current basic quick keys with modifier-latch keyboard:
+   - `Ctrl`
+   - `Alt/Meta`
+   - `Esc`
+   - `Fn`
+   - arrows
+   - custom key bar presets
+6. Add Terminal settings:
+   - preferred Mac visible terminal app: `auto`, Ghostty, iTerm2, Terminal.app
+   - font size
+   - theme
+   - key bar layout
+7. Move protocol toward stream/delta or viewport-aware ANSI snapshot with resize negotiation.
+8. Split `TerminalHubView` later:
+   - session strip
+   - terminal canvas
+   - key bar
+   - create sheet
+   - settings
 
-- ANSI colors render.
-- Box drawing, separators, progress bars, Claude/Codex prompt lines, and CJK wide text align on phone.
-- Cursor movement, clear screen, shell prompt editing work.
-- `top`/`htop`/`less`/`vim` render much better than SwiftUI `Text`, or fail gracefully with clear limitations.
-- Existing terminal list/create/attach/input/open-on-Mac flows still work.
-- Real phone acceptance: one clean tmux pane, click, `pwd`, Mac/iPhone sync.
+## Wrong Directions
 
-## Validation Commands
+- Terminal as a Chat toolbar feature.
+- More random shortcut buttons as the main fix.
+- SwiftUI `Text` snapshot viewer as final renderer.
+- Feeding whole `tmux capture-pane` snapshots into SwiftTerm as the default renderer.
+- Full Codex App clone.
+- Promise to capture arbitrary non-tmux Terminal.app/iTerm2/Ghostty windows.
+
+## Validation
+
+Do not run Xcode tests unless user explicitly asks. Build is okay if needed.
+
+Current validation already passed:
+
+- Node terminal tests: 34/34.
+- iOS Debug simulator build: `BUILD SUCCEEDED`.
+- Xcode tests: not run.
 
 ```bash
 cd /Users/xin/auto-skills/CtriXin-repo/mms-remote
 
 node --test \
-  mms-remote-bridge/test/terminal-visible-launcher.test.js \
   mms-remote-bridge/test/terminal-hub.test.js \
+  mms-remote-bridge/test/terminal-visible-launcher.test.js \
   mms-remote-bridge/test/mms-remote-cli.test.js
 
 xcodebuild \
   -project CodexMobile/CodexMobile.xcodeproj \
   -scheme CodexMobile \
   -configuration Debug \
-  -destination 'platform=iOS Simulator,id=4F06CB43-A708-44E5-8418-ABF70A2D4887' \
+  -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath .build/DerivedData \
-  build
+  build CODE_SIGNING_ALLOWED=NO
 ```
 
-## Runtime Acceptance Start
+## Real Phone Acceptance
 
-```bash
-cd /Users/xin/auto-skills/CtriXin-repo/mms-remote
-HOME=/Users/xin MMS_REMOTE_DEVICE_STATE_DIR=/Users/xin/.mms-remote node ./mms-remote-bridge/bin/mms-remote.js stop --json || true
-pkill -f '/mms-remote-bridge/bin/mms-remote.js' || true
-pkill -f 'run-local-mms-remote.sh' || true
-pkill -f 'relay/server.js' || true
-tmux kill-server || true
-tmux new-session -d -s mms-clean -c /Users/xin/auto-skills/CtriXin-repo/mms-remote
-```
-
-Then start bridge with the user's preferred real-phone command/environment.
+- App opens with bottom `Chats` / `Terminal` tabs.
+- Terminal tab opens directly to terminal experience; no old `Chats` return button.
+- Chat no longer has Terminal toolbar shortcut.
+- Terminal can create/list/select tmux pane.
+- Tap terminal, type `pwd`, press Enter, output updates on same pane.
+- Claude/Codex TUI layout no longer shows severe clipping/drift after SwiftTerm work lands.
