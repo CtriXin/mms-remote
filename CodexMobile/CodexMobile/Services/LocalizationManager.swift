@@ -810,6 +810,22 @@ enum Strings {
             "onboarding.features.subagents.subtitle": "从手机生成和监控并行代理",
             "onboarding.welcome.subtitle": "从 iPhone 控制 Codex。",
             "onboarding.welcome.e2ee": "端到端加密",
+
+            // MMSChat
+            "mmschat.list_title": "Sessions",
+            "mmschat.loading": "正在加载...",
+            "mmschat.empty_title": "暂无会话",
+            "mmschat.empty_description": "Claude 会话将显示在此处",
+            "mmschat.error_title": "加载失败",
+            "mmschat.error_disconnected": "未连接到 Mac",
+            "mmschat.retry": "重试",
+            "mmschat.detail_title": "会话详情",
+            "mmschat.transcript_title": "对话记录",
+            "mmschat.transcript_unavailable": "对话记录不可用",
+            "mmschat.transcript_empty": "暂无对话记录",
+            "mmschat.send_disabled": "发送功能尚未启用",
+            "mmschat.tab.terminal": "终端",
+            "mmschat.tab.sessions": "Sessions",
         ],
         .english: [
             // Settings
@@ -1573,6 +1589,22 @@ enum Strings {
             "onboarding.features.subagents.subtitle": "Spawn and monitor parallel agents from your phone",
             "onboarding.welcome.subtitle": "Control Codex from your iPhone.",
             "onboarding.welcome.e2ee": "End-to-end encrypted",
+
+            // MMSChat
+            "mmschat.list_title": "Sessions",
+            "mmschat.loading": "Loading...",
+            "mmschat.empty_title": "No Sessions",
+            "mmschat.empty_description": "Claude sessions will appear here",
+            "mmschat.error_title": "Load Failed",
+            "mmschat.error_disconnected": "Not connected to Mac",
+            "mmschat.retry": "Retry",
+            "mmschat.detail_title": "Session Detail",
+            "mmschat.transcript_title": "Transcript",
+            "mmschat.transcript_unavailable": "Transcript unavailable",
+            "mmschat.transcript_empty": "No transcript available",
+            "mmschat.send_disabled": "Send is not yet enabled",
+            "mmschat.tab.terminal": "Terminal",
+            "mmschat.tab.sessions": "Sessions",
         ]
     ]
 }
