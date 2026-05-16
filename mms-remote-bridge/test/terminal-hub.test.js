@@ -135,6 +135,81 @@ test("handleTerminalMethod dispatches terminal/list", { skip: !hasTmux }, async 
   }
 });
 
+test("tmux adapter maps SwiftTerm special byte input to tmux keys", async () => {
+  const calls = [];
+  const adapter = createTmuxAdapter({
+    execFile(file, args, options, callback) {
+      calls.push({ file, args, options });
+      callback(null, "", "");
+    },
+  });
+
+  await adapter.sendInput({
+    paneId: "%1",
+    input: {
+      kind: "bytes",
+      base64: Buffer.from("\u001b[D").toString("base64"),
+    },
+  });
+
+  assert.equal(calls[0].file, "tmux");
+  assert.deepEqual(calls[0].args, ["send-keys", "-t", "%1", "Left"]);
+});
+
+test("tmux adapter maps Mac-style shortcut keys to tmux keys", async () => {
+  const calls = [];
+  const adapter = createTmuxAdapter({
+    execFile(file, args, options, callback) {
+      calls.push({ file, args, options });
+      callback(null, "", "");
+    },
+  });
+
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "option-left" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "option-right" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "shift-tab" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "ctrl-r" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "f12" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "command-control-=" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "control-option-delete" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "command-control-a" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "command-shift-1" } });
+  await adapter.sendInput({ paneId: "%1", input: { kind: "key", key: "control-option-9" } });
+
+  assert.deepEqual(calls.map((call) => call.args), [
+    ["send-keys", "-t", "%1", "M-b"],
+    ["send-keys", "-t", "%1", "M-f"],
+    ["send-keys", "-t", "%1", "BTab"],
+    ["send-keys", "-t", "%1", "C-r"],
+    ["send-keys", "-t", "%1", "F12"],
+    ["send-keys", "-t", "%1", "C-M-="],
+    ["send-keys", "-t", "%1", "C-M-DC"],
+    ["send-keys", "-t", "%1", "C-M-a"],
+    ["send-keys", "-t", "%1", "M-S-1"],
+    ["send-keys", "-t", "%1", "C-M-9"],
+  ]);
+});
+
+test("tmux adapter captures only the visible viewport for SwiftTerm snapshots", async () => {
+  const calls = [];
+  const adapter = createTmuxAdapter({
+    execFile(file, args, options, callback) {
+      calls.push({ file, args, options });
+      callback(null, "visible\n", "");
+    },
+  });
+
+  const result = await adapter.capturePane({
+    target: "%1",
+    viewportOnly: true,
+    preserveAnsi: true,
+    joinWrapped: false,
+  });
+
+  assert.equal(result.content, "visible");
+  assert.deepEqual(calls[0].args, ["capture-pane", "-t", "%1", "-p", "-e"]);
+});
+
 test("terminal hub lists newest panes first", async () => {
   const hub = createTerminalHub({
     adapter: {
@@ -297,6 +372,79 @@ test("handleTerminalRequest responds to terminal JSON-RPC requests", { skip: !ha
   } finally {
     await cleanup(adapter);
   }
+});
+
+test("handleTerminalRequest forwards terminal stream notifications", async () => {
+  const responses = [];
+  const hub = {
+    async handleMethod(method, params, context) {
+      assert.equal(method, "terminal/stream/start");
+      assert.equal(params.paneId, "%1");
+      context.sendNotification("terminal/stream/event", {
+        type: "terminal.stream.ready",
+        streamId: "term-1",
+        paneId: "%1",
+        seq: 1,
+        sentAt: "now",
+      });
+      return { ok: true, streamId: "term-1", paneId: "%1", status: "ready" };
+    },
+  };
+
+  const handled = handleTerminalRequest(
+    JSON.stringify({ id: "stream-1", method: "terminal/stream/start", params: { paneId: "%1" } }),
+    (payload) => responses.push(JSON.parse(payload)),
+    { hub }
+  );
+
+  assert.equal(handled, true);
+  await waitFor(() => responses.length === 2, "stream response and notification");
+  assert.equal(responses[0].method, "terminal/stream/event");
+  assert.equal(responses[0].params.type, "terminal.stream.ready");
+  assert.equal(responses[1].id, "stream-1");
+  assert.equal(responses[1].result.status, "ready");
+});
+
+test("terminal hub accepts legacy terminal/stre stream aliases", async () => {
+  const calls = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async findPane(target) {
+        assert.equal(target, "%1");
+        return { id: "%1", paneId: "%1", paneKey: "dev:0.0", sessionName: "dev", windowIndex: 0, paneIndex: 0 };
+      },
+    },
+    streamHub: {
+      async start(params) {
+        calls.push(["start", params.paneId]);
+        return { ok: true, streamId: "term-1", paneId: params.paneId, status: "ready" };
+      },
+      async stop(params) {
+        calls.push(["stop", params.streamId]);
+        return { ok: true };
+      },
+      async replay(params) {
+        calls.push(["replay", params.streamId]);
+        return { ok: true };
+      },
+      status(params) {
+        calls.push(["status", params.streamId]);
+        return { ok: true };
+      },
+    },
+  });
+
+  await hub.handleMethod("terminal/stre/start", { paneId: "%1" });
+  await hub.handleMethod("terminal/stre/stop", { streamId: "term-1" });
+  await hub.handleMethod("terminal/stre/replay", { streamId: "term-1" });
+  await hub.handleMethod("terminal/stre/status", { streamId: "term-1" });
+
+  assert.deepEqual(calls, [
+    ["start", "%1"],
+    ["stop", "term-1"],
+    ["replay", "term-1"],
+    ["status", "term-1"],
+  ]);
 });
 
 test("terminal hub opens a visible macOS terminal when create requests it", async () => {

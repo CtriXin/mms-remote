@@ -450,6 +450,7 @@ function startBridge({
       stopContextUsageWatcher();
       rolloutLiveMirror?.stopAll();
       desktopIpcActionFollower?.stopAll();
+      terminalHub.stopAllStreams?.({ reason: "relay_disconnected", notify: false });
       desktopRefresher.handleTransportReset();
       scheduleRelayReconnect(code);
     });
@@ -505,6 +506,7 @@ function startBridge({
     stopContextUsageWatcher();
     rolloutLiveMirror?.stopAll();
     desktopIpcActionFollower?.stopAll();
+    terminalHub.stopAllStreams?.({ reason: "bridge_shutdown", notify: false });
     desktopRefresher.handleTransportReset();
     failBridgeManagedCodexRequests(new Error("Codex transport closed before the bridge request completed."));
     forwardedRequestMethodsById.clear();
@@ -519,6 +521,7 @@ function startBridge({
     clearReconnectTimer();
     clearRelayWatchdog();
     clearBridgeStatusHeartbeat();
+    terminalHub.stopAllStreams?.({ reason: "bridge_shutdown", notify: false });
   }));
   process.on("SIGTERM", () => shutdown(codex, () => socket, () => {
     isShuttingDown = true;
@@ -526,6 +529,7 @@ function startBridge({
     clearReconnectTimer();
     clearRelayWatchdog();
     clearBridgeStatusHeartbeat();
+    terminalHub.stopAllStreams?.({ reason: "bridge_shutdown", notify: false });
   }));
 
   // Routes decrypted app payloads through the same bridge handlers as before.

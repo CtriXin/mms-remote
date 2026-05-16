@@ -98,6 +98,20 @@ struct ManagedTerminalPane: Codable, Equatable, Identifiable, Sendable {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized.isEmpty ? "-" : normalized
     }
+
+    func matches(target rawTarget: String?) -> Bool {
+        guard let target = normalizedUsableTarget(rawTarget) else { return false }
+        return [
+            requestTarget,
+            paneId,
+            paneKey,
+            paneAddress,
+            self.target,
+            id,
+        ]
+        .compactMap { normalizedUsableTarget($0) }
+        .contains(target)
+    }
 }
 
 struct ManagedTerminalSnapshot: Codable, Equatable, Sendable {
@@ -120,6 +134,59 @@ struct ManagedTerminalList: Codable, Equatable, Sendable {
         panes: [],
         createdPane: nil
     )
+}
+
+enum TerminalStreamMessageType: String, Codable, Sendable {
+    case ready = "terminal.stream.ready"
+    case output = "terminal.stream.output"
+    case inputAck = "terminal.stream.inputAck"
+    case resizeAck = "terminal.stream.resizeAck"
+    case title = "terminal.stream.title"
+    case cwd = "terminal.stream.cwd"
+    case bell = "terminal.stream.bell"
+    case exit = "terminal.stream.exit"
+    case error = "terminal.stream.error"
+    case heartbeat = "terminal.stream.heartbeat"
+    case replayStart = "terminal.stream.replayStart"
+    case replayEnd = "terminal.stream.replayEnd"
+}
+
+struct TerminalStreamMessage: Equatable, Identifiable, Sendable {
+    let type: TerminalStreamMessageType
+    let streamId: String
+    let paneId: String
+    let seq: Int
+    let sentAt: String
+    let base64: String?
+    let byteLength: Int?
+    let status: String?
+    let title: String?
+    let cwd: String?
+    let code: String?
+    let message: String?
+    let reason: String?
+    let recoverable: Bool?
+    let reset: Bool?
+    let cols: Int?
+    let rows: Int?
+    let capturedAt: String?
+
+    var id: String { "\(streamId)-\(seq)" }
+}
+
+struct TerminalStreamStartResponse: Equatable, Sendable {
+    let ok: Bool
+    let streamId: String
+    let paneId: String
+    let status: String
+}
+
+struct TerminalStreamRuntimeStatus: Equatable, Sendable {
+    let streamId: String
+    let paneId: String
+    var status: String
+    var lastSeq: Int
+    var lastMessage: String?
 }
 
 enum ManagedTerminalKey: String, CaseIterable, Identifiable, Sendable {
@@ -335,6 +402,52 @@ extension ManagedTerminalSnapshot {
         self.pane = try ManagedTerminalPane(json: paneJSON)
         self.content = terminalString(object, "content") ?? ""
         self.capturedAt = terminalString(object, "capturedAt", "captured_at") ?? ""
+    }
+}
+
+extension TerminalStreamMessage {
+    init?(json object: [String: JSONValue]?) {
+        guard let object,
+              let rawType = terminalString(object, "type"),
+              let type = TerminalStreamMessageType(rawValue: rawType),
+              let streamId = terminalString(object, "streamId", "stream_id"),
+              let paneId = terminalString(object, "paneId", "pane_id"),
+              let seq = terminalInt(object, "seq") else {
+            return nil
+        }
+        self.type = type
+        self.streamId = streamId
+        self.paneId = paneId
+        self.seq = seq
+        self.sentAt = terminalString(object, "sentAt", "sent_at") ?? ""
+        self.base64 = terminalString(object, "base64")
+        self.byteLength = terminalInt(object, "byteLength", "byte_length")
+        self.status = terminalString(object, "status")
+        self.title = terminalString(object, "title")
+        self.cwd = terminalString(object, "cwd")
+        self.code = terminalString(object, "code")
+        self.message = terminalString(object, "message")
+        self.reason = terminalString(object, "reason")
+        self.recoverable = terminalBool(object, "recoverable")
+        self.reset = terminalBool(object, "reset")
+        self.cols = terminalInt(object, "cols")
+        self.rows = terminalInt(object, "rows")
+        self.capturedAt = terminalString(object, "capturedAt", "captured_at")
+    }
+}
+
+extension TerminalStreamStartResponse {
+    init(json: JSONValue?) throws {
+        guard let object = json?.objectValue else {
+            throw ManagedTerminalModelError.missingResult("terminal/stream/start")
+        }
+        self.ok = terminalBool(object, "ok") ?? false
+        self.streamId = terminalString(object, "streamId", "stream_id") ?? ""
+        self.paneId = terminalString(object, "paneId", "pane_id") ?? ""
+        self.status = terminalString(object, "status") ?? ""
+        guard !streamId.isEmpty else {
+            throw ManagedTerminalModelError.invalidShape("terminal/stream/start.streamId")
+        }
     }
 }
 
@@ -600,7 +713,11 @@ private func firstUsableTerminalString(_ values: String?...) -> String? {
 }
 
 private func isUsableTerminalTarget(_ value: String) -> Bool {
-    let target = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    normalizedUsableTarget(value) != nil
+}
+
+private func normalizedUsableTarget(_ value: String?) -> String? {
+    let target = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     guard !target.isEmpty,
           target != "unknown",
           target != ":",
@@ -609,7 +726,7 @@ private func isUsableTerminalTarget(_ value: String) -> Bool {
           !target.hasPrefix(":"),
           !target.hasSuffix(":"),
           !target.hasSuffix(".") else {
-        return false
+        return nil
     }
-    return true
+    return target
 }

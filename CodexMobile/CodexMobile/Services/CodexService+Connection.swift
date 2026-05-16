@@ -145,6 +145,7 @@ extension CodexService {
         isLoadingModels = false
         clearPendingApprovals()
         finalizeAllStreamingState()
+        clearTerminalStreamState()
         messagePersistenceDebounceTask?.cancel()
         messagePersistenceDebounceTask = nil
         messagePersistence.save(messagesByThread)
@@ -463,6 +464,7 @@ extension CodexService {
         connectionRecoveryState = disposition.connectionRecoveryState
         lastErrorMessage = disposition.lastErrorMessage
         finalizeAllStreamingState()
+        clearTerminalStreamState()
         endBackgroundRunGraceTask(reason: "receive-error")
         clearConnectionSyncState()
         // Thread resumes are transport-scoped; a fresh socket must be allowed to

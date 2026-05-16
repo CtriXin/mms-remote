@@ -2,9 +2,10 @@
 // Purpose: Coordinates managed terminal pane RPC over tmux.
 // Layer: Service coordinator
 // Exports: createTerminalHub, handleTerminalMethod, handleTerminalRequest
-// Depends on: ./tmux-adapter, ./terminal-visible-launcher
+// Depends on: ./tmux-adapter, ./terminal-visible-launcher, ./terminal-stream-hub
 
 const { createTmuxAdapter, TmuxAdapterError } = require("./tmux-adapter");
+const { createTerminalStreamHub } = require("./terminal-stream-hub");
 const { createTerminalVisibleLauncher } = require("./terminal-visible-launcher");
 
 function createTerminalHub(options = {}) {
@@ -13,6 +14,14 @@ function createTerminalHub(options = {}) {
     ...(options.visibleTerminal || {}),
     socketName: options.tmux?.socketName || options.visibleTerminal?.socketName || "",
     tmuxBin: options.tmux?.tmuxBin || options.visibleTerminal?.tmuxBin || undefined,
+  });
+  const streamHub = options.streamHub || createTerminalStreamHub({
+    ...(options.stream || {}),
+    tmux: {
+      ...(options.tmux || {}),
+      ...(options.stream?.tmux || {}),
+    },
+    capturePane: (pane, params) => capturePaneSnapshot(pane, params),
   });
 
   async function list() {
@@ -120,6 +129,27 @@ function createTerminalHub(options = {}) {
     });
   }
 
+  async function streamStart(params = {}, context = {}) {
+    const pane = await resolvePane(params.paneId || params.paneKey || params.target);
+    return streamHub.start({
+      ...params,
+      pane: decoratePane(pane),
+      paneId: pane.paneId,
+    }, context);
+  }
+
+  async function streamStop(params = {}) {
+    return streamHub.stop(params);
+  }
+
+  async function streamReplay(params = {}) {
+    return streamHub.replay(params);
+  }
+
+  async function streamStatus(params = {}) {
+    return streamHub.status(params);
+  }
+
   async function resolvePane(target) {
     const normalizedTarget = normalizePaneTarget(target);
     if (!normalizedTarget) {
@@ -179,9 +209,11 @@ function createTerminalHub(options = {}) {
   }
 
   function captureWithTarget(target, params = {}) {
+    const viewportOnly = params.viewportOnly === true;
     return adapter.capturePane({
       target,
-      start: Number.isInteger(params.start) ? params.start : -2000,
+      viewportOnly,
+      start: viewportOnly ? "visible" : (Number.isInteger(params.start) ? params.start : -2000),
       preserveAnsi: Boolean(params.preserveAnsi),
       joinWrapped: params.joinWrapped !== false,
     });
@@ -197,7 +229,7 @@ function createTerminalHub(options = {}) {
     return visibleLauncher.openPane(pane, { visibleApp });
   }
 
-  async function handleMethod(method, params = {}) {
+  async function handleMethod(method, params = {}, context = {}) {
     switch (method) {
       case "terminal/list":
         return list();
@@ -217,6 +249,18 @@ function createTerminalHub(options = {}) {
         return resize(params);
       case "terminal/kill":
         return kill(params);
+      case "terminal/stream/start":
+      case "terminal/stre/start":
+        return streamStart(params, context);
+      case "terminal/stream/stop":
+      case "terminal/stre/stop":
+        return streamStop(params);
+      case "terminal/stream/replay":
+      case "terminal/stre/replay":
+        return streamReplay(params);
+      case "terminal/stream/status":
+      case "terminal/stre/status":
+        return streamStatus(params);
       case "terminal/status":
         return { ok: true, ...(await list()) };
       default:
@@ -236,6 +280,8 @@ function createTerminalHub(options = {}) {
     openVisible,
     resize,
     snapshot,
+    stopAllStreams: streamHub.stopAll,
+    streamHub,
     visibleLauncher,
   };
 }
@@ -399,7 +445,7 @@ function formatVisibleTerminalFailure(error) {
 
 async function handleTerminalMethod(method, params = {}, options = {}) {
   const hub = options.hub || createTerminalHub(options);
-  return hub.handleMethod(method, params);
+  return hub.handleMethod(method, params, options);
 }
 
 function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
@@ -410,7 +456,10 @@ function handleTerminalRequest(rawMessage, sendResponse, options = {}) {
 
   const logger = options.logger || console;
   logTerminalRpcRequest(logger, message.method, message.params || {});
-  handleTerminalMethod(message.method, message.params || {}, options)
+  const sendNotification = (method, params) => {
+    sendResponse(JSON.stringify({ method, params }));
+  };
+  handleTerminalMethod(message.method, message.params || {}, { ...options, sendNotification })
     .then((result) => {
       logTerminalRpcResult(logger, message.method, result);
       sendResponse(JSON.stringify({ id: message.id ?? null, result }));

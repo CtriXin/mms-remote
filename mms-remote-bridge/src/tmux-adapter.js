@@ -228,8 +228,12 @@ function createTmuxAdapter(options = {}) {
 
   async function capturePane(params = {}) {
     const target = normalizeTarget(params.target || params.paneId || params.paneKey);
-    const start = Number.isInteger(params.start) ? params.start : -DEFAULT_HISTORY_LINES;
-    const args = ["capture-pane", "-t", target, "-p", "-S", String(start)];
+    const viewportOnly = params.viewportOnly === true || params.start === "visible";
+    const args = ["capture-pane", "-t", target, "-p"];
+    if (!viewportOnly) {
+      const start = Number.isInteger(params.start) ? params.start : -DEFAULT_HISTORY_LINES;
+      args.push("-S", String(start));
+    }
     if (Number.isInteger(params.end)) {
       args.push("-E", String(params.end));
     }
@@ -264,6 +268,33 @@ function createTmuxAdapter(options = {}) {
     return { ok: true };
   }
 
+  async function sendBytes(params = {}) {
+    const target = normalizeTarget(params.target || params.paneId || params.paneKey);
+    const base64 = normalizeOptionalString(params.base64 || params.data || params.bytes);
+    if (!base64) {
+      return { ok: true };
+    }
+    const buffer = Buffer.from(base64, "base64");
+    if (!buffer.length) {
+      return { ok: true };
+    }
+    const specialKey = tmuxKeyForByteSequence(buffer);
+    if (specialKey) {
+      await run(["send-keys", "-t", target, specialKey]);
+      return { ok: true };
+    }
+    if (containsControlByte(buffer)) {
+      await run(["send-keys", "-t", target, "-H", ...[...buffer].map((byte) => byte.toString(16).padStart(2, "0"))]);
+      return { ok: true };
+    }
+    const text = buffer.toString("utf8").replace(/\u0000/g, "");
+    if (!text) {
+      return { ok: true };
+    }
+    await run(["send-keys", "-t", target, "-l", text]);
+    return { ok: true };
+  }
+
   async function sendInput(params = {}) {
     const input = params.input || {};
     if (input.kind === "text") {
@@ -271,6 +302,12 @@ function createTmuxAdapter(options = {}) {
     }
     if (input.kind === "key") {
       return sendKey({ target: params.target || params.paneId || params.paneKey, key: input.key });
+    }
+    if (input.kind === "bytes") {
+      return sendBytes({
+        target: params.target || params.paneId || params.paneKey,
+        base64: input.base64 || input.data || input.bytes,
+      });
     }
     if (typeof params.text === "string") {
       return sendText(params);
@@ -404,13 +441,21 @@ function normalizeCwd(value) {
 }
 
 function normalizeTmuxKey(value) {
-  const key = String(value || "").toLowerCase();
+  const key = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-")
+    .replace(/\s+/g, "-");
   const keyMap = new Map([
     ["enter", "Enter"],
     ["return", "Enter"],
     ["backspace", "BSpace"],
+    ["bs", "BSpace"],
     ["delete", "DC"],
+    ["del", "DC"],
     ["tab", "Tab"],
+    ["shift-tab", "BTab"],
+    ["backtab", "BTab"],
     ["escape", "Escape"],
     ["esc", "Escape"],
     ["up", "Up"],
@@ -420,7 +465,11 @@ function normalizeTmuxKey(value) {
     ["home", "Home"],
     ["end", "End"],
     ["pageup", "PageUp"],
+    ["page-up", "PageUp"],
+    ["pgup", "PageUp"],
     ["pagedown", "PageDown"],
+    ["page-down", "PageDown"],
+    ["pgdn", "PageDown"],
     ["ctrl-c", "C-c"],
     ["ctrl-d", "C-d"],
     ["ctrl-z", "C-z"],
@@ -428,10 +477,199 @@ function normalizeTmuxKey(value) {
     ["ctrl-e", "C-e"],
   ]);
   const tmuxKey = keyMap.get(key);
-  if (!tmuxKey) {
-    throw new TmuxAdapterError(`Unsupported terminal key: ${value}`, { code: "unsupported_terminal_key" });
+  if (tmuxKey) {
+    return tmuxKey;
   }
-  return tmuxKey;
+  const functionKey = normalizeFunctionKey(key);
+  if (functionKey) {
+    return functionKey;
+  }
+  const compoundKey = normalizeCompoundTmuxKey(key);
+  if (compoundKey) {
+    return compoundKey;
+  }
+  const ctrlKey = normalizeModifiedTmuxKey(key, ["ctrl", "control", "c"], "C");
+  if (ctrlKey) {
+    return ctrlKey;
+  }
+  const altKey = normalizeModifiedTmuxKey(key, ["alt", "option", "meta", "m"], "M");
+  if (altKey) {
+    return altKey;
+  }
+  const shiftKey = normalizeModifiedTmuxKey(key, ["shift", "s"], "S");
+  if (shiftKey) {
+    return shiftKey;
+  }
+  throw new TmuxAdapterError(`Unsupported terminal key: ${value}`, { code: "unsupported_terminal_key" });
+}
+
+function normalizeFunctionKey(key) {
+  const match = /^f([1-9]|1[0-2])$/.exec(key);
+  return match ? `F${match[1]}` : null;
+}
+
+function normalizeCompoundTmuxKey(key) {
+  const parts = key.split("-").filter(Boolean);
+  if (parts.length < 2) {
+    return null;
+  }
+
+  const modifiers = new Set();
+  let index = 0;
+  while (index < parts.length - 1) {
+    const modifier = tmuxModifierForToken(parts[index]);
+    if (!modifier) {
+      break;
+    }
+    modifiers.add(modifier);
+    index += 1;
+  }
+
+  if (!modifiers.size || index >= parts.length) {
+    return null;
+  }
+
+  const suffix = parts.slice(index).join("-");
+  if (modifiers.size === 1 && modifiers.has("M") && suffix === "left") {
+    return "M-b";
+  }
+  if (modifiers.size === 1 && modifiers.has("M") && suffix === "right") {
+    return "M-f";
+  }
+
+  const normalizedSuffix = normalizeModifiedKeySuffix(suffix);
+  if (!normalizedSuffix) {
+    return null;
+  }
+
+  const orderedModifiers = [];
+  if (modifiers.has("C")) {
+    orderedModifiers.push("C");
+  }
+  if (modifiers.has("M")) {
+    orderedModifiers.push("M");
+  }
+  if (modifiers.has("S")) {
+    orderedModifiers.push("S");
+  }
+  return `${orderedModifiers.join("-")}-${normalizedSuffix}`;
+}
+
+function tmuxModifierForToken(token) {
+  switch (token) {
+    case "command":
+    case "cmd":
+    case "option":
+    case "alt":
+    case "meta":
+      return "M";
+    case "control":
+    case "ctrl":
+      return "C";
+    case "shift":
+      return "S";
+    default:
+      return null;
+  }
+}
+
+function normalizeModifiedTmuxKey(key, prefixes, modifier) {
+  const suffix = modifiedKeySuffix(key, prefixes);
+  if (!suffix) {
+    return null;
+  }
+  if (modifier === "M" && suffix === "left") {
+    return "M-b";
+  }
+  if (modifier === "M" && suffix === "right") {
+    return "M-f";
+  }
+  const normalizedSuffix = normalizeModifiedKeySuffix(suffix);
+  if (!normalizedSuffix) {
+    return null;
+  }
+  return `${modifier}-${normalizedSuffix}`;
+}
+
+function modifiedKeySuffix(key, prefixes) {
+  for (const prefix of prefixes) {
+    const dashed = `${prefix}-`;
+    if (key.startsWith(dashed)) {
+      return key.slice(dashed.length);
+    }
+    if (key.startsWith(prefix) && key.length === prefix.length + 1) {
+      return key.slice(prefix.length);
+    }
+  }
+  return "";
+}
+
+function normalizeModifiedKeySuffix(suffix) {
+  const aliases = new Map([
+    ["escape", "["],
+    ["esc", "["],
+    ["space", "Space"],
+    ["backspace", "BSpace"],
+    ["bs", "BSpace"],
+    ["delete", "DC"],
+    ["del", "DC"],
+    ["tab", "Tab"],
+    ["enter", "Enter"],
+    ["return", "Enter"],
+    ["up", "Up"],
+    ["down", "Down"],
+    ["left", "Left"],
+    ["right", "Right"],
+    ["home", "Home"],
+    ["end", "End"],
+    ["pageup", "PageUp"],
+    ["page-up", "PageUp"],
+    ["pagedown", "PageDown"],
+    ["page-down", "PageDown"],
+    ["pgup", "PageUp"],
+    ["pgdn", "PageDown"],
+  ]);
+  if (aliases.has(suffix)) {
+    return aliases.get(suffix);
+  }
+  const functionKey = normalizeFunctionKey(suffix);
+  if (functionKey) {
+    return functionKey;
+  }
+  if (suffix.length === 1) {
+    return suffix;
+  }
+  return null;
+}
+
+function tmuxKeyForByteSequence(buffer) {
+  const sequence = Buffer.from(buffer).toString("binary");
+  const sequenceMap = new Map([
+    ["\r", "Enter"],
+    ["\n", "Enter"],
+    ["\t", "Tab"],
+    ["\u007f", "BSpace"],
+    ["\u001b", "Escape"],
+    ["\u0003", "C-c"],
+    ["\u0004", "C-d"],
+    ["\u001a", "C-z"],
+    ["\u0001", "C-a"],
+    ["\u0005", "C-e"],
+    ["\u001b[A", "Up"],
+    ["\u001b[B", "Down"],
+    ["\u001b[C", "Right"],
+    ["\u001b[D", "Left"],
+    ["\u001b[H", "Home"],
+    ["\u001b[F", "End"],
+    ["\u001b[5~", "PageUp"],
+    ["\u001b[6~", "PageDown"],
+    ["\u001b[Z", "BTab"],
+  ]);
+  return sequenceMap.get(sequence) || null;
+}
+
+function containsControlByte(buffer) {
+  return [...buffer].some((byte) => byte < 0x20 || byte === 0x7f);
 }
 
 function toInteger(value) {

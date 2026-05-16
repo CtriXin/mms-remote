@@ -6,18 +6,15 @@
 
 import Foundation
 
+private let terminalStreamMessageLimit = 1_500
+
 extension CodexService {
     var selectedTerminalPane: ManagedTerminalPane? {
         guard let selectedTerminalPaneId = normalizedTerminalTarget(selectedTerminalPaneId) else {
             return terminalPanes.first { !$0.requestTarget.isEmpty }
         }
-        return terminalPanes.first { pane in
-            pane.paneId == selectedTerminalPaneId
-                || pane.paneKey == selectedTerminalPaneId
-                || pane.target == selectedTerminalPaneId
-                || pane.requestTarget == selectedTerminalPaneId
-                || pane.paneAddress == selectedTerminalPaneId
-        } ?? terminalPanes.first { !$0.requestTarget.isEmpty }
+        return terminalPanes.first { $0.matches(target: selectedTerminalPaneId) }
+            ?? terminalPanes.first { !$0.requestTarget.isEmpty }
     }
 
     var selectedTerminalPaneTarget: String? {
@@ -73,7 +70,12 @@ extension CodexService {
     }
 
     @discardableResult
-    func refreshTerminalSnapshot(paneId: String? = nil) async throws -> ManagedTerminalSnapshot {
+    func refreshTerminalSnapshot(
+        paneId: String? = nil,
+        preserveAnsi: Bool = false,
+        joinWrapped: Bool = true,
+        viewportOnly: Bool = false
+    ) async throws -> ManagedTerminalSnapshot {
         let targetPaneId = normalizedTerminalTarget(paneId)
             ?? selectedTerminalPaneTarget
             ?? ""
@@ -81,9 +83,20 @@ extension CodexService {
             throw CodexServiceError.invalidInput("Select a terminal pane first.")
         }
 
+        var params: RPCObject = ["paneId": .string(targetPaneId)]
+        if preserveAnsi {
+            params["preserveAnsi"] = .bool(true)
+        }
+        if !joinWrapped {
+            params["joinWrapped"] = .bool(false)
+        }
+        if viewportOnly {
+            params["viewportOnly"] = .bool(true)
+        }
+
         let response = try await sendRequest(
             method: "terminal/snapshot",
-            params: .object(["paneId": .string(targetPaneId)]),
+            params: .object(params),
             timeoutNanoseconds: 8_000_000_000,
             timeoutMessage: "Terminal snapshot timed out while reading the pane."
         )
@@ -103,8 +116,25 @@ extension CodexService {
     }
 
     func sendTerminalKey(_ key: ManagedTerminalKey, paneId: String? = nil) async throws {
+        try await sendTerminalKeyValue(key.rawValue, paneId: paneId)
+    }
+
+    func sendTerminalKeyValue(_ key: String, paneId: String? = nil) async throws {
+        let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedKey.isEmpty else { return }
         try await sendTerminalInput(
-            .object(["kind": .string("key"), "key": .string(key.rawValue)]),
+            .object(["kind": .string("key"), "key": .string(normalizedKey)]),
+            paneId: paneId
+        )
+    }
+
+    func sendTerminalData(_ data: Data, paneId: String? = nil) async throws {
+        guard !data.isEmpty else { return }
+        try await sendTerminalInput(
+            .object([
+                "kind": .string("bytes"),
+                "base64": .string(data.base64EncodedString()),
+            ]),
             paneId: paneId
         )
     }
@@ -116,7 +146,8 @@ extension CodexService {
         command: String? = nil,
         cols: Int? = nil,
         rows: Int? = nil,
-        openVisible: Bool = false
+        openVisible: Bool = false,
+        visibleApp: String? = nil
     ) async throws -> ManagedTerminalList {
         var params: RPCObject = ["cwd": .string(cwd)]
         if let name, !name.isEmpty { params["name"] = .string(name) }
@@ -124,6 +155,7 @@ extension CodexService {
         if let cols { params["cols"] = .integer(cols) }
         if let rows { params["rows"] = .integer(rows) }
         if openVisible { params["openVisible"] = .bool(true) }
+        if let visibleApp, !visibleApp.isEmpty { params["visibleApp"] = .string(visibleApp) }
 
         let response = try await sendRequest(
             method: "terminal/create",
@@ -163,24 +195,155 @@ extension CodexService {
             timeoutNanoseconds: 5_000_000_000,
             timeoutMessage: "Terminal close timed out on the Mac bridge."
         )
-        terminalPanes.removeAll { paneMatches(pane: $0, target: targetPaneId) }
+        terminalPanes.removeAll { $0.matches(target: targetPaneId) }
         terminalSnapshotsByPaneId.removeValue(forKey: targetPaneId)
         terminalSnapshotsByPaneId.removeValue(forKey: selectedTerminalPaneId ?? "")
         if let selectedTarget = normalizedTerminalTarget(selectedTerminalPaneId),
-           !terminalPanes.contains(where: { paneMatches(pane: $0, target: selectedTarget) }) {
+           !terminalPanes.contains(where: { $0.matches(target: selectedTarget) }) {
             selectedTerminalPaneId = terminalPanes.first?.requestTarget
         }
     }
 
-    func openVisibleTerminalPane(_ paneId: String? = nil) async throws {
+    func killTerminalSession(_ sessionName: String) async throws {
+        let normalizedSession = sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedSession.isEmpty else {
+            throw CodexServiceError.invalidInput("Select a tmux session first.")
+        }
+        let selectedWasInSession = selectedTerminalPane?.sessionName == normalizedSession
+        _ = try await sendRequest(
+            method: "terminal/kill",
+            params: .object(["sessionName": .string(normalizedSession)]),
+            timeoutNanoseconds: 5_000_000_000,
+            timeoutMessage: "Terminal session close timed out on the Mac bridge."
+        )
+        terminalPanes.removeAll { $0.sessionName == normalizedSession }
+        for key in Array(terminalSnapshotsByPaneId.keys) {
+            if terminalPanes.allSatisfy({ !$0.matches(target: key) }) {
+                terminalSnapshotsByPaneId.removeValue(forKey: key)
+            }
+        }
+        if selectedWasInSession {
+            selectedTerminalPaneId = terminalPanes.first?.requestTarget
+        }
+    }
+
+    func openVisibleTerminalPane(_ paneId: String? = nil, visibleApp: String? = nil) async throws {
         let targetPaneId = try resolveTerminalPaneId(paneId)
+        var params: RPCObject = ["paneId": .string(targetPaneId)]
+        if let visibleApp, !visibleApp.isEmpty {
+            params["visibleApp"] = .string(visibleApp)
+        }
         _ = try await sendRequest(
             method: "terminal/openVisible",
-            params: .object(["paneId": .string(targetPaneId)]),
+            params: .object(params),
             timeoutNanoseconds: 8_000_000_000,
             timeoutMessage: "Opening the terminal on Mac timed out."
         )
         terminalLastErrorMessage = nil
+    }
+
+    @discardableResult
+    func startTerminalStream(
+        paneId: String? = nil,
+        cols: Int? = nil,
+        rows: Int? = nil,
+        replay: Bool = true,
+        replayViewportOnly: Bool = false
+    ) async throws -> TerminalStreamStartResponse {
+        let targetPaneId = try resolveTerminalPaneId(paneId)
+        var params: RPCObject = [
+            "paneId": .string(targetPaneId),
+            "replay": .bool(replay),
+        ]
+        if replayViewportOnly { params["replayViewportOnly"] = .bool(true) }
+        if let cols { params["cols"] = .integer(cols) }
+        if let rows { params["rows"] = .integer(rows) }
+
+        let response = try await sendRequest(
+            method: "terminal/stream/start",
+            params: .object(params),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "Terminal stream timed out while attaching to the pane."
+        )
+        let stream = try TerminalStreamStartResponse(json: response.result)
+        if terminalStreamMessagesByStreamId[stream.streamId] == nil {
+            terminalStreamMessagesByStreamId[stream.streamId] = []
+        }
+        let existingStatus = terminalStreamStatusByStreamId[stream.streamId]
+        terminalStreamStatusByStreamId[stream.streamId] = TerminalStreamRuntimeStatus(
+            streamId: stream.streamId,
+            paneId: stream.paneId,
+            status: existingStatus?.status ?? stream.status,
+            lastSeq: existingStatus?.lastSeq ?? 0,
+            lastMessage: existingStatus?.lastMessage
+        )
+        terminalStreamRevision += 1
+        terminalLastErrorMessage = nil
+        return stream
+    }
+
+    func stopTerminalStream(streamId: String? = nil, paneId: String? = nil) async throws {
+        var params: RPCObject = [:]
+        if let streamId, !streamId.isEmpty { params["streamId"] = .string(streamId) }
+        if let paneId, !paneId.isEmpty { params["paneId"] = .string(paneId) }
+        _ = try await sendRequest(
+            method: "terminal/stream/stop",
+            params: .object(params),
+            timeoutNanoseconds: 5_000_000_000,
+            timeoutMessage: "Terminal stream stop timed out."
+        )
+    }
+
+    func replayTerminalStream(streamId: String) async throws {
+        _ = try await sendRequest(
+            method: "terminal/stream/replay",
+            params: .object(["streamId": .string(streamId)]),
+            timeoutNanoseconds: 5_000_000_000,
+            timeoutMessage: "Terminal stream replay timed out."
+        )
+    }
+
+    func stopAllTerminalStreams() async {
+        let streamIds = Array(terminalStreamStatusByStreamId.keys)
+        for streamId in streamIds where !streamId.isEmpty {
+            try? await stopTerminalStream(streamId: streamId)
+        }
+        clearTerminalStreamState()
+    }
+
+    func clearTerminalStreamState() {
+        guard !terminalStreamMessagesByStreamId.isEmpty || !terminalStreamStatusByStreamId.isEmpty else {
+            return
+        }
+        terminalStreamMessagesByStreamId.removeAll()
+        terminalStreamStatusByStreamId.removeAll()
+        terminalStreamRevision += 1
+    }
+
+    func handleTerminalStreamEvent(_ paramsObject: IncomingParamsObject?) {
+        guard let message = TerminalStreamMessage(json: paramsObject) else {
+            return
+        }
+        let previousStatus = terminalStreamStatusByStreamId[message.streamId]
+        guard message.seq > (previousStatus?.lastSeq ?? 0) else {
+            return
+        }
+
+        var messages = terminalStreamMessagesByStreamId[message.streamId] ?? []
+        messages.append(message)
+        if messages.count > terminalStreamMessageLimit {
+            messages.removeSubrange(0..<(messages.count - terminalStreamMessageLimit))
+        }
+        terminalStreamMessagesByStreamId[message.streamId] = messages
+
+        terminalStreamStatusByStreamId[message.streamId] = TerminalStreamRuntimeStatus(
+            streamId: message.streamId,
+            paneId: message.paneId,
+            status: terminalStreamStatusText(for: message),
+            lastSeq: message.seq,
+            lastMessage: message.message ?? message.reason ?? message.status
+        )
+        terminalStreamRevision += 1
     }
 
     private func sendTerminalInput(_ input: JSONValue, paneId: String?) async throws {
@@ -218,7 +381,7 @@ extension CodexService {
             return
         }
         if let selectedTerminalPaneId = normalizedTerminalTarget(selectedTerminalPaneId),
-           sortedPanes.contains(where: { paneMatches(pane: $0, target: selectedTerminalPaneId) }) {
+           sortedPanes.contains(where: { $0.matches(target: selectedTerminalPaneId) }) {
             self.selectedTerminalPaneId = selectedTerminalPaneId
         } else {
             selectedTerminalPaneId = sortedPanes.first?.requestTarget
@@ -280,18 +443,6 @@ extension CodexService {
         }
     }
 
-    private func paneMatches(pane: ManagedTerminalPane, target: String) -> Bool {
-        [
-            pane.paneId,
-            pane.paneKey,
-            pane.target,
-            pane.requestTarget,
-            pane.paneAddress,
-        ]
-        .compactMap(normalizedTerminalTarget)
-        .contains(target)
-    }
-
     private func normalizedTerminalTarget(_ value: String?) -> String? {
         let target = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !target.isEmpty,
@@ -310,5 +461,32 @@ extension CodexService {
     private func tmuxNumericId(_ value: String) -> Int {
         let digits = value.filter(\.isNumber)
         return Int(digits) ?? Int.min
+    }
+
+    private func terminalStreamStatusText(for message: TerminalStreamMessage) -> String {
+        switch message.type {
+        case .ready:
+            return "ready"
+        case .output:
+            return "live"
+        case .replayStart:
+            return "replay"
+        case .replayEnd, .heartbeat:
+            return "live"
+        case .error:
+            return "error"
+        case .exit:
+            return "exited"
+        case .resizeAck:
+            return "resized"
+        case .inputAck:
+            return "input"
+        case .title:
+            return "title"
+        case .cwd:
+            return "cwd"
+        case .bell:
+            return "bell"
+        }
     }
 }
