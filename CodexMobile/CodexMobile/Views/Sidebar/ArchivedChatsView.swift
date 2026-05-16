@@ -9,6 +9,7 @@ import SwiftUI
 struct ArchivedChatsView: View {
     @Environment(CodexService.self) private var codex
     @State private var threadPendingDeletion: CodexThread? = nil
+    @State private var showsRemoveAllConfirmation = false
 
     private var archivedThreads: [CodexThread] {
         codex.threads
@@ -43,8 +44,25 @@ struct ArchivedChatsView: View {
         }
         .navigationTitle(Text(localized: "settings.archived_chats"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !archivedThreads.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(role: .destructive) {
+                        showsRemoveAllConfirmation = true
+                    } label: {
+                        Label(
+                            LocalizationManager.shared.localized("sidebar.remove_all_archived"),
+                            systemImage: "trash"
+                        )
+                    }
+                }
+            }
+        }
         .confirmationDialog(
-            "Remove \"\(threadPendingDeletion?.displayTitle ?? "conversation")\" from this phone?",
+            String(
+                format: LocalizationManager.shared.localized("sidebar.alert.remove_chat_title"),
+                threadPendingDeletion?.displayTitle ?? "conversation"
+            ),
             isPresented: Binding(
                 get: { threadPendingDeletion != nil },
                 set: { if !$0 { threadPendingDeletion = nil } }
@@ -62,6 +80,35 @@ struct ArchivedChatsView: View {
             }
         } message: {
             Text(localized: "sidebar.remove_confirm")
+        }
+        .confirmationDialog(
+            String(
+                format: LocalizationManager.shared.localized("sidebar.alert.remove_archived_title"),
+                archivedThreads.count
+            ),
+            isPresented: $showsRemoveAllConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(
+                String(
+                    format: LocalizationManager.shared.localized("sidebar.alert.remove_archived_button"),
+                    archivedThreads.count
+                ),
+                role: .destructive
+            ) {
+                _ = codex.deleteArchivedThreadsLocally()
+                showsRemoveAllConfirmation = false
+            }
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
+                showsRemoveAllConfirmation = false
+            }
+        } message: {
+            Text(
+                String(
+                    format: LocalizationManager.shared.localized("sidebar.alert.remove_archived_message"),
+                    archivedThreads.count
+                )
+            )
         }
     }
 

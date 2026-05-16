@@ -26,6 +26,7 @@ struct SidebarView: View {
     @State private var activeSidebarSheet: SidebarPresentedSheet?
     @State private var projectGroupPendingArchive: SidebarThreadGroup? = nil
     @State private var projectGroupPendingDeletion: SidebarThreadGroup? = nil
+    @State private var archivedGroupPendingDeletion: SidebarThreadGroup? = nil
     @State private var threadPendingDeletion: CodexThread? = nil
     @State private var createThreadErrorMessage: String? = nil
     @State private var cachedDiffTotals: [String: TurnSessionDiffTotals] = [:]
@@ -88,6 +89,9 @@ struct SidebarView: View {
                 },
                 onDeleteProjectGroup: { group in
                     projectGroupPendingDeletion = group
+                },
+                onDeleteArchivedGroup: { group in
+                    archivedGroupPendingDeletion = group
                 },
                 onRenameThread: { thread, newName in
                     codex.renameThread(thread.id, name: newName)
@@ -214,6 +218,37 @@ struct SidebarView: View {
             }
         } message: {
             Text(localized: "sidebar.alert.remove_project_message")
+        }
+        .confirmationDialog(
+            String(
+                format: LocalizationManager.shared.localized("sidebar.alert.remove_archived_title"),
+                archivedGroupPendingDeletion?.threads.count ?? 0
+            ),
+            isPresented: Binding(
+                get: { archivedGroupPendingDeletion != nil },
+                set: { if !$0 { archivedGroupPendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(
+                String(
+                    format: LocalizationManager.shared.localized("sidebar.alert.remove_archived_button"),
+                    archivedGroupPendingDeletion?.threads.count ?? 0
+                ),
+                role: .destructive
+            ) {
+                deletePendingArchivedChatsLocally()
+            }
+            Button(LocalizationManager.shared.localized("sidebar.cancel"), role: .cancel) {
+                archivedGroupPendingDeletion = nil
+            }
+        } message: {
+            Text(
+                String(
+                    format: LocalizationManager.shared.localized("sidebar.alert.remove_archived_message"),
+                    archivedGroupPendingDeletion?.threads.count ?? 0
+                )
+            )
         }
         .alert(
             String(format: LocalizationManager.shared.localized("sidebar.alert.remove_chat_title"), threadPendingDeletion?.displayTitle ?? "conversation"),
@@ -392,6 +427,21 @@ struct SidebarView: View {
         }
 
         projectGroupPendingDeletion = nil
+    }
+
+    // Removes the selected archived local chats from this phone while leaving Codex on the Mac untouched.
+    private func deletePendingArchivedChatsLocally() {
+        let pendingThreadIDs = Set(archivedGroupPendingDeletion?.threads.map(\.id) ?? [])
+        let removedThreadIDs = Set(codex.deleteArchivedThreadsLocally(threadIDs: Array(pendingThreadIDs)))
+        let affectedThreadIDs = removedThreadIDs.isEmpty ? pendingThreadIDs : removedThreadIDs
+
+        if let selectedThread, affectedThreadIDs.contains(selectedThread.id) {
+            self.selectedThread = codex.threads.first { thread in
+                thread.syncState == .live && !affectedThreadIDs.contains(thread.id)
+            }
+        }
+
+        archivedGroupPendingDeletion = nil
     }
 
     // Rebuilds sidebar sections only when the source thread array changes.

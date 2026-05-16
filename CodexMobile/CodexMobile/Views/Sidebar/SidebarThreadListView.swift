@@ -20,6 +20,7 @@ struct SidebarThreadListView: View {
     let onCreateThreadInProjectGroup: (SidebarThreadGroup) -> Void
     var onArchiveProjectGroup: ((SidebarThreadGroup) -> Void)? = nil
     var onDeleteProjectGroup: ((SidebarThreadGroup) -> Void)? = nil
+    var onDeleteArchivedGroup: ((SidebarThreadGroup) -> Void)? = nil
     var onRenameThread: ((CodexThread, String) -> Void)? = nil
     var onPinToggleThread: ((CodexThread) -> Void)? = nil
     var onArchiveToggleThread: ((CodexThread) -> Void)? = nil
@@ -291,31 +292,48 @@ struct SidebarThreadListView: View {
 
     private func archivedGroupSection(_ group: SidebarThreadGroup) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                HapticFeedback.shared.triggerImpactFeedback(style: .light)
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isArchivedExpanded.toggle()
+            HStack(spacing: 8) {
+                Button {
+                    HapticFeedback.shared.triggerImpactFeedback(style: .light)
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isArchivedExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "archivebox")
+                            .font(AppFont.body(weight: .medium))
+                            .foregroundStyle(.primary)
+                        Text(group.label)
+                            .font(AppFont.body(weight: .medium))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(AppFont.caption(weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isArchivedExpanded ? 90 : 0))
+                            .animation(.easeInOut(duration: 0.2), value: isArchivedExpanded)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "archivebox")
-                        .font(AppFont.body(weight: .medium))
-                        .foregroundStyle(.primary)
-                    Text(group.label)
-                        .font(AppFont.body(weight: .medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(AppFont.caption(weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(isArchivedExpanded ? 90 : 0))
-                        .animation(.easeInOut(duration: 0.2), value: isArchivedExpanded)
+                .buttonStyle(.plain)
+
+                if let onDeleteArchivedGroup {
+                    Button(role: .destructive) {
+                        HapticFeedback.shared.triggerImpactFeedback(style: .light)
+                        onDeleteArchivedGroup(group)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(AppFont.body(weight: .medium))
+                            .foregroundStyle(.red)
+                            .frame(width: 30, height: 30)
+                            .background(Color.red.opacity(0.08), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(LocalizationManager.shared.localized("sidebar.remove_all_archived"))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, 16)
             .padding(.top, 18)
             .padding(.bottom, 10)

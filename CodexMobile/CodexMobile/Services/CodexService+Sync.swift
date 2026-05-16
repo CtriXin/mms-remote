@@ -473,6 +473,29 @@ extension CodexService {
         return rootThreadIDs
     }
 
+    // Removes locally archived chats in one pass without mutating the paired desktop runtime.
+    func deleteArchivedThreadsLocally(threadIDs requestedThreadIDs: [String]? = nil) -> [String] {
+        let requestedThreadIDSet = requestedThreadIDs.map(Set.init)
+        let archivedThreadIDs = threads
+            .filter { thread in
+                thread.syncState == .archivedLocal
+                    && (requestedThreadIDSet?.contains(thread.id) ?? true)
+            }
+            .map(\.id)
+
+        guard !archivedThreadIDs.isEmpty else {
+            return []
+        }
+
+        for threadID in archivedThreadIDs.sorted() {
+            removeThreadLocally(threadID, persistAsDeleted: true, persistMessages: false)
+        }
+        messagePersistence.save(messagesByThread)
+
+        debugSyncLog("archived threads deleted locally: count=\(archivedThreadIDs.count)")
+        return archivedThreadIDs
+    }
+
     /// BFS over `parentThreadId` links to collect all transitive child thread IDs.
     /// Uses a visited set to guard against hypothetical circular references.
     private func collectDescendantThreadIDs(for parentId: String) -> [String] {
