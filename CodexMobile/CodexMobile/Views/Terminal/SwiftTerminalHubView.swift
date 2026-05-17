@@ -74,6 +74,7 @@ struct SwiftTerminalHubView: View {
     @State private var lastStreamReconnectSignature = ""
     @State private var pendingStreamStartSignature = ""
     @State private var activeStreamSignature = ""
+    @State private var swiftTerminalSubTab: TerminalSubTab = .terminal
     @FocusState private var isCommandFieldFocused: Bool
     private let stableFallbackRevision = 1
     private let swiftTermRestoreRevisionTarget = 1
@@ -269,19 +270,27 @@ struct SwiftTerminalHubView: View {
 
     private var terminalContent: some View {
         VStack(spacing: 0) {
-            Group {
-                if !codex.isConnected {
-                    offlineBanner
+            swiftTerminalSubTabPicker
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+
+            if swiftTerminalSubTab == .terminal {
+                Group {
+                    if !codex.isConnected {
+                        offlineBanner
+                    }
+                    terminalCanvas
+                    if showsChordComposer {
+                        Divider().overlay(swiftTerminalBorder)
+                        chordComposerPanel
+                    }
                 }
-                terminalCanvas
-                if showsChordComposer {
-                    Divider().overlay(swiftTerminalBorder)
-                    chordComposerPanel
-                }
+                .background(theme.shellBackground)
+                Divider().overlay(swiftTerminalBorder)
+                keyBar
+            } else {
+                MMSChatListView()
             }
-            .background(theme.shellBackground)
-            Divider().overlay(swiftTerminalBorder)
-            keyBar
         }
     }
 
@@ -429,6 +438,14 @@ struct SwiftTerminalHubView: View {
             .frame(width: 24, height: 24)
             .contentShape(Circle())
             .adaptiveToolbarItem(in: Circle())
+    }
+
+    private var swiftTerminalSubTabPicker: some View {
+        Picker("", selection: $swiftTerminalSubTab) {
+            Text(LocalizationManager.shared.localized("mmschat.tab.terminal")).tag(TerminalSubTab.terminal)
+            Text(LocalizationManager.shared.localized("mmschat.tab.sessions")).tag(TerminalSubTab.sessions)
+        }
+        .pickerStyle(.segmented)
     }
 
     private var terminalCanvas: some View {

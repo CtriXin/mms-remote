@@ -1,0 +1,100 @@
+{
+  "schema": "moebius.p184.p8c_codex_rollout_provider_result.v1",
+  "timestamp": "2026-05-17T08:06:37Z",
+  "owner": "sisyphus-omo-p-agent",
+  "cli": "opencode",
+  "model": "gpt-5.5",
+  "task_id": "p184-mmschat-p8c-codex-rollout-provider",
+  "run_id": "p184-mmschat-20260516",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "active_p": "P184",
+  "verdict": "PASS_CODEX_ROLLOUT_PROVIDER_READY",
+  "decision": "Advance expanded unified local-agent Sessions from 98% to 100% by adding read-only Codex CLI/TUI rollout discovery and detail normalization beside native Claude MMSChat sessions.",
+  "progress_percent": {
+    "before": 98,
+    "after": 100
+  },
+  "worktree": {
+    "path": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8c-codex-rollout-provider",
+    "branch": "p184/mmschat-p8c-codex-rollout-provider",
+    "base_head": "09282b437b3c5502ed5a26fe675cf87406f351e2"
+  },
+  "implementation": {
+    "codex_rollout_provider": [
+      "Added mmschat-codex-rollout.js to scan CODEX_HOME/sessions/**/rollout-*.jsonl, falling back to ~/.codex/sessions only when no explicit Codex home is configured.",
+      "Recognizes CLI/TUI rollout metadata for originator codex-tui/codex_cli_rs variants with source=cli while excluding mobile/iOS origins.",
+      "Registers list rows with agent=codex, provider=codex, source metadata codex-rollout, capped file/count metadata, and no raw transcript or command output in mmschat/list."
+    ],
+    "detail_normalization": [
+      "mmschat/detail bypasses transcript cache for Codex rollout sessions and re-reads the rollout file so active/running files surface the latest detail state.",
+      "Detail normalizes rollout records into user, assistant, reasoning, tool_use, and tool_result/command-output transcript items while skipping schema drift safely."
+    ],
+    "protocol_ios": [
+      "MMSChat registry/protocol now permits agent=codex in addition to agent=claude.",
+      "iOS MMSChat transcript source decoding now includes codex-rollout.",
+      "Bridge and iOS marketing version moved 1.7.57 -> 1.7.58."
+    ]
+  },
+  "validation": [
+    {
+      "command": "node --check src/mmschat-codex-rollout.js && node --check src/mmschat-hub.js && node --check src/mmschat-registry.js && node --check src/mmschat-protocol.js",
+      "cwd": "mms-remote-bridge",
+      "result": "PASS"
+    },
+    {
+      "command": "node --test test/mmschat-codex-rollout.test.js test/mmschat-hub.test.js test/mmschat-demo-fixtures.test.js test/mms-metadata-hub.test.js test/bridge.test.js",
+      "cwd": "mms-remote-bridge",
+      "result": "PASS"
+    },
+    {
+      "command": "xcodebuild -quiet -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p8c-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS"
+    },
+    {
+      "command": "python3 -m json.tool .ai/plan/p184-mmschat-p8c-codex-rollout-provider-result.json",
+      "result": "PASS"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "diagnostics": [
+    {
+      "target": "changed JS and Swift source/test files",
+      "result": "PASS",
+      "note": "lsp_diagnostics returned no diagnostics for changed JS source/test files and MMSChatModels.swift."
+    },
+    {
+      "target": "package.json and project.pbxproj",
+      "result": "NOT_AVAILABLE",
+      "note": "LSP coverage unavailable: biome is not installed for JSON and no LSP server is configured for .pbxproj; covered by Node checks and Xcode build."
+    }
+  ],
+  "humangate": {
+    "blocked_actions_not_performed": [
+      "dependency add",
+      "deploy",
+      "push",
+      "global config mutation",
+      "destructive cleanup",
+      "native Claude history deletion",
+      "phone install",
+      "live provider/model calls"
+    ]
+  },
+  "changed_files": [
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+    "CodexMobile/CodexMobile/Models/MMSChatModels.swift",
+    "mms-remote-bridge/package.json",
+    "mms-remote-bridge/src/mmschat-codex-rollout.js",
+    "mms-remote-bridge/src/mmschat-hub.js",
+    "mms-remote-bridge/src/mmschat-protocol.js",
+    "mms-remote-bridge/src/mmschat-registry.js",
+    "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+    "mms-remote-bridge/test/mmschat-hub.test.js",
+    ".ai/plan/p184-mmschat-p8c-codex-rollout-provider-result.json",
+    ".ai/plan/p184-mmschat-p8c-codex-rollout-provider-result.md",
+    ".ai/plan/progress/mmschat-p8c-codex-rollout-provider.md"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schema": "moebius.p184_mmschat_p8d_current_main_merge_repair_result.v1",
+  "created_at": "2026-05-17T09:07:12Z",
+  "task": "p184-mmschat-p8d-current-main-merge-repair",
+  "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8d-current-main-merge-repair",
+  "verdict": "PASS_CURRENT_MAIN_MERGE_REPAIR_READY",
+  "base_context": {
+    "current_main": "1089a6ae68948498108657b4f4a5d5cb552abc5e",
+    "accepted_p8c": "71ea5af1ff569b9e166ae7511631761e451d5096",
+    "merge_branch": "p184/mmschat-p8c-codex-rollout-provider"
+  },
+  "resolved_conflicts": [
+    {
+      "path": "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+      "resolution": "Preserved current-main MARKETING_VERSION 1.7.69 and CURRENT_PROJECT_VERSION 107."
+    },
+    {
+      "path": "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift",
+      "resolution": "Preserved current-main terminal sidebar shell/toolbar and integrated P184 MMSChat Terminal/Sessions subtab inside terminal content."
+    },
+    {
+      "path": "mms-remote-bridge/package.json",
+      "resolution": "Preserved current-main bridge package version 1.7.64 and restart script; no dependency changes."
+    },
+    {
+      "path": "mms-remote-bridge/package-lock.json",
+      "resolution": "Preserved current-main lockfile package metadata version 1.7.64; dependency tree unchanged."
+    }
+  ],
+  "additional_repair": [
+    {
+      "path": "mms-remote-bridge/src/bridge.js",
+      "reason": "P184 lazy codex transport require bypassed existing desktop IPC integration test doubles after dependencies were installed.",
+      "resolution": "Added explicit createCodexTransport injection while preserving lazy default require."
+    },
+    {
+      "path": "mms-remote-bridge/test/bridge-desktop-ipc-integration.test.js",
+      "reason": "Keep existing desktop IPC current-main behavior covered with the lazy require design.",
+      "resolution": "Passed the fake Codex transport through the new startBridge injection point."
+    }
+  ],
+  "preserved_capabilities": [
+    "Codex rollout provider discovery/detail without transcript preview leakage",
+    "Claude native JSONL MMSChat discovery/detail",
+    "guarded live continue actions",
+    "MMS metadata and launch plan UI",
+    "iOS MMSChat list/detail/launch plan screens",
+    "current-main SwiftTerminal sidebar, toolbar, version, and restart script behavior"
+  ],
+  "validation": [
+    {
+      "command": "node --check src/mmschat-codex-rollout.js && node --check src/mmschat-hub.js && node --check src/mmschat-registry.js && node --check src/mmschat-protocol.js",
+      "status": "pass"
+    },
+    {
+      "command": "node --check src/bridge.js && node --check test/bridge-desktop-ipc-integration.test.js",
+      "status": "pass"
+    },
+    {
+      "command": "node --test test/mmschat-codex-rollout.test.js test/mmschat-hub.test.js test/mmschat-demo-fixtures.test.js test/mms-metadata-hub.test.js test/bridge.test.js test/bridge-desktop-ipc-integration.test.js",
+      "status": "pass",
+      "summary": "62 tests, 62 pass, 0 fail"
+    },
+    {
+      "command": "CODEX_HOME=/Users/xin/.codex HOME=/Users/xin node codex-rollout metadata smoke",
+      "status": "pass",
+      "summary": "discovered=47, allCodexRollout=true, leakedPreview=false"
+    },
+    {
+      "command": "xcodebuild -quiet -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p8d-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "status": "pass",
+      "summary": "Build completed with existing Swift 6 actor-isolation warnings and no errors."
+    },
+    {
+      "command": "git diff --check",
+      "status": "pass"
+    },
+    {
+      "command": "node JSON.parse package.json/package-lock.json",
+      "status": "pass"
+    }
+  ],
+  "notes": [
+    "Ran npm ci --offline --ignore-scripts only to materialize existing locked dependencies for dependency-backed bridge tests; package files were not changed by the install.",
+    "SourceKit LSP reports No such module UIKit in this CLI context, so iOS validation relies on xcodebuild."
+  ],
+  "commit": "pending_local_merge_commit"
+}

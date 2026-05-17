@@ -263,7 +263,16 @@ function loadBridgeWithTestDoubles({ createCodexTransportImpl }) {
   };
 
   try {
-    return require("../src/bridge");
+    const bridge = require("../src/bridge");
+    return {
+      ...bridge,
+      startBridge(options = {}) {
+        return bridge.startBridge({
+          ...options,
+          createCodexTransport: createCodexTransportImpl,
+        });
+      },
+    };
   } finally {
     Module._load = originalLoad;
     delete require.cache[bridgePath];
