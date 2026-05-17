@@ -442,6 +442,45 @@ struct SwiftTerminalKeyButtonStyle: ButtonStyle {
     }
 }
 
+struct SwiftTerminalModifierButtonStyle: ButtonStyle {
+    let theme: SwiftTerminalTheme
+    let isActive: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(AppFont.caption(weight: .bold))
+            .foregroundStyle(isActive ? Color.black : theme.buttonText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+            .multilineTextAlignment(.center)
+            .frame(minWidth: 58, minHeight: 32)
+            .padding(.horizontal, 10)
+            .background(
+                configuration.isPressed
+                    ? theme.accent.opacity(0.72)
+                    : (isActive ? theme.accent : theme.buttonBackground),
+                in: Capsule()
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? theme.accent.opacity(0.95) : Color.clear, lineWidth: 2)
+            )
+    }
+}
+
+struct SwiftTerminalMiniKeyButtonStyle: ButtonStyle {
+    let theme: SwiftTerminalTheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(AppFont.caption(weight: .bold))
+            .foregroundStyle(theme.buttonText.opacity(configuration.isPressed ? 0.62 : 1.0))
+            .lineLimit(1)
+            .frame(width: 31, height: 30)
+            .background(configuration.isPressed ? theme.buttonPressedBackground : theme.buttonBackground, in: Circle())
+    }
+}
+
 extension ManagedTerminalKey {
     static func swiftTerminalKeyValue(from value: String) -> String? {
         let normalized = value

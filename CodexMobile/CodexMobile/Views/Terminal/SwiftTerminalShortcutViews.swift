@@ -13,10 +13,17 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
     let pinnedShortcuts: [SwiftTerminalShortcut]
     let displayedActiveShortcuts: [SwiftTerminalShortcut]
     let shortcutProfile: SwiftTerminalShortcutProfile
+    let isControlModifierLatched: Bool
+    let isMetaModifierLatched: Bool
     let onFocusTerminalInput: () -> Void
     let onHideTerminalKeyboard: () -> Void
-    let onSelectPreviousPane: () -> Void
-    let onSelectNextPane: () -> Void
+    let onSendTab: () -> Void
+    let onSendLeftArrow: () -> Void
+    let onSendUpArrow: () -> Void
+    let onSendDownArrow: () -> Void
+    let onSendRightArrow: () -> Void
+    let onSendEscape: () -> Void
+    let onSendInterrupt: () -> Void
     let onToggleKeyBarExpanded: () -> Void
     let onControlModifier: () -> Void
     let onMetaModifier: () -> Void
@@ -35,14 +42,24 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 stableInput()
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    Button(LocalizationManager.shared.localized("swift_terminal.focus"), action: onFocusTerminalInput)
-                    Button(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"), action: onHideTerminalKeyboard)
-                    Button(LocalizationManager.shared.localized("swift_terminal.previous_pane"), action: onSelectPreviousPane)
-                    Button(LocalizationManager.shared.localized("swift_terminal.next_pane"), action: onSelectNextPane)
-                    Button(LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"), action: onToggleKeyBarExpanded)
+            HStack(spacing: 8) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        Button(LocalizationManager.shared.localized("swift_terminal.focus"), action: onFocusTerminalInput)
+                        Button(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"), action: onHideTerminalKeyboard)
+                        if isSwiftTermRendererActive {
+                            modifierButton(LocalizationManager.shared.localized("terminal.button.ctrl"), isActive: isControlModifierLatched, action: onControlModifier)
+                            modifierButton(LocalizationManager.shared.localized("terminal.button.alt"), isActive: isMetaModifierLatched, action: onMetaModifier)
+                        }
+                        Button("Tab", action: onSendTab)
+                        arrowPad
+                        Button("ESC", action: onSendEscape)
+                        Button("⌃C", action: onSendInterrupt)
+                        Button(LocalizationManager.shared.localized("terminal.button.paste"), action: onPasteClipboard)
+                    }
                 }
+                Button(keyBarExpanded ? "↓" : "↑", action: onToggleKeyBarExpanded)
+                    .accessibilityLabel(LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"))
             }
             .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
 
@@ -59,12 +76,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         VStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    if isSwiftTermRendererActive {
-                        Button(LocalizationManager.shared.localized("terminal.button.ctrl"), action: onControlModifier)
-                        Button(LocalizationManager.shared.localized("terminal.button.alt"), action: onMetaModifier)
-                    }
                     Button(LocalizationManager.shared.localized("terminal.button.copy"), action: onCopyTerminal)
-                    Button(LocalizationManager.shared.localized("terminal.button.paste"), action: onPasteClipboard)
                     Button(LocalizationManager.shared.localized("swift_terminal.chord_compose"), action: onOpenChordComposer)
                     Button(LocalizationManager.shared.localized("swift_terminal.shortcuts_pin"), action: onOpenPinnedShortcutPicker)
                     shortcutProfileMenu
@@ -101,6 +113,25 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 .frame(maxWidth: 150)
             }
         }
+    }
+
+    private func modifierButton(_ title: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(isActive ? "\(title) ON" : title)
+        }
+        .buttonStyle(SwiftTerminalModifierButtonStyle(theme: theme, isActive: isActive))
+    }
+
+    private var arrowPad: some View {
+        HStack(spacing: 2) {
+            Button("←", action: onSendLeftArrow)
+            Button("↑", action: onSendUpArrow)
+            Button("↓", action: onSendDownArrow)
+            Button("→", action: onSendRightArrow)
+        }
+        .buttonStyle(SwiftTerminalMiniKeyButtonStyle(theme: theme))
+        .padding(2)
+        .background(theme.buttonBackground.opacity(0.72), in: Capsule())
     }
 
     private var shortcutProfileMenu: some View {
