@@ -124,12 +124,16 @@ struct SwiftTerminalHubView: View {
         }
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .ignoresSafeArea(edges: .top)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                terminalPaneMenu
+            }
             ToolbarItem(placement: .principal) {
                 terminalToolbarTitle
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
-                terminalPaneMenu
                 terminalRendererMenu
                 terminalCreateButton
                 terminalRefreshButton
