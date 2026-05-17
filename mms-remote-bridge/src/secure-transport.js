@@ -36,6 +36,7 @@ const MAX_BRIDGE_OUTBOUND_BYTES = 10 * 1024 * 1024;
 function createBridgeSecureTransport({
   sessionId,
   relayUrl,
+  relayUrls = [],
   deviceState,
   onTrustedPhoneUpdate = null,
 }) {
@@ -57,6 +58,7 @@ function createBridgeSecureTransport({
     return {
       v: PAIRING_QR_VERSION,
       relay: relayUrl,
+      relays: normalizeRelayUrlList([relayUrl, ...relayUrls]),
       sessionId,
       macDeviceId: currentDeviceState.macDeviceId,
       macIdentityPublicKey: currentDeviceState.macIdentityPublicKey,
@@ -697,6 +699,20 @@ function normalizeNonEmptyString(value) {
     return "";
   }
   return value.trim();
+}
+
+function normalizeRelayUrlList(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    const normalized = normalizeNonEmptyString(value).replace(/\/+$/, "");
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }
 
 function safeParseJSON(value) {

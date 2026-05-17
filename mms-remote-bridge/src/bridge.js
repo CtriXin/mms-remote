@@ -82,6 +82,26 @@ const RELAY_TURNS_LIST_PAGINATION_RESULT_KEYS = [
   "previousCursor",
   "previous_cursor",
 ];
+
+function normalizeRelayBaseUrlList(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values.flatMap((entry) => {
+    if (Array.isArray(entry)) {
+      return entry;
+    }
+    return typeof entry === "string" ? entry.split(/[,\n\r\t ]+/) : [];
+  })) {
+    const normalized = String(value || "").trim().replace(/\/+$/, "");
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
 function startBridge({
   config: explicitConfig = null,
   printPairingQr = true,
@@ -94,12 +114,17 @@ function startBridge({
   const bridgeWakeAssertion = createMacOSBridgeWakeAssertion({
     enabled: config.keepMacAwakeEnabled,
   });
-  const relayBaseUrl = config.relayUrl.replace(/\/+$/, "");
-  if (!relayBaseUrl) {
+  const relayBaseUrls = normalizeRelayBaseUrlList([
+    config.relayUrl,
+    ...(Array.isArray(config.relayUrls) ? config.relayUrls : []),
+  ]);
+  if (!relayBaseUrls.length) {
     console.error("[mms-remote] No relay URL configured.");
-    console.error("[mms-remote] In a source checkout, run ./run-local-mms-remote.sh or set MMS_REMOTE_RELAY.");
+    console.error("[mms-remote] In a source checkout, run ./run-local-mms-remote.sh or set MMS_REMOTE_RELAY/MMS_REMOTE_RELAYS.");
     process.exit(1);
   }
+  let relayBaseUrlIndex = 0;
+  let relayBaseUrl = relayBaseUrls[relayBaseUrlIndex];
 
   let deviceState;
   try {
@@ -117,7 +142,6 @@ function startBridge({
   });
   logIOSAppCompatibilityWarning(cachedIOSAppCompatibilityWarning);
   const sessionId = relaySession.sessionId;
-  const relaySessionUrl = `${relayBaseUrl}/${sessionId}`;
   const notificationSecret = randomBytes(24).toString("hex");
   const desktopRefresher = new CodexDesktopRefresher({
     enabled: config.refreshEnabled,
@@ -185,6 +209,7 @@ function startBridge({
   const secureTransport = createBridgeSecureTransport({
     sessionId,
     relayUrl: relayBaseUrl,
+    relayUrls: relayBaseUrls,
     deviceState,
     onTrustedPhoneUpdate(nextDeviceState) {
       deviceState = nextDeviceState;
@@ -384,6 +409,7 @@ function startBridge({
     logConnectionStatus("connecting");
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
+      rotateRelayBaseUrl();
       connectRelay();
     }, delayMs);
   }
@@ -394,6 +420,8 @@ function startBridge({
     }
 
     logConnectionStatus("connecting");
+    relayBaseUrl = relayBaseUrls[relayBaseUrlIndex];
+    const relaySessionUrl = `${relayBaseUrl}/${sessionId}`;
     const nextSocket = new WebSocket(relaySessionUrl, {
       // The relay uses this per-session secret to authenticate the first push registration.
       headers: {
@@ -461,6 +489,13 @@ function startBridge({
       }
       logConnectionStatus("disconnected");
     });
+  }
+
+  function rotateRelayBaseUrl() {
+    if (relayBaseUrls.length <= 1) {
+      return;
+    }
+    relayBaseUrlIndex = (relayBaseUrlIndex + 1) % relayBaseUrls.length;
   }
 
   const pairingPayload = secureTransport.createPairingPayload();

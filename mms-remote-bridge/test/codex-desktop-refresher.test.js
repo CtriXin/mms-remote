@@ -259,6 +259,27 @@ test("readBridgeConfig disables managed push defaults when a self-hosted relay o
   assert.equal(config.pushServiceUrl, "");
 });
 
+test("readBridgeConfig accepts multiple relay candidates", () => {
+  const config = readBridgeConfig({
+    env: {
+      MMS_REMOTE_RELAYS: "wss://primary.example/relay, wss://backup.example/relay/",
+    },
+    runtimeRoot: "/workspace/mms-remote-bridge",
+    fsImpl: {
+      existsSync(targetPath) {
+        return targetPath === "/workspace/.git";
+      },
+    },
+  });
+
+  assert.equal(config.relayUrl, "wss://primary.example/relay");
+  assert.deepEqual(config.relayUrls, [
+    "wss://primary.example/relay",
+    "wss://backup.example/relay",
+  ]);
+  assert.equal(config.pushServiceUrl, "");
+});
+
 test("thread/start falls back once to the new-thread route when thread id is still unknown", async () => {
   const refreshCalls = [];
   const refresher = new CodexDesktopRefresher({

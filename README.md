@@ -176,6 +176,12 @@ If you want the npm bridge to point at your own setup instead of the package def
 MMS_REMOTE_RELAY="ws://localhost:9000/relay" mms-remote up
 ```
 
+For two private relay entry points, pass a candidate list at runtime:
+
+```sh
+MMS_REMOTE_RELAYS="wss://relay-a.example/relay,wss://relay-b.example/relay" mms-remote up
+```
+
 For self-hosted iPhone usage, prefer a relay URL reachable over Tailscale or another stable private network. Treat plain local `ws://192.168.x.x` pairing as best-effort rather than the recommended production path on iOS.
 
 A common private setup looks like this:
@@ -299,6 +305,7 @@ mms-remote watch
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MMS_REMOTE_RELAY` | empty in source checkouts; optional in published packages | Session base URL used for QR bootstrap, trusted-session resolve, and phone/Mac session routing |
+| `MMS_REMOTE_RELAYS` | empty | Optional comma/newline-separated relay failover list; QR pairing stores all candidates for non-LAN/Tailscale access |
 | `MMS_REMOTE_PUSH_SERVICE_URL` | disabled by default | Optional HTTP base URL for managed push registration/completion |
 | `MMS_REMOTE_CODEX_ENDPOINT` | — | Connect to an existing Codex WebSocket instead of spawning a local `codex app-server` |
 | `MMS_REMOTE_REFRESH_ENABLED` | `false` | Auto-refresh Codex.app when phone activity is detected (`true` enables it explicitly) |

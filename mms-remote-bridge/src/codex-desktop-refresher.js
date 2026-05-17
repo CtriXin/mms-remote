@@ -529,17 +529,17 @@ function readBridgeConfig({
   const defaultRelayUrl = sourceCheckout
     ? readString(daemonConfig.relayUrl)
     : privateDefaults.relayUrl;
-  const explicitRelayUrl = readFirstDefinedEnv(
-    ["MMS_REMOTE_RELAY"],
-    "",
-    env
+  const explicitRelayUrl = readFirstDefinedEnv(["MMS_REMOTE_RELAY"], "", env);
+  const explicitRelayUrls = parseRelayUrlList(
+    readFirstDefinedEnv(["MMS_REMOTE_RELAYS"], "", env)
   );
-  const relayUrl = readFirstDefinedEnv(
-    ["MMS_REMOTE_RELAY"],
-    defaultRelayUrl,
-    env
-  );
-  const defaultPushServiceUrl = sourceCheckout || explicitRelayUrl
+  const relayUrls = normalizeRelayUrlList([
+    explicitRelayUrl,
+    ...explicitRelayUrls,
+    ...(explicitRelayUrl || explicitRelayUrls.length ? [] : [defaultRelayUrl, ...privateDefaults.relayUrls]),
+  ]);
+  const relayUrl = relayUrls[0] || "";
+  const defaultPushServiceUrl = sourceCheckout || explicitRelayUrl || explicitRelayUrls.length
     ? ""
     : privateDefaults.pushServiceUrl;
   const codexEndpoint = readFirstDefinedEnv(
@@ -561,6 +561,7 @@ function readBridgeConfig({
   const defaultRefreshEnabled = false;
   return {
     relayUrl,
+    relayUrls,
     pushServiceUrl: readFirstDefinedEnv(
       ["MMS_REMOTE_PUSH_SERVICE_URL"],
       defaultPushServiceUrl,
@@ -594,19 +595,26 @@ function readPrivatePackageDefaults({ runtimeRoot, fsImpl }) {
   if (!fsImpl.existsSync(defaultsPath)) {
     return {
       relayUrl: "",
+      relayUrls: [],
       pushServiceUrl: "",
     };
   }
 
   try {
     const parsed = safeParseJSON(fsImpl.readFileSync(defaultsPath, "utf8"));
+    const relayUrls = normalizeRelayUrlList([
+      readString(parsed?.relayUrl),
+      ...parseRelayUrlList(parsed?.relayUrls),
+    ]);
     return {
-      relayUrl: readString(parsed?.relayUrl) || "",
+      relayUrl: relayUrls[0] || "",
+      relayUrls,
       pushServiceUrl: readString(parsed?.pushServiceUrl) || "",
     };
   } catch {
     return {
       relayUrl: "",
+      relayUrls: [],
       pushServiceUrl: "",
     };
   }
@@ -643,6 +651,30 @@ function safeParseJSON(value) {
 
 function readString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function parseRelayUrlList(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap(parseRelayUrlList);
+  }
+  return readString(value)
+    .split(/[,\n\r\t ]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function normalizeRelayUrlList(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values.flatMap(parseRelayUrlList)) {
+    const normalized = value.replace(/\/+$/, "");
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }
 
 function extractTurnId(message) {
