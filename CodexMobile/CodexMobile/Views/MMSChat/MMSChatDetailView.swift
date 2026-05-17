@@ -23,6 +23,7 @@ struct MMSChatDetailView: View {
     @State private var isResuming = false
     @State private var inlineStatusMessage: String?
     @State private var inlineStatusIsError = false
+    @State private var inlineStatusToken: UUID?
     @Environment(\.dismiss) private var dismiss
     private nonisolated static let transcriptBottomAnchorId = "mmschat-transcript-bottom"
     @State private var latestTranscriptScrollTokenForce = ""
@@ -65,18 +66,18 @@ struct MMSChatDetailView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .disabled(!codex.isConnected || isLoading)
+                     .disabled(!codex.isConnected || isLoading)
 
-                    Button {
-                        Task { await openVisible() }
-                    } label: {
-                        Image(systemName: "display")
-                    }
-                    .disabled(!codex.isConnected || isLoading)
+                     Button {
+                         Task { await openVisible() }
+                     } label: {
+                         Image(systemName: "display")
+                     }
+                     .disabled(!codex.isConnected || !liveActionsEnabled || isLoading)
 
-                    Button {
-                        Task { await loadDetail() }
-                    } label: {
+                     Button {
+                         Task { await loadDetail() }
+                     } label: {
                         if isLoading {
                             ProgressView()
                         } else {
@@ -577,7 +578,10 @@ struct MMSChatDetailView: View {
             .background(inlineStatusIsError ? Color.red.opacity(0.08) : Color.green.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                let token = UUID()
+                inlineStatusToken = token
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [token] in
+                    guard inlineStatusToken == token else { return }
                     withAnimation {
                         inlineStatusMessage = nil
                         inlineStatusIsError = false
