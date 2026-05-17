@@ -4,6 +4,8 @@
 // Exports: SwiftTerminalCanvasView
 // Depends on: SwiftUI, UIKit, SwiftTerm, TerminalModels, AppFont
 
+import CryptoKit
+import Foundation
 import SwiftTerm
 import SwiftUI
 import UIKit
@@ -110,6 +112,8 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         if let streamView = terminalView as? MMSStreamTerminalView {
             streamView.disableSwiftTermAccessory()
             streamView.enforceGhostSafeCursorStyle()
+            streamView.configureGhostSafeRenderer()
+            streamView.refreshGhostSafeCursorOverlay()
         }
     }
 }
@@ -136,6 +140,11 @@ extension SwiftTerminalCanvasView {
         private var lastPageDownRequestID = 0
         private var lastBlurRequestID = 0
         private var lastOutputByteWasCR = false
+        private var escapeFilterState = TerminalEscapeFilterState.none
+#if DEBUG
+        private var lastOutputTraceKey = ""
+        private var lastInputTraceKey = ""
+#endif
         private var lastSentData = Data()
         private var lastSentAt: TimeInterval = 0
         private var pendingKeyboardPaste: KeyboardPasteBatch?
@@ -177,6 +186,15 @@ extension SwiftTerminalCanvasView {
                 lastPaneTarget = normalizedPane
                 lastStreamId = streamId
                 lastSeq = 0
+#if DEBUG
+                lastOutputTraceKey = ""
+                lastInputTraceKey = ""
+                SwiftTerminalGhostTrace.event("ios.canvas.stream", fields: [
+                    "stream": SwiftTerminalGhostTrace.redacted(streamId),
+                    "pane": SwiftTerminalGhostTrace.redacted(normalizedPane),
+                    "action": "reset"
+                ])
+#endif
             }
 
             if resetRequestID != lastResetRequestID {
@@ -246,6 +264,22 @@ extension SwiftTerminalCanvasView {
                     if let base64 = message.base64,
                        let data = Data(base64Encoded: base64) {
                         let bytes = normalizedOutputBytes(from: data)
+#if DEBUG
+                        let normalizedData = Data(bytes)
+                        let traceKey = "\(data.count):\(SwiftTerminalGhostTrace.fingerprint(data))"
+                        SwiftTerminalGhostTrace.bytes("ios.canvas.feed.raw", data: data, fields: [
+                            "stream": SwiftTerminalGhostTrace.redacted(message.streamId),
+                            "pane": SwiftTerminalGhostTrace.redacted(message.paneId),
+                            "seq": "\(message.seq)",
+                            "declared": "\(message.byteLength ?? -1)",
+                            "repeat": traceKey == lastOutputTraceKey ? "immediate" : "no"
+                        ])
+                        SwiftTerminalGhostTrace.bytes("ios.canvas.feed.normalized", data: normalizedData, fields: [
+                            "stream": SwiftTerminalGhostTrace.redacted(message.streamId),
+                            "seq": "\(message.seq)"
+                        ])
+                        lastOutputTraceKey = traceKey
+#endif
                         if let streamView = terminalView as? MMSStreamTerminalView {
                             streamView.feedPreservingScroll {
                                 terminalView.feed(byteArray: bytes[...])
@@ -281,6 +315,7 @@ extension SwiftTerminalCanvasView {
         private func reset(_ terminalView: TerminalView) {
             flushPendingKeyboardPaste()
             lastOutputByteWasCR = false
+            escapeFilterState = .none
             terminalView.getTerminal().resetToInitialState()
             terminalView.setContentOffset(.zero, animated: false)
         }
@@ -290,19 +325,54 @@ extension SwiftTerminalCanvasView {
             output.reserveCapacity(data.count + min(data.count, 128))
 
             for byte in data {
-                if byte == 0x0A {
-                    if !lastOutputByteWasCR {
-                        output.append(0x0D)
-                    }
-                    output.append(byte)
-                    lastOutputByteWasCR = false
-                } else {
-                    output.append(byte)
-                    lastOutputByteWasCR = byte == 0x0D
-                }
+                filterTerminalEscapeByte(byte, into: &output)
             }
 
             return output
+        }
+
+        private func filterTerminalEscapeByte(_ byte: UInt8, into output: inout [UInt8]) {
+            switch escapeFilterState {
+            case .none:
+                if byte == TerminalByte.escape {
+                    escapeFilterState = .sawEscape
+                } else {
+                    appendNormalizedOutputByte(byte, into: &output)
+                }
+            case .sawEscape:
+                if byte == TerminalByte.screenTitleMarker {
+                    escapeFilterState = .inScreenTitle
+                } else {
+                    appendNormalizedOutputByte(TerminalByte.escape, into: &output)
+                    escapeFilterState = .none
+                    filterTerminalEscapeByte(byte, into: &output)
+                }
+            case .inScreenTitle:
+                if byte == TerminalByte.bell {
+                    escapeFilterState = .none
+                } else if byte == TerminalByte.escape {
+                    escapeFilterState = .inScreenTitleSawEscape
+                }
+            case .inScreenTitleSawEscape:
+                if byte == TerminalByte.stringTerminator {
+                    escapeFilterState = .none
+                } else if byte != TerminalByte.escape {
+                    escapeFilterState = .inScreenTitle
+                }
+            }
+        }
+
+        private func appendNormalizedOutputByte(_ byte: UInt8, into output: inout [UInt8]) {
+            if byte == TerminalByte.lineFeed {
+                if !lastOutputByteWasCR {
+                    output.append(TerminalByte.carriageReturn)
+                }
+                output.append(byte)
+                lastOutputByteWasCR = false
+            } else {
+                output.append(byte)
+                lastOutputByteWasCR = byte == TerminalByte.carriageReturn
+            }
         }
 
         private func isReadyToFeed(_ terminalView: TerminalView) -> Bool {
@@ -337,6 +407,15 @@ extension SwiftTerminalCanvasView {
             }
             flushPendingKeyboardPaste()
             guard !shouldSuppressDuplicateSend(payload) else { return }
+#if DEBUG
+            let traceKey = "\(payload.count):\(SwiftTerminalGhostTrace.fingerprint(payload))"
+            SwiftTerminalGhostTrace.bytes("ios.canvas.input", data: payload, fields: [
+                "stream": SwiftTerminalGhostTrace.redacted(lastStreamId),
+                "repeat": traceKey == lastInputTraceKey ? "immediate" : "no"
+            ])
+            lastInputTraceKey = traceKey
+#endif
+            (source as? MMSStreamTerminalView)?.forceGhostSafeRendererRefresh()
             onSendData(payload)
         }
 
@@ -524,15 +603,37 @@ extension SwiftTerminalCanvasView {
     }
 }
 
+
+private enum TerminalEscapeFilterState {
+    case none
+    case sawEscape
+    case inScreenTitle
+    case inScreenTitleSawEscape
+}
+
+private enum TerminalByte {
+    static let bell: UInt8 = 0x07
+    static let escape: UInt8 = 0x1B
+    static let lineFeed: UInt8 = 0x0A
+    static let carriageReturn: UInt8 = 0x0D
+    static let screenTitleMarker: UInt8 = 0x6B
+    static let stringTerminator: UInt8 = 0x5C
+}
+
 private final class MMSStreamTerminalView: TerminalView {
     private var preservedScrollY: CGFloat?
     private var preserveScrollUntil: TimeInterval = 0
     private var isApplyingStreamFeed = false
-
+    private weak var suppressedCaretView: UIView?
+    private let ghostSafeCursorOverlay = UIView(frame: .zero)
+    private var hasInstalledGhostSafeCursorOverlay = false
+    private var isGhostSafeCursorVisible = true
+    private var hasPendingGhostSafeCursorRefresh = false
 
     func applyTerminalFontIfNeeded(_ newFont: UIFont) {
         guard fontSignature(for: font) != fontSignature(for: newFont) else { return }
         font = newFont
+        scheduleGhostSafeCursorOverlayRefresh()
     }
 
     func disableSwiftTermAccessory() {
@@ -548,12 +649,106 @@ private final class MMSStreamTerminalView: TerminalView {
         getTerminal().setCursorStyle(.steadyBar)
     }
 
+    func configureGhostSafeRenderer() {
+        isOpaque = true
+        layer.isOpaque = true
+        clipsToBounds = true
+        layer.masksToBounds = true
+        contentMode = .redraw
+        clearsContextBeforeDrawing = true
+    }
+
     override func cursorStyleChanged(source: Terminal, newStyle: CursorStyle) {
         super.cursorStyleChanged(source: source, newStyle: .steadyBar)
+        refreshGhostSafeCursorOverlay()
         guard newStyle != .steadyBar else { return }
         DispatchQueue.main.async { [weak source] in
             source?.setCursorStyle(.steadyBar)
         }
+    }
+
+    override func showCursor(source: Terminal) {
+        isGhostSafeCursorVisible = true
+        refreshGhostSafeCursorOverlay()
+    }
+
+    override func hideCursor(source: Terminal) {
+        isGhostSafeCursorVisible = false
+        suppressedCaretView?.removeFromSuperview()
+        ghostSafeCursorOverlay.isHidden = true
+    }
+
+    override func addSubview(_ view: UIView) {
+        guard isSwiftTermCaretView(view) else {
+            super.addSubview(view)
+            return
+        }
+        suppressedCaretView = view
+        view.isHidden = true
+        view.removeFromSuperview()
+        scheduleGhostSafeCursorOverlayRefresh()
+    }
+
+    func refreshGhostSafeCursorOverlay() {
+        hasPendingGhostSafeCursorRefresh = false
+        suppressedCaretView?.removeFromSuperview()
+        installGhostSafeCursorOverlayIfNeeded()
+
+        let frame = caretFrame
+        guard isGhostSafeCursorVisible, frame.width > 0, frame.height > 0 else {
+            ghostSafeCursorOverlay.isHidden = true
+            return
+        }
+
+        let scale = max(window?.screen.scale ?? UIScreen.main.scale, 1)
+        let width = max(2, 2 / scale)
+        ghostSafeCursorOverlay.frame = CGRect(
+            x: frame.minX,
+            y: frame.minY,
+            width: min(width, frame.width),
+            height: frame.height
+        )
+        ghostSafeCursorOverlay.backgroundColor = caretColor
+        ghostSafeCursorOverlay.layer.removeAllAnimations()
+        ghostSafeCursorOverlay.layer.opacity = 1
+        ghostSafeCursorOverlay.isHidden = false
+        bringSubviewToFront(ghostSafeCursorOverlay)
+    }
+
+    func forceGhostSafeRendererRefresh() {
+        refreshGhostSafeCursorOverlay()
+        setNeedsDisplay(bounds)
+        layer.setNeedsDisplay()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.suppressedCaretView?.removeFromSuperview()
+            self.setNeedsDisplay(self.bounds)
+            self.layer.setNeedsDisplay()
+            self.refreshGhostSafeCursorOverlay()
+        }
+    }
+
+    private func scheduleGhostSafeCursorOverlayRefresh() {
+        guard !hasPendingGhostSafeCursorRefresh else { return }
+        hasPendingGhostSafeCursorRefresh = true
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshGhostSafeCursorOverlay()
+        }
+    }
+
+    private func installGhostSafeCursorOverlayIfNeeded() {
+        guard !hasInstalledGhostSafeCursorOverlay || ghostSafeCursorOverlay.superview !== self else { return }
+        ghostSafeCursorOverlay.isUserInteractionEnabled = false
+        ghostSafeCursorOverlay.layer.masksToBounds = true
+        super.addSubview(ghostSafeCursorOverlay)
+        hasInstalledGhostSafeCursorOverlay = true
+    }
+
+    private func isSwiftTermCaretView(_ view: UIView) -> Bool {
+        guard view !== ghostSafeCursorOverlay else { return false }
+        let describedName = String(describing: type(of: view))
+        let reflectedName = String(reflecting: type(of: view))
+        return describedName.contains("CaretView") || reflectedName.contains("CaretView")
     }
 
     func feedPreservingScroll(_ operation: () -> Void) {
@@ -564,6 +759,8 @@ private final class MMSStreamTerminalView: TerminalView {
         isApplyingStreamFeed = true
         operation()
         isApplyingStreamFeed = false
+        forceGhostSafeRendererRefresh()
+        refreshGhostSafeCursorOverlay()
 
         guard shouldRestore else { return }
         layoutIfNeeded()
@@ -571,6 +768,8 @@ private final class MMSStreamTerminalView: TerminalView {
         preservedScrollY = restoredY
         preserveScrollUntil = ProcessInfo.processInfo.systemUptime + 2.0
         super.setContentOffset(CGPoint(x: 0, y: restoredY), animated: false)
+        forceGhostSafeRendererRefresh()
+        refreshGhostSafeCursorOverlay()
     }
 
     override func setContentOffset(_ contentOffset: CGPoint, animated: Bool) {
@@ -594,6 +793,7 @@ private final class MMSStreamTerminalView: TerminalView {
         if contentOffset.x != 0 {
             setContentOffset(CGPoint(x: 0, y: contentOffset.y), animated: false)
         }
+        refreshGhostSafeCursorOverlay()
     }
 
     private var maxVerticalOffset: CGFloat {
@@ -636,3 +836,44 @@ private final class MMSStreamTerminalView: TerminalView {
         ]
     }
 }
+
+#if DEBUG
+private enum SwiftTerminalGhostTrace {
+    static func bytes(_ label: String, data: Data, fields: [String: String] = [:]) {
+        var parts = ["[MMSGhostTrace] \(label)"]
+        append(fields, to: &parts)
+        parts.append("len=\(data.count)")
+        parts.append("sha=\(fingerprint(data))")
+        parts.append("head=\(hex(data.prefix(8)))")
+        parts.append("tail=\(hex(data.suffix(8)))")
+        print(parts.joined(separator: " "))
+    }
+
+    static func event(_ label: String, fields: [String: String] = [:]) {
+        var parts = ["[MMSGhostTrace] \(label)"]
+        append(fields, to: &parts)
+        print(parts.joined(separator: " "))
+    }
+
+    static func fingerprint(_ data: Data) -> String {
+        SHA256.hash(data: data).prefix(6).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func redacted(_ value: String?) -> String {
+        guard let value, !value.isEmpty else { return "-" }
+        return fingerprint(Data(value.utf8)).prefix(10).description
+    }
+
+    private static func append(_ fields: [String: String], to parts: inout [String]) {
+        for key in fields.keys.sorted() {
+            guard let value = fields[key], !value.isEmpty else { continue }
+            parts.append("\(key)=\(value)")
+        }
+    }
+
+    private static func hex(_ bytes: Data.SubSequence) -> String {
+        let value = bytes.map { String(format: "%02x", $0) }.joined()
+        return value.isEmpty ? "-" : value
+    }
+}
+#endif
