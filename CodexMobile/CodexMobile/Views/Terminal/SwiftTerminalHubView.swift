@@ -787,11 +787,13 @@ struct SwiftTerminalHubView: View {
 
     private func setTerminalSidebar(open: Bool) {
         HapticFeedback.shared.triggerImpactFeedback(style: .light)
+        if open {
+            hideTerminalKeyboard()
+        }
         withAnimation(Self.terminalSidebarSpring) {
             isTerminalSidebarOpen = open
             if open {
                 keyBarExpanded = false
-                isCommandFieldFocused = false
             }
         }
     }
