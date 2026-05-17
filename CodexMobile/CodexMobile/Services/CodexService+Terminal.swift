@@ -4,6 +4,7 @@
 // Exports: CodexService terminal operations
 // Depends on: Foundation, TerminalModels, JSONValue, RPCMessage
 
+import CryptoKit
 import Foundation
 
 private let terminalStreamMessageLimit = 1_500
@@ -340,7 +341,18 @@ extension CodexService {
             return
         }
         let previousStatus = terminalStreamStatusByStreamId[message.streamId]
+#if DEBUG
+        CodexTerminalGhostTrace.message("ios.service.event", message: message, previousSeq: previousStatus?.lastSeq)
+#endif
         guard message.seq > (previousStatus?.lastSeq ?? 0) else {
+#if DEBUG
+            CodexTerminalGhostTrace.event("ios.service.drop", fields: [
+                "stream": CodexTerminalGhostTrace.redacted(message.streamId),
+                "seq": "\(message.seq)",
+                "previous": "\(previousStatus?.lastSeq ?? 0)",
+                "reason": "old-seq"
+            ])
+#endif
             return
         }
 
@@ -421,6 +433,9 @@ extension CodexService {
 
     private func sendTerminalInput(_ input: JSONValue, paneId: String?) async throws {
         let targetPaneId = try resolveTerminalPaneId(paneId)
+#if DEBUG
+        CodexTerminalGhostTrace.input(input, paneId: targetPaneId)
+#endif
         _ = try await sendRequest(
             method: "terminal/input",
             params: .object([
@@ -563,3 +578,91 @@ extension CodexService {
         }
     }
 }
+
+#if DEBUG
+private enum CodexTerminalGhostTrace {
+    static func input(_ input: JSONValue, paneId: String) {
+        let summary = inputBytes(input)
+        bytes("ios.service.input", data: summary.data, fields: [
+            "pane": redacted(paneId),
+            "kind": summary.kind
+        ])
+    }
+
+    static func message(_ label: String, message: TerminalStreamMessage, previousSeq: Int?) {
+        var fields: [String: String] = [
+            "stream": redacted(message.streamId),
+            "pane": redacted(message.paneId),
+            "seq": "\(message.seq)",
+            "type": message.type.rawValue,
+            "previous": "\(previousSeq ?? 0)"
+        ]
+        if let byteLength = message.byteLength {
+            fields["declared"] = "\(byteLength)"
+        }
+        if message.type == .output,
+           let base64 = message.base64,
+           let data = Data(base64Encoded: base64) {
+            bytes(label, data: data, fields: fields)
+        } else {
+            event(label, fields: fields)
+        }
+    }
+
+    static func bytes(_ label: String, data: Data, fields: [String: String] = [:]) {
+        var parts = ["[MMSGhostTrace] \(label)"]
+        append(fields, to: &parts)
+        parts.append("len=\(data.count)")
+        parts.append("sha=\(fingerprint(data))")
+        parts.append("head=\(hex(data.prefix(8)))")
+        parts.append("tail=\(hex(data.suffix(8)))")
+        print(parts.joined(separator: " "))
+    }
+
+    static func event(_ label: String, fields: [String: String] = [:]) {
+        var parts = ["[MMSGhostTrace] \(label)"]
+        append(fields, to: &parts)
+        print(parts.joined(separator: " "))
+    }
+
+    static func redacted(_ value: String?) -> String {
+        guard let value, !value.isEmpty else { return "-" }
+        return fingerprint(Data(value.utf8)).prefix(10).description
+    }
+
+    private static func inputBytes(_ input: JSONValue) -> (kind: String, data: Data) {
+        guard let object = input.objectValue else { return ("unknown", Data()) }
+        let kind = object["kind"]?.stringValue ?? "unknown"
+        switch kind {
+        case "bytes":
+            let base64 = object["base64"]?.stringValue
+                ?? object["data"]?.stringValue
+                ?? object["bytes"]?.stringValue
+                ?? ""
+            return (kind, Data(base64Encoded: base64) ?? Data())
+        case "text":
+            return (kind, Data((object["text"]?.stringValue ?? "").utf8))
+        case "key":
+            return (kind, Data((object["key"]?.stringValue ?? "").utf8))
+        default:
+            return (kind, Data())
+        }
+    }
+
+    private static func fingerprint(_ data: Data) -> String {
+        SHA256.hash(data: data).prefix(6).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func append(_ fields: [String: String], to parts: inout [String]) {
+        for key in fields.keys.sorted() {
+            guard let value = fields[key], !value.isEmpty else { continue }
+            parts.append("\(key)=\(value)")
+        }
+    }
+
+    private static func hex(_ bytes: Data.SubSequence) -> String {
+        let value = bytes.map { String(format: "%02x", $0) }.joined()
+        return value.isEmpty ? "-" : value
+    }
+}
+#endif

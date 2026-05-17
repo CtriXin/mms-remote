@@ -7,9 +7,11 @@
 const { createTmuxAdapter, TmuxAdapterError } = require("./tmux-adapter");
 const { createTerminalStreamHub } = require("./terminal-stream-hub");
 const { createTerminalVisibleLauncher } = require("./terminal-visible-launcher");
+const { redactedId, traceTerminalBytes } = require("./terminal-trace");
 
 function createTerminalHub(options = {}) {
   const adapter = options.adapter || createTmuxAdapter(options.tmux || {});
+  const logger = options.logger || console;
   const visibleLauncher = options.visibleLauncher || createTerminalVisibleLauncher({
     ...(options.visibleTerminal || {}),
     socketName: options.tmux?.socketName || options.visibleTerminal?.socketName || "",
@@ -96,6 +98,10 @@ function createTerminalHub(options = {}) {
 
   async function input(params = {}) {
     const pane = await resolvePane(params.paneId || params.paneKey || params.target);
+    traceTerminalBytes(logger, "bridge.input.rpc", {
+      pane: redactedId(pane.paneId),
+      kind: terminalInputKind(params),
+    }, terminalInputBytes(params));
     await adapter.sendInput({ paneId: pane.paneId, input: params.input, text: params.text, key: params.key });
     return { ok: true, paneId: pane.paneId };
   }
@@ -441,6 +447,38 @@ function formatVisibleTerminalFailure(error) {
       message: error?.message || "Failed to open the visible terminal on Mac.",
     },
   };
+}
+
+function terminalInputKind(params = {}) {
+  const input = params.input || {};
+  if (typeof input.kind === "string" && input.kind) {
+    return input.kind;
+  }
+  if (typeof params.text === "string") {
+    return "text";
+  }
+  if (params.key) {
+    return "key";
+  }
+  return "unknown";
+}
+
+function terminalInputBytes(params = {}) {
+  const input = params.input || {};
+  if (input.kind === "bytes") {
+    const base64 = input.base64 || input.data || input.bytes || "";
+    return base64 ? Buffer.from(String(base64), "base64") : Buffer.alloc(0);
+  }
+  if (input.kind === "text") {
+    return Buffer.from(String(input.text || ""), "utf8");
+  }
+  if (typeof params.text === "string") {
+    return Buffer.from(params.text, "utf8");
+  }
+  if (input.kind === "key" || params.key) {
+    return Buffer.from(String(input.key || params.key || ""), "utf8");
+  }
+  return Buffer.alloc(0);
 }
 
 async function handleTerminalMethod(method, params = {}, options = {}) {
