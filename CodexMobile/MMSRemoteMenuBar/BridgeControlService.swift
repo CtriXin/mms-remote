@@ -511,10 +511,27 @@ final class BridgeControlService {
             return [:]
         }
 
+        let relayCandidates = parseRelayOverrideCandidates(relayOverride)
+        guard let primaryRelay = relayCandidates.first else {
+            return [:]
+        }
+
         return [
-            "MMS_REMOTE_RELAY": relayOverride.trimmingCharacters(in: .whitespacesAndNewlines),
+            "MMS_REMOTE_RELAY": primaryRelay,
+            "MMS_REMOTE_RELAYS": relayCandidates.joined(separator: ","),
         ]
     }
+}
+
+private func parseRelayOverrideCandidates(_ value: String) -> [String] {
+    var seen = Set<String>()
+    return value
+        .split { character in
+            character == "," || character == "\n" || character == "\r" || character == "\t" || character == " "
+        }
+        .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .filter { seen.insert($0).inserted }
 }
 
 private func shellQuoted(_ value: String) -> String {

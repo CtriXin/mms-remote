@@ -17,6 +17,7 @@ RELAY_BIND_HOST="${RELAY_BIND_HOST:-0.0.0.0}"
 RELAY_PORT="${RELAY_PORT:-9000}"
 RELAY_HOSTNAME="${RELAY_HOSTNAME:-}"
 RELAY_URL="${RELAY_URL:-}"
+RELAY_EXTRA_URLS=()
 RELAY_BRIDGE_HOST=""
 RELAY_PID=""
 BRIDGE_PID=""
@@ -37,6 +38,7 @@ Usage: ./run-local-mms-remote.sh [options]
 Options:
   --hostname HOSTNAME   Hostname or IP the iPhone should use to reach the relay
   --relay-url URL       Full relay URL to advertise, for tunnels or reverse proxies
+  --extra-relay-url URL Additional relay URL to advertise; repeat for fallbacks
   --bind-host HOST      Interface/address the local relay should listen on
   --port PORT           Relay port to listen on
   --help                Show this help text
@@ -66,6 +68,11 @@ parse_args() {
       --relay-url)
         require_value "--relay-url" "$#"
         RELAY_URL="$2"
+        shift 2
+        ;;
+      --extra-relay-url)
+        require_value "--extra-relay-url" "$#"
+        RELAY_EXTRA_URLS+=("$2")
         shift 2
         ;;
       --bind-host)
@@ -174,7 +181,7 @@ validate_hostname_argument() {
   # Expect just a host/IP value. A URL cannot be converted into a valid
   # ws:// relay endpoint by this local-only helper.
   if [[ "${hostname}" == *"://"* ]] || [[ "${hostname}" == */* ]]; then
-    die "Invalid --hostname '${hostname}'. Pass only a LAN hostname or IP address (for example: --hostname 192.168.1.101)."
+    die "Invalid --hostname '${hostname}'. Pass only a LAN hostname or IP address (for example: --hostname <mac-lan-ip>)."
   fi
 }
 
@@ -222,12 +229,20 @@ try {
 configure_relay_url() {
   if [[ -n "${RELAY_URL}" ]]; then
     RELAY_URL="$(normalize_relay_url "${RELAY_URL}")" || die "Invalid --relay-url '${RELAY_URL}'. Pass ws(s)://.../relay, or paste an http(s) tunnel URL."
-    return
+  else
+    validate_hostname_argument "${RELAY_HOSTNAME}"
+    ensure_hostname_belongs_to_this_mac
+    RELAY_URL="ws://${RELAY_HOSTNAME}:${RELAY_PORT}/relay"
   fi
 
-  validate_hostname_argument "${RELAY_HOSTNAME}"
-  ensure_hostname_belongs_to_this_mac
-  RELAY_URL="ws://${RELAY_HOSTNAME}:${RELAY_PORT}/relay"
+  local normalized_extra_urls=()
+  local extra_url
+  for extra_url in "${RELAY_EXTRA_URLS[@]}"; do
+    local normalized_extra_url
+    normalized_extra_url="$(normalize_relay_url "${extra_url}")" || die "Invalid --extra-relay-url '${extra_url}'. Pass ws(s)://.../relay, or paste an http(s) tunnel URL."
+    normalized_extra_urls+=("${normalized_extra_url}")
+  done
+  RELAY_EXTRA_URLS=("${normalized_extra_urls[@]}")
 }
 
 # Validates the advertised host before boot so the QR cannot point at another machine by mistake.
@@ -354,6 +369,8 @@ NODE
 }
 
 print_summary() {
+  local extra_relays
+  extra_relays="$(join_relay_urls "${RELAY_EXTRA_URLS[@]}")"
   cat <<EOF
 [run-local-mms-remote] Configuration
   Relay bind host : ${RELAY_BIND_HOST}
@@ -361,7 +378,21 @@ print_summary() {
   Relay hostname  : ${RELAY_HOSTNAME}
   Bridge host     : ${RELAY_BRIDGE_HOST}
   Relay URL       : ${RELAY_URL}
+  Extra relays    : ${extra_relays:-none}
 EOF
+}
+
+join_relay_urls() {
+  local first=1
+  local url
+  for url in "$@"; do
+    if (( first )); then
+      printf '%s' "${url}"
+      first=0
+    else
+      printf ',%s' "${url}"
+    fi
+  done
 }
 
 start_bridge() {
@@ -370,7 +401,9 @@ start_bridge() {
   # This local helper should print the QR in the current terminal immediately.
   # Use the foreground bridge path instead of the macOS launchd wrapper so QR
   # rendering does not depend on daemon state being written back first.
-  MMS_REMOTE_RELAY="${RELAY_URL}" node ./bin/mms-remote.js run &
+  MMS_REMOTE_RELAY="${RELAY_URL}" \
+  MMS_REMOTE_RELAYS="$(join_relay_urls "${RELAY_URL}" "${RELAY_EXTRA_URLS[@]}")" \
+  node ./bin/mms-remote.js run &
   BRIDGE_PID=$!
 }
 

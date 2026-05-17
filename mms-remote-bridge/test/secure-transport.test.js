@@ -24,6 +24,33 @@ const {
   nonceForDirection,
 } = require("../src/secure-transport");
 
+test("secure transport pairing payload includes relay candidates", () => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const privateJwk = privateKey.export({ format: "jwk" });
+  const publicJwk = publicKey.export({ format: "jwk" });
+  const secureTransport = createBridgeSecureTransport({
+    sessionId: "session-relays",
+    relayUrl: "ws://lan-relay.invalid/relay",
+    relayUrls: [
+      "ws://lan-relay.invalid/relay",
+      "wss://relay-a.invalid/relay",
+      "wss://relay-b.invalid/relay/",
+    ],
+    deviceState: {
+      macDeviceId: "mac-relays",
+      macIdentityPrivateKey: base64UrlToBase64(privateJwk.d),
+      macIdentityPublicKey: base64UrlToBase64(publicJwk.x),
+      trustedPhones: {},
+    },
+  });
+
+  assert.deepEqual(secureTransport.createPairingPayload().relays, [
+    "ws://lan-relay.invalid/relay",
+    "wss://relay-a.invalid/relay",
+    "wss://relay-b.invalid/relay",
+  ]);
+});
+
 test("secure transport rejects plaintext JSON-RPC before the secure handshake", () => {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const privateJwk = privateKey.export({ format: "jwk" });

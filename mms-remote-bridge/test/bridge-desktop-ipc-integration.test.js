@@ -170,6 +170,80 @@ test("bridge forwards desktop IPC actions to the phone and routes replies back t
   assert.equal(resolvedMessage.params.threadId, "thread-ipc");
 });
 
+test("bridge keeps every relay candidate connected for LAN plus remote QR fallback", async (t) => {
+  const relayServers = [
+    new WebSocket.Server({ port: 0 }),
+    new WebSocket.Server({ port: 0 }),
+  ];
+  const relaySockets = [null, null];
+  const relayMessages = [[], []];
+  let fakeCodex = null;
+
+  await Promise.all(relayServers.map((server) => {
+    return new Promise((resolve) => server.once("listening", resolve));
+  }));
+
+  relayServers.forEach((server, index) => {
+    server.on("connection", (socket) => {
+      relaySockets[index] = socket;
+      socket.on("message", (data) => {
+        const parsed = safeParseJSON(data.toString("utf8"));
+        if (parsed) {
+          relayMessages[index].push(parsed);
+        }
+      });
+    });
+  });
+
+  const { startBridge } = loadBridgeWithTestDoubles({
+    createCodexTransportImpl() {
+      fakeCodex = createFakeCodexTransport();
+      return fakeCodex;
+    },
+  });
+
+  t.after(() => {
+    fakeCodex?.emitClose();
+    for (const socket of relaySockets) {
+      socket?.close();
+    }
+    for (const server of relayServers) {
+      server.close();
+    }
+  });
+
+  const relayUrls = relayServers.map((server) => `ws://127.0.0.1:${server.address().port}`);
+  startBridge({
+    printPairingQr: false,
+    config: {
+      relayUrl: relayUrls[0],
+      relayUrls,
+      pushServiceUrl: "",
+      pushPreviewMaxChars: 160,
+      refreshEnabled: false,
+      refreshDebounceMs: 1,
+      keepMacAwakeEnabled: false,
+      codexEndpoint: "",
+      refreshCommand: "",
+      codexBundleId: "",
+      codexAppPath: "",
+      desktopIpcSocketPath: "",
+    },
+  });
+
+  await waitFor(() => relaySockets.every((socket) => socket?.readyState === WebSocket.OPEN));
+  relaySockets[1].send(JSON.stringify({
+    id: "fallback-relay-request",
+    method: "thread/read",
+    params: { threadId: "thread-fallback" },
+  }));
+
+  await waitFor(() => fakeCodex?.sent.some((message) => message.id === "fallback-relay-request"));
+  await waitFor(() => relayMessages.every((messages) => {
+    return messages.some((message) => message.id === "fallback-relay-request");
+  }));
+});
+
 // Loads bridge.js with plaintext test transports while leaving the production module untouched.
 function loadBridgeWithTestDoubles({ createCodexTransportImpl }) {
   const bridgePath = require.resolve("../src/bridge");

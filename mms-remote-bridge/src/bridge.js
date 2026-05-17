@@ -123,9 +123,6 @@ function startBridge({
     console.error("[mms-remote] In a source checkout, run ./run-local-mms-remote.sh or set MMS_REMOTE_RELAY/MMS_REMOTE_RELAYS.");
     process.exit(1);
   }
-  let relayBaseUrlIndex = 0;
-  let relayBaseUrl = relayBaseUrls[relayBaseUrlIndex];
-
   let deviceState;
   try {
     deviceState = loadOrCreateBridgeDeviceState();
@@ -174,11 +171,16 @@ function startBridge({
   });
 
   // Keep the local Codex runtime alive across transient relay disconnects.
-  let socket = null;
+  const relayConnections = relayBaseUrls.map((relayBaseUrl, index) => ({
+    relayBaseUrl,
+    index,
+    socket: null,
+    reconnectAttempt: 0,
+    reconnectTimer: null,
+    watchdogTimer: null,
+    lastActivityAt: 0,
+  }));
   let isShuttingDown = false;
-  let reconnectAttempt = 0;
-  let reconnectTimer = null;
-  let relayWatchdogTimer = null;
   let statusHeartbeatTimer = null;
   let lastRelayActivityAt = 0;
   let lastPublishedBridgeStatus = null;
@@ -208,7 +210,7 @@ function startBridge({
   };
   const secureTransport = createBridgeSecureTransport({
     sessionId,
-    relayUrl: relayBaseUrl,
+    relayUrl: relayBaseUrls[0],
     relayUrls: relayBaseUrls,
     deviceState,
     onTrustedPhoneUpdate(nextDeviceState) {
@@ -219,12 +221,16 @@ function startBridge({
   // Keeps one stable sender identity across reconnects so buffered replay state
   // reflects what actually made it onto the current relay socket.
   function sendRelayWireMessage(wireMessage) {
-    if (socket?.readyState !== WebSocket.OPEN) {
-      return false;
-    }
+    let sent = false;
+    for (const connection of relayConnections) {
+      if (connection.socket?.readyState !== WebSocket.OPEN) {
+        continue;
+      }
 
-    socket.send(wireMessage);
-    return true;
+      connection.socket.send(wireMessage);
+      sent = true;
+    }
+    return sent;
   }
   // Only the spawned local runtime needs rollout mirroring; a real endpoint
   // already provides the authoritative live stream for resumed threads.
@@ -288,13 +294,19 @@ function startBridge({
     publishBridgeStatus(lastPublishedBridgeStatus);
   });
 
-  function clearReconnectTimer() {
-    if (!reconnectTimer) {
+  function clearConnectionReconnectTimer(connection) {
+    if (!connection.reconnectTimer) {
       return;
     }
 
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
+    clearTimeout(connection.reconnectTimer);
+    connection.reconnectTimer = null;
+  }
+
+  function clearReconnectTimer() {
+    for (const connection of relayConnections) {
+      clearConnectionReconnectTimer(connection);
+    }
   }
 
   // Periodically rewrites the latest bridge snapshot so CLI status does not stay frozen.
@@ -323,26 +335,34 @@ function startBridge({
   }
 
   // Tracks relay liveness locally so sleep/wake zombie sockets can be force-reconnected.
-  function markRelayActivity() {
-    lastRelayActivityAt = Date.now();
+  function markRelayActivity(connection) {
+    const now = Date.now();
+    connection.lastActivityAt = now;
+    lastRelayActivityAt = Math.max(lastRelayActivityAt, now);
   }
 
-  function clearRelayWatchdog() {
-    if (!relayWatchdogTimer) {
+  function clearConnectionRelayWatchdog(connection) {
+    if (!connection.watchdogTimer) {
       return;
     }
 
-    clearInterval(relayWatchdogTimer);
-    relayWatchdogTimer = null;
+    clearInterval(connection.watchdogTimer);
+    connection.watchdogTimer = null;
   }
 
-  function startRelayWatchdog(trackedSocket) {
-    clearRelayWatchdog();
-    markRelayActivity();
+  function clearRelayWatchdog() {
+    for (const connection of relayConnections) {
+      clearConnectionRelayWatchdog(connection);
+    }
+  }
 
-    relayWatchdogTimer = setInterval(() => {
-      if (isShuttingDown || socket !== trackedSocket) {
-        clearRelayWatchdog();
+  function startRelayWatchdog(connection, trackedSocket) {
+    clearConnectionRelayWatchdog(connection);
+    markRelayActivity(connection);
+
+    connection.watchdogTimer = setInterval(() => {
+      if (isShuttingDown || connection.socket !== trackedSocket) {
+        clearConnectionRelayWatchdog(connection);
         return;
       }
 
@@ -350,9 +370,9 @@ function startBridge({
         return;
       }
 
-      if (hasRelayConnectionGoneStale(lastRelayActivityAt)) {
+      if (hasRelayConnectionGoneStale(connection.lastActivityAt)) {
         console.warn("[mms-remote] relay heartbeat stalled; forcing reconnect");
-        logConnectionStatus("disconnected");
+        logConnectionStatus();
         trackedSocket.terminate();
         return;
       }
@@ -363,11 +383,19 @@ function startBridge({
         trackedSocket.terminate();
       }
     }, RELAY_WATCHDOG_PING_INTERVAL_MS);
-    relayWatchdogTimer.unref?.();
+    connection.watchdogTimer.unref?.();
   }
 
   // Keeps npm start output compact by emitting only high-signal connection states.
-  function logConnectionStatus(status) {
+  function logConnectionStatus() {
+    const status = relayConnections.some((connection) => connection.socket?.readyState === WebSocket.OPEN)
+      ? "connected"
+      : relayConnections.some((connection) => {
+        return connection.socket?.readyState === WebSocket.CONNECTING || connection.reconnectTimer;
+      })
+        ? "connecting"
+        : "disconnected";
+
     if (lastConnectionStatus === status) {
       return;
     }
@@ -382,46 +410,36 @@ function startBridge({
     console.log(`[mms-remote] ${status}`);
   }
 
-  // Retries the relay socket while preserving the active Codex process and session id.
-  function scheduleRelayReconnect(closeCode) {
+  // Retries each relay socket while preserving the active Codex process and session id.
+  function scheduleRelayReconnect(connection, closeCode) {
     if (isShuttingDown) {
       return;
     }
 
     if (closeCode === 4000 || closeCode === 4001) {
-      logConnectionStatus("disconnected");
-      shutdown(codex, () => socket, () => {
-        isShuttingDown = true;
-        bridgeWakeAssertion.stop();
-        clearReconnectTimer();
-        clearRelayWatchdog();
-        clearBridgeStatusHeartbeat();
-      });
+      logConnectionStatus();
       return;
     }
 
-    if (reconnectTimer) {
+    if (connection.reconnectTimer) {
       return;
     }
 
-    reconnectAttempt += 1;
-    const delayMs = Math.min(1_000 * reconnectAttempt, 5_000);
-    logConnectionStatus("connecting");
-    reconnectTimer = setTimeout(() => {
-      reconnectTimer = null;
-      rotateRelayBaseUrl();
-      connectRelay();
+    connection.reconnectAttempt += 1;
+    const delayMs = Math.min(1_000 * connection.reconnectAttempt, 5_000);
+    connection.reconnectTimer = setTimeout(() => {
+      connection.reconnectTimer = null;
+      connectRelay(connection);
     }, delayMs);
+    logConnectionStatus();
   }
 
-  function connectRelay() {
+  function connectRelay(connection) {
     if (isShuttingDown) {
       return;
     }
 
-    logConnectionStatus("connecting");
-    relayBaseUrl = relayBaseUrls[relayBaseUrlIndex];
-    const relaySessionUrl = `${relayBaseUrl}/${sessionId}`;
+    const relaySessionUrl = `${connection.relayBaseUrl}/${sessionId}`;
     const nextSocket = new WebSocket(relaySessionUrl, {
       // The relay uses this per-session secret to authenticate the first push registration.
       headers: {
@@ -430,20 +448,21 @@ function startBridge({
         ...buildMacRegistrationHeaders(deviceState, pairingSession),
       },
     });
-    socket = nextSocket;
+    connection.socket = nextSocket;
+    logConnectionStatus();
 
     nextSocket.on("open", () => {
-      markRelayActivity();
-      clearReconnectTimer();
-      reconnectAttempt = 0;
-      startRelayWatchdog(nextSocket);
-      logConnectionStatus("connected");
+      markRelayActivity(connection);
+      clearConnectionReconnectTimer(connection);
+      connection.reconnectAttempt = 0;
+      startRelayWatchdog(connection, nextSocket);
+      logConnectionStatus();
       secureTransport.bindLiveSendWireMessage(sendRelayWireMessage);
-      sendRelayRegistrationUpdate(deviceState);
+      sendRelayRegistrationUpdate(deviceState, nextSocket);
     });
 
     nextSocket.on("message", (data) => {
-      markRelayActivity();
+      markRelayActivity(connection);
       const message = typeof data === "string" ? data : data.toString("utf8");
       if (secureTransport.handleIncomingWireMessage(message, {
         sendControlMessage(controlMessage) {
@@ -460,42 +479,54 @@ function startBridge({
     });
 
     nextSocket.on("ping", () => {
-      markRelayActivity();
+      markRelayActivity(connection);
     });
 
     nextSocket.on("pong", () => {
-      markRelayActivity();
+      markRelayActivity(connection);
     });
 
     nextSocket.on("close", (code) => {
-      if (socket === nextSocket) {
-        clearRelayWatchdog();
+      if (connection.socket === nextSocket) {
+        clearConnectionRelayWatchdog(connection);
+        connection.socket = null;
       }
-      logConnectionStatus("disconnected");
-      if (socket === nextSocket) {
-        socket = null;
+      logConnectionStatus();
+      if (!relayConnections.some((candidate) => {
+        return candidate.socket?.readyState === WebSocket.OPEN
+          || candidate.socket?.readyState === WebSocket.CONNECTING;
+      })) {
+        stopContextUsageWatcher();
+        rolloutLiveMirror?.stopAll();
+        desktopIpcActionFollower?.stopAll();
+        terminalHub.stopAllStreams?.({ reason: "relay_disconnected", notify: false });
+        desktopRefresher.handleTransportReset();
       }
-      stopContextUsageWatcher();
-      rolloutLiveMirror?.stopAll();
-      desktopIpcActionFollower?.stopAll();
-      terminalHub.stopAllStreams?.({ reason: "relay_disconnected", notify: false });
-      desktopRefresher.handleTransportReset();
-      scheduleRelayReconnect(code);
+      scheduleRelayReconnect(connection, code);
     });
 
     nextSocket.on("error", () => {
-      if (socket === nextSocket) {
-        clearRelayWatchdog();
+      if (connection.socket === nextSocket) {
+        clearConnectionRelayWatchdog(connection);
       }
-      logConnectionStatus("disconnected");
+      logConnectionStatus();
     });
   }
 
-  function rotateRelayBaseUrl() {
-    if (relayBaseUrls.length <= 1) {
-      return;
+  function connectRelays() {
+    for (const connection of relayConnections) {
+      connectRelay(connection);
     }
-    relayBaseUrlIndex = (relayBaseUrlIndex + 1) % relayBaseUrls.length;
+  }
+
+  function closeAllRelaySockets() {
+    for (const connection of relayConnections) {
+      const activeSocket = connection.socket;
+      if (activeSocket?.readyState === WebSocket.OPEN || activeSocket?.readyState === WebSocket.CONNECTING) {
+        activeSocket.close();
+      }
+      connection.socket = null;
+    }
   }
 
   const pairingPayload = secureTransport.createPairingPayload();
@@ -508,7 +539,7 @@ function startBridge({
     printQR(pairingSession);
   }
   pushServiceClient.logUnavailable();
-  connectRelay();
+  connectRelays();
 
   codex.onMessage((message) => {
     if (handleBridgeManagedCodexResponse(message)) {
@@ -528,7 +559,7 @@ function startBridge({
   codex.onClose(() => {
     clearRelayWatchdog();
     clearBridgeStatusHeartbeat();
-    logConnectionStatus("disconnected");
+    logConnectionStatus();
     publishBridgeStatus({
       state: "stopped",
       connectionStatus: "disconnected",
@@ -545,25 +576,25 @@ function startBridge({
     desktopRefresher.handleTransportReset();
     failBridgeManagedCodexRequests(new Error("Codex transport closed before the bridge request completed."));
     forwardedRequestMethodsById.clear();
-    if (socket?.readyState === WebSocket.OPEN || socket?.readyState === WebSocket.CONNECTING) {
-      socket.close();
-    }
+    closeAllRelaySockets();
   });
 
-  process.on("SIGINT", () => shutdown(codex, () => socket, () => {
+  process.on("SIGINT", () => shutdown(codex, () => null, () => {
     isShuttingDown = true;
     bridgeWakeAssertion.stop();
     clearReconnectTimer();
     clearRelayWatchdog();
     clearBridgeStatusHeartbeat();
+    closeAllRelaySockets();
     terminalHub.stopAllStreams?.({ reason: "bridge_shutdown", notify: false });
   }));
-  process.on("SIGTERM", () => shutdown(codex, () => socket, () => {
+  process.on("SIGTERM", () => shutdown(codex, () => null, () => {
     isShuttingDown = true;
     bridgeWakeAssertion.stop();
     clearReconnectTimer();
     clearRelayWatchdog();
     clearBridgeStatusHeartbeat();
+    closeAllRelaySockets();
     terminalHub.stopAllStreams?.({ reason: "bridge_shutdown", notify: false });
   }));
 
@@ -1214,16 +1245,26 @@ function startBridge({
   }
 
   // Refreshes the relay's trusted-mac index after the QR bootstrap locks in a phone identity.
-  function sendRelayRegistrationUpdate(nextDeviceState) {
+  function sendRelayRegistrationUpdate(nextDeviceState, targetSocket = null) {
     deviceState = nextDeviceState;
-    if (socket?.readyState !== WebSocket.OPEN) {
+
+    const registrationMessage = JSON.stringify({
+      kind: "relayMacRegistration",
+      registration: buildMacRegistration(nextDeviceState, pairingSession),
+    });
+
+    if (targetSocket) {
+      if (targetSocket.readyState === WebSocket.OPEN) {
+        targetSocket.send(registrationMessage);
+      }
       return;
     }
 
-    socket.send(JSON.stringify({
-      kind: "relayMacRegistration",
-      registration: buildMacRegistration(nextDeviceState, pairingSession),
-    }));
+    for (const connection of relayConnections) {
+      if (connection.socket?.readyState === WebSocket.OPEN) {
+        connection.socket.send(registrationMessage);
+      }
+    }
   }
 
   function readBridgePreferences() {

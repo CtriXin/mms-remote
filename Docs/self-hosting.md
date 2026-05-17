@@ -69,7 +69,7 @@ Then:
 Pass a hostname or IP address that the phone can actually reach:
 
 ```sh
-./run-local-mms-remote.sh --hostname 192.168.1.10
+./run-local-mms-remote.sh --hostname <mac-lan-ip>
 ```
 
 If you are using a tunnel or reverse proxy in front of the local relay, pass the public URL instead of a LAN hostname.
@@ -253,7 +253,7 @@ Check:
 Try a concrete LAN IP:
 
 ```sh
-./run-local-mms-remote.sh --hostname 192.168.1.10
+./run-local-mms-remote.sh --hostname <mac-lan-ip>
 ```
 
 If local LAN pairing still fails on iPhone even though the relay health check works, prefer a Tailscale-reachable relay instead of continuing to rely on plain `ws://` over the same Wi-Fi.

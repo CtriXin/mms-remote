@@ -262,7 +262,7 @@ test("readBridgeConfig disables managed push defaults when a self-hosted relay o
 test("readBridgeConfig accepts multiple relay candidates", () => {
   const config = readBridgeConfig({
     env: {
-      MMS_REMOTE_RELAYS: "wss://primary.example/relay, wss://backup.example/relay/",
+      MMS_REMOTE_RELAYS: "wss://relay-a.invalid/relay, wss://relay-b.invalid/relay/",
     },
     runtimeRoot: "/workspace/mms-remote-bridge",
     fsImpl: {
@@ -272,12 +272,34 @@ test("readBridgeConfig accepts multiple relay candidates", () => {
     },
   });
 
-  assert.equal(config.relayUrl, "wss://primary.example/relay");
+  assert.equal(config.relayUrl, "wss://relay-a.invalid/relay");
   assert.deepEqual(config.relayUrls, [
-    "wss://primary.example/relay",
-    "wss://backup.example/relay",
+    "wss://relay-a.invalid/relay",
+    "wss://relay-b.invalid/relay",
   ]);
   assert.equal(config.pushServiceUrl, "");
+});
+
+test("readBridgeConfig combines primary relay and fallback relay candidates", () => {
+  const config = readBridgeConfig({
+    env: {
+      MMS_REMOTE_RELAY: "ws://lan-relay.invalid/relay",
+      MMS_REMOTE_RELAYS: "ws://lan-relay.invalid/relay,wss://relay-a.invalid/relay wss://relay-b.invalid/relay/",
+    },
+    runtimeRoot: "/workspace/mms-remote-bridge",
+    fsImpl: {
+      existsSync(targetPath) {
+        return targetPath === "/workspace/.git";
+      },
+    },
+  });
+
+  assert.equal(config.relayUrl, "ws://lan-relay.invalid/relay");
+  assert.deepEqual(config.relayUrls, [
+    "ws://lan-relay.invalid/relay",
+    "wss://relay-a.invalid/relay",
+    "wss://relay-b.invalid/relay",
+  ]);
 });
 
 test("thread/start falls back once to the new-thread route when thread id is still unknown", async () => {

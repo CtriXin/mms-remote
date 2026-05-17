@@ -22,6 +22,7 @@ struct BridgeSnapshot: Codable, Equatable {
 
 struct BridgeDaemonConfig: Codable, Equatable {
     let relayUrl: String?
+    let relayUrls: [String]?
     let pushServiceUrl: String?
     let codexEndpoint: String?
     let refreshEnabled: Bool?
@@ -43,6 +44,7 @@ struct BridgePairingSession: Codable, Equatable {
 struct BridgePairingPayload: Codable, Equatable {
     let v: Int
     let relay: String
+    let relays: [String]?
     let sessionId: String
     let macDeviceId: String
     let macIdentityPublicKey: String
@@ -137,9 +139,14 @@ enum BridgeCLIAvailability: Equatable {
 extension BridgeSnapshot {
     // Picks the most relevant relay for display, preferring persisted daemon config over the transient QR payload.
     var effectiveRelayURL: String {
-        daemonConfig?.relayUrl?.nonEmptyTrimmed
-        ?? pairingSession?.pairingPayload?.relay.nonEmptyTrimmed
-        ?? ""
+        effectiveRelayURLs.first ?? ""
+    }
+
+    var effectiveRelayURLs: [String] {
+        BridgeRelayURLList.normalized(
+            primary: daemonConfig?.relayUrl ?? pairingSession?.pairingPayload?.relay,
+            extras: (daemonConfig?.relayUrls ?? []) + (pairingSession?.pairingPayload?.relays ?? [])
+        )
     }
 
     var statusHeadline: String {
@@ -172,7 +179,7 @@ extension BridgeSnapshot {
     }
 
     var relayKindLabel: String {
-        classifyRelay(effectiveRelayURL)
+        classifyRelayCandidates(effectiveRelayURLs)
     }
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
@@ -204,11 +211,38 @@ extension BridgePairingPayload {
     }
 }
 
+private enum BridgeRelayURLList {
+    static func normalized(primary: String?, extras: [String]) -> [String] {
+        var seen = Set<String>()
+        return ([primary].compactMap { $0 } + extras)
+            .compactMap { value -> String? in
+                var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                while trimmed.count > 1, trimmed.hasSuffix("/") {
+                    trimmed.removeLast()
+                }
+                return trimmed.isEmpty ? nil : trimmed
+            }
+            .filter { seen.insert($0).inserted }
+    }
+}
+
 private extension String {
     var nonEmptyTrimmed: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+private func classifyRelayCandidates(_ relayURLs: [String]) -> String {
+    guard !relayURLs.isEmpty else {
+        return "Unconfigured"
+    }
+
+    let labels = Set(relayURLs.map(classifyRelay))
+    if labels.contains("Local"), labels.contains("Remote") {
+        return "Local + Remote"
+    }
+    return labels.contains("Remote") ? "Remote" : "Local"
 }
 
 private func classifyRelay(_ relayURL: String) -> String {

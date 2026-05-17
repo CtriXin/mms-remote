@@ -91,8 +91,8 @@ struct BridgeMenuBarContentView: View {
                 }
             }
 
-            if let relay = store.snapshot?.effectiveRelayURL, !relay.isEmpty {
-                LabelValueRow(label: "Relay URL", value: relay)
+            if let relays = store.snapshot?.effectiveRelayURLs, !relays.isEmpty {
+                LabelValueRow(label: relays.count == 1 ? "Relay URL" : "Relay URLs", value: relays.joined(separator: "\n"))
             } else {
                 LabelValueRow(label: "Relay URL", value: "Not configured yet")
             }
@@ -108,11 +108,11 @@ struct BridgeMenuBarContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionTitle("Relay Override")
 
-            Text("Optional. Leave empty to use whatever `mms-remote` resolves from your shell or saved daemon config.")
+            Text("Optional. Leave empty to use whatever `mms-remote` resolves from your shell or saved daemon config. Use commas or new lines for fallback relays.")
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(.secondary)
 
-            TextField("ws://localhost:9000/relay", text: $relayDraft)
+            TextField("local relay URL, remote relay URL", text: $relayDraft)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12, weight: .regular, design: .monospaced))
                 .padding(.horizontal, 12)
@@ -547,6 +547,7 @@ private struct PairingQRCodeView: View {
         let payloadObject = PairingQRPayloadEnvelope(
             v: payload.v,
             relay: payload.relay,
+            relays: payload.relays,
             sessionId: payload.sessionId,
             macDeviceId: payload.macDeviceId,
             macIdentityPublicKey: payload.macIdentityPublicKey,
@@ -567,6 +568,7 @@ private struct PairingQRCodeView: View {
 private struct PairingQRPayloadEnvelope: Encodable {
     let v: Int
     let relay: String
+    let relays: [String]?
     let sessionId: String
     let macDeviceId: String
     let macIdentityPublicKey: String
