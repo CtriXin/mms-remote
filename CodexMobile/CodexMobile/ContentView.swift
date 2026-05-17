@@ -421,28 +421,32 @@ struct ContentView: View {
             .frame(maxWidth: .infinity)
             .adaptiveGlass(.regular, in: Capsule())
 
-            Button {
-                openCurrentSessionsDrawer()
-            } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "rectangle.stack.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                    Text(LocalizationManager.shared.localized("tab.sessions"))
-                        .font(AppFont.caption2(weight: .semibold))
+            if sessionsButtonIsVisible {
+                Button {
+                    openCurrentSessionsDrawer()
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "rectangle.stack.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                        Text(LocalizationManager.shared.localized("tab.sessions"))
+                            .font(AppFont.caption2(weight: .semibold))
+                    }
+                    .foregroundStyle(sessionsButtonIsEnabled ? Color.accentColor : Color.secondary)
+                    .frame(width: 74, height: 58)
+                    .contentShape(Capsule())
                 }
-                .foregroundStyle(sessionsButtonIsEnabled ? Color.accentColor : Color.secondary)
-                .frame(width: 74, height: 58)
-                .contentShape(Capsule())
+                .buttonStyle(.plain)
+                .disabled(!sessionsButtonIsEnabled)
+                .adaptiveGlass(.regular, in: Capsule())
+                .accessibilityLabel(LocalizationManager.shared.localized("tab.sessions"))
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
-            .buttonStyle(.plain)
-            .disabled(!sessionsButtonIsEnabled)
-            .adaptiveGlass(.regular, in: Capsule())
-            .accessibilityLabel(LocalizationManager.shared.localized("tab.sessions"))
         }
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 6)
         .background(Color(.systemBackground).opacity(0.001))
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: sessionsButtonIsVisible)
     }
 
     private func bottomTabButton(
@@ -467,6 +471,10 @@ struct ContentView: View {
 
     private var sessionsButtonIsEnabled: Bool {
         selectedAppTab == .chats || selectedAppTab == .terminal
+    }
+
+    private var sessionsButtonIsVisible: Bool {
+        selectedAppTab != .settings
     }
 
     private func openCurrentSessionsDrawer() {
@@ -577,24 +585,26 @@ struct ContentView: View {
 
     private var terminalAppBody: some View {
         NavigationStack(path: $terminalNavigationPath) {
-            if useLegacyTerminalInterface {
-                TerminalHubView(onClose: nil)
-                    .adaptiveNavigationBar()
-            } else {
-                SwiftTerminalHubView(
-                    paneSheetRequestID: terminalPaneSheetRequestID,
-                    showsPaneToolbarButton: false,
-                    onOpenSettings: {
-                        terminalNavigationPath.append("settings")
-                    }
-                )
-                    .adaptiveNavigationBar()
+            Group {
+                if useLegacyTerminalInterface {
+                    TerminalHubView(onClose: nil)
+                        .adaptiveNavigationBar()
+                } else {
+                    SwiftTerminalHubView(
+                        paneSheetRequestID: terminalPaneSheetRequestID,
+                        showsPaneToolbarButton: false,
+                        onOpenSettings: {
+                            terminalNavigationPath.append("settings")
+                        }
+                    )
+                        .adaptiveNavigationBar()
+                }
             }
-        }
-        .navigationDestination(for: String.self) { destination in
-            if destination == "settings" {
-                SettingsView()
-                    .adaptiveNavigationBar()
+            .navigationDestination(for: String.self) { destination in
+                if destination == "settings" {
+                    SettingsView()
+                        .adaptiveNavigationBar()
+                }
             }
         }
     }
