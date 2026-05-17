@@ -447,12 +447,19 @@ struct ContentView: View {
 
     private var terminalAppBody: some View {
         NavigationStack {
-            if useLegacyTerminalInterface {
-                TerminalHubView(onClose: nil)
-                    .adaptiveNavigationBar()
-            } else {
-                SwiftTerminalHubView()
-                    .adaptiveNavigationBar()
+            Group {
+                if useLegacyTerminalInterface {
+                    TerminalHubView(onClose: nil)
+                        .adaptiveNavigationBar()
+                } else {
+                    SwiftTerminalHubView()
+                        .adaptiveNavigationBar()
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    hamburgerButton
+                }
             }
         }
     }

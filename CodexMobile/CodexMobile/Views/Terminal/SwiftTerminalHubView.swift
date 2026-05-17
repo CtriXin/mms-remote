@@ -122,9 +122,18 @@ struct SwiftTerminalHubView: View {
             Divider().overlay(swiftTerminalBorder)
             keyBar
         }
-        .toolbar(.hidden, for: .navigationBar)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            terminalHeaderBar
+        .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                terminalToolbarTitle
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                terminalPaneMenu
+                terminalRendererMenu
+                terminalCreateButton
+                terminalRefreshButton
+            }
         }
         .task {
             enforceStableRendererDefaultIfNeeded()
@@ -235,135 +244,124 @@ struct SwiftTerminalHubView: View {
         }
     }
 
-    private var terminalHeaderBar: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Text(paneTitleForHeader)
-                    .font(AppFont.headline())
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                terminalHeaderActions
-            }
-            terminalHeaderInfo
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(.white.opacity(colorScheme == .dark ? 0.18 : 0.32), lineWidth: 0.7)
-                }
-        }
-        .adaptiveGlass(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .padding(.horizontal, 10)
-        .padding(.top, 5)
-        .padding(.bottom, 7)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .top)
-        }
-    }
-
-    private var terminalHeaderInfo: some View {
-        Text(terminalHeaderDetailText)
-            .font(AppFont.mono(.caption))
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .allowsTightening(true)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            copySelectedPaneJoinCommand()
-        }
-        .contextMenu {
-            if let selectedPane {
-                Button {
-                    copyJoinCommand(for: selectedPane)
-                } label: {
-                    Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "terminal")
-                }
-                Button {
-                    UIPasteboard.general.string = selectedPane.paneAddress
-                } label: {
-                    Label(LocalizationManager.shared.localized("terminal.context.copy_address"), systemImage: "number")
-                }
-            }
-        }
-    }
-
-    private var terminalHeaderActions: some View {
-        HStack(spacing: 6) {
-            Menu {
-                ForEach(displayedPanes) { pane in
-                    Button {
-                        selectedPaneTarget = pane.requestTarget
-                    } label: {
-                        Label(pane.displayTitle, systemImage: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
-                    }
-                }
-                if let selectedPane {
-                    Divider()
-                    Button(role: .destructive) {
-                        pendingCloseRequest = .pane(selectedPane)
-                    } label: {
-                        Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
-                    }
-                    if !selectedPane.sessionName.isEmpty {
-                        Button(role: .destructive) {
-                            pendingCloseRequest = .session(selectedPane)
-                        } label: {
-                            Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: "rectangle.stack")
-            }
-            .disabled(displayedPanes.isEmpty)
-
-            Menu {
-                Button {
-                    rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
-                } label: {
-                    Label(SwiftTerminalRendererMode.stable.localizedTitle, systemImage: rendererMode == .stable ? "checkmark" : "doc.text")
-                }
-                Button {
-                    rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
-                } label: {
-                    Label(SwiftTerminalRendererMode.swiftTerm.localizedTitle, systemImage: rendererMode == .swiftTerm ? "checkmark" : "bolt.horizontal")
-                }
-                .disabled(!allowsSwiftTermRenderer)
-            } label: {
-                Image(systemName: isSwiftTermRendererActive ? "bolt.horizontal.circle" : "shield.lefthalf.filled")
-            }
-
-            Button { openCreateTerminalSheet() } label: {
-                Image(systemName: "plus")
-            }
-            .disabled(!codex.isConnected || isCreatingTerminal)
+    private var terminalToolbarTitle: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(paneTitleForHeader)
+                .font(AppFont.headline())
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {
-                isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
+                copySelectedPaneJoinCommand()
             } label: {
-                if isStartingStream || isRefreshing {
-                    ProgressView()
-                } else {
-                    Image(systemName: "arrow.clockwise")
+                Text(terminalHeaderDetailText)
+                    .font(AppFont.mono(.caption2))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.45)
+                    .allowsTightening(true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                if let selectedPane {
+                    Button {
+                        copyJoinCommand(for: selectedPane)
+                    } label: {
+                        Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "terminal")
+                    }
+                    Button {
+                        UIPasteboard.general.string = selectedPane.paneAddress
+                    } label: {
+                        Label(LocalizationManager.shared.localized("terminal.context.copy_address"), systemImage: "number")
+                    }
                 }
             }
-            .disabled(!codex.isConnected || selectedPaneTarget == nil || isStartingStream || isRefreshing)
         }
-        .buttonStyle(.plain)
-        .font(.system(size: 19, weight: .semibold))
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .adaptiveGlass(.regular, in: Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var terminalPaneMenu: some View {
+        Menu {
+            ForEach(displayedPanes) { pane in
+                Button {
+                    selectedPaneTarget = pane.requestTarget
+                } label: {
+                    Label(pane.displayTitle, systemImage: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
+                }
+            }
+            if let selectedPane {
+                Divider()
+                Button(role: .destructive) {
+                    pendingCloseRequest = .pane(selectedPane)
+                } label: {
+                    Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
+                }
+                if !selectedPane.sessionName.isEmpty {
+                    Button(role: .destructive) {
+                        pendingCloseRequest = .session(selectedPane)
+                    } label: {
+                        Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
+                    }
+                }
+            }
+        } label: {
+            terminalToolbarIcon("rectangle.stack")
+        }
+        .disabled(displayedPanes.isEmpty)
+    }
+
+    private var terminalRendererMenu: some View {
+        Menu {
+            Button {
+                rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
+            } label: {
+                Label(SwiftTerminalRendererMode.stable.localizedTitle, systemImage: rendererMode == .stable ? "checkmark" : "doc.text")
+            }
+            Button {
+                rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
+            } label: {
+                Label(SwiftTerminalRendererMode.swiftTerm.localizedTitle, systemImage: rendererMode == .swiftTerm ? "checkmark" : "bolt.horizontal")
+            }
+            .disabled(!allowsSwiftTermRenderer)
+        } label: {
+            terminalToolbarIcon(isSwiftTermRendererActive ? "bolt.horizontal.circle" : "shield.lefthalf.filled")
+        }
+    }
+
+    private var terminalCreateButton: some View {
+        Button {
+            openCreateTerminalSheet()
+        } label: {
+            terminalToolbarIcon("plus")
+        }
+        .disabled(!codex.isConnected || isCreatingTerminal)
+    }
+
+    private var terminalRefreshButton: some View {
+        Button {
+            isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
+        } label: {
+            if isStartingStream || isRefreshing {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Circle())
+                    .adaptiveToolbarItem(in: Circle())
+            } else {
+                terminalToolbarIcon("arrow.clockwise")
+            }
+        }
+        .disabled(!codex.isConnected || selectedPaneTarget == nil || isStartingStream || isRefreshing)
+    }
+
+    private func terminalToolbarIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(width: 24, height: 24)
+            .contentShape(Circle())
+            .adaptiveToolbarItem(in: Circle())
     }
 
     private var terminalCanvas: some View {
