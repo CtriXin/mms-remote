@@ -110,37 +110,24 @@ struct SwiftTerminalHubView: View {
 
     var body: some View {
         terminalShell
-        .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
+        .navigationTitle(isTerminalSidebarOpen ? "" : LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
         .ignoresSafeArea(edges: .top)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                terminalPaneMenu
-                    .opacity(terminalToolbarOpacity)
-                    .allowsHitTesting(!isTerminalSidebarOpen)
-                    .accessibilityHidden(isTerminalSidebarOpen)
-            }
-            ToolbarItem(placement: .principal) {
-                terminalToolbarTitle
-                    .opacity(terminalToolbarOpacity)
-                    .allowsHitTesting(!isTerminalSidebarOpen)
-                    .accessibilityHidden(isTerminalSidebarOpen)
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                terminalRendererMenu
-                    .opacity(terminalToolbarOpacity)
-                    .allowsHitTesting(!isTerminalSidebarOpen)
-                    .accessibilityHidden(isTerminalSidebarOpen)
-                terminalCreateButton
-                    .opacity(terminalToolbarOpacity)
-                    .allowsHitTesting(!isTerminalSidebarOpen)
-                    .accessibilityHidden(isTerminalSidebarOpen)
-                terminalRefreshButton
-                    .opacity(terminalToolbarOpacity)
-                    .allowsHitTesting(!isTerminalSidebarOpen)
-                    .accessibilityHidden(isTerminalSidebarOpen)
+            if !isTerminalSidebarOpen {
+                ToolbarItem(placement: .topBarLeading) {
+                    terminalPaneMenu
+                }
+                ToolbarItem(placement: .principal) {
+                    terminalToolbarTitle
+                }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    terminalRendererMenu
+                    terminalCreateButton
+                    terminalRefreshButton
+                }
             }
         }
         .task {
@@ -296,10 +283,6 @@ struct SwiftTerminalHubView: View {
             Divider().overlay(swiftTerminalBorder)
             keyBar
         }
-    }
-
-    private var terminalToolbarOpacity: Double {
-        isTerminalSidebarOpen ? 0 : 1
     }
 
     private var terminalSidebarScrim: some View {
