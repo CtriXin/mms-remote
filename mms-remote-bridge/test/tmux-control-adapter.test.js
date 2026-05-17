@@ -9,6 +9,7 @@ const {
   createTerminalOutputNormalizer,
   createTmuxControlAdapter,
   decodeTmuxControlEscapes,
+  normalizeTerminalOutputBuffer,
   normalizeTerminalOutputText,
   parseTmuxControlLine,
 } = require("../src/tmux-control-adapter");
@@ -32,16 +33,23 @@ test("parseTmuxControlLine parses output and extended output", () => {
 test("normalizeTerminalOutputText converts bare LF and strips private glyphs", () => {
   assert.equal(normalizeTerminalOutputText("pwd\n/Users/xin\n"), "pwd\r\n/Users/xin\r\n");
   assert.equal(normalizeTerminalOutputText("ok\r\nnext"), "ok\r\nnext");
+  assert.equal(normalizeTerminalOutputText("ok\r\r\nnext"), "ok\r\nnext");
   assert.equal(normalizeTerminalOutputText("prompt \uE0B0 box"), "prompt   box");
 });
 
 test("terminal output normalizer preserves split UTF-8 characters", () => {
   const normalizer = createTerminalOutputNormalizer();
-  const bytes = Buffer.from("你\n\uE0B0\n", "utf8");
+  const bytes = Buffer.from("你\r\r\n\uE0B0\n", "utf8");
   const first = normalizer.write(bytes.subarray(0, 1));
   const rest = normalizer.write(bytes.subarray(1));
 
   assert.equal(Buffer.concat([first, rest]).toString("utf8"), "你\r\n \r\n");
+});
+
+test("normalizeTerminalOutputBuffer applies the same one-shot stream policy", () => {
+  const output = normalizeTerminalOutputBuffer(Buffer.from("row1\nrow2\r\r\n", "utf8"));
+
+  assert.equal(output.toString("utf8"), "row1\r\nrow2\r\n");
 });
 
 test("tmux control adapter filters selected pane output and writes activation commands", async () => {

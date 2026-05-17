@@ -137,6 +137,69 @@ test("terminal stream hub buffers live output emitted before replay starts", asy
   assert.equal(Buffer.from(notifications[4].params.base64, "base64").toString("utf8"), "live-before-replay");
 });
 
+test("terminal stream hub drops attach output already covered by replay", async () => {
+  const notifications = [];
+  const hub = createTerminalStreamHub({
+    protocol: createTerminalStreamProtocol({ now: () => "now", uuid: () => "mirror" }),
+    controlAdapter: {
+      startOutputStream(params) {
+        params.onData(Buffer.from("prompt$ ", "utf8"));
+        return { stop() {} };
+      },
+    },
+    async capturePane() {
+      return { content: "prompt$", capturedAt: "capture-time" };
+    },
+    heartbeatMs: 60_000,
+  });
+
+  await hub.start({
+    pane: { paneId: "%11", sessionName: "dev" },
+    paneId: "%11",
+  }, {
+    sendNotification(method, params) {
+      notifications.push({ method, params });
+    },
+  });
+
+  assert.deepEqual(notifications.map((item) => item.params.type), [
+    "terminal.stream.ready",
+    "terminal.stream.replayStart",
+    "terminal.stream.output",
+    "terminal.stream.replayEnd",
+  ]);
+  assert.equal(Buffer.from(notifications[2].params.base64, "base64").toString("utf8"), "prompt$\r\n");
+});
+
+test("terminal stream hub normalizes replay capture newlines once", async () => {
+  const notifications = [];
+  const hub = createTerminalStreamHub({
+    protocol: createTerminalStreamProtocol({ now: () => "now", uuid: () => "replay-lf" }),
+    controlAdapter: {
+      startOutputStream() {
+        return { stop() {} };
+      },
+    },
+    async capturePane() {
+      return { content: "row1\nrow2\r\r\nrow3", capturedAt: "capture-time" };
+    },
+    heartbeatMs: 60_000,
+  });
+
+  await hub.start({
+    pane: { paneId: "%12", sessionName: "dev" },
+    paneId: "%12",
+  }, {
+    sendNotification(method, params) {
+      notifications.push({ method, params });
+    },
+  });
+
+  const output = notifications.find((item) => item.params.type === "terminal.stream.output");
+  assert.ok(output);
+  assert.equal(Buffer.from(output.params.base64, "base64").toString("utf8"), "row1\r\nrow2\r\nrow3\r\n");
+});
+
 test("terminal stream hub can replay only the visible viewport", async () => {
   const captureOptions = [];
   const hub = createTerminalStreamHub({

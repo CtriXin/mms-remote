@@ -203,14 +203,26 @@ function createTerminalOutputNormalizer() {
   };
 }
 
+function normalizeTerminalOutputBuffer(buffer) {
+  const bytes = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || []);
+  return Buffer.from(normalizeTerminalOutputText(bytes.toString("utf8")), "utf8");
+}
+
 function normalizeTerminalOutputText(text, state = { lastWasCR: false }) {
   let normalized = "";
   for (const character of String(text || "")) {
+    if (character === "\r") {
+      if (!state.lastWasCR) {
+        normalized += character;
+      }
+      state.lastWasCR = true;
+      continue;
+    }
     if (character === "\n" && !state.lastWasCR) {
       normalized += "\r";
     }
     normalized += isUnsupportedTerminalScalar(character) ? " " : character;
-    state.lastWasCR = character === "\r";
+    state.lastWasCR = false;
   }
   return normalized;
 }
@@ -250,6 +262,7 @@ module.exports = {
   createTerminalOutputNormalizer,
   createTmuxControlAdapter,
   decodeTmuxControlEscapes,
+  normalizeTerminalOutputBuffer,
   normalizeTerminalOutputText,
   parseTmuxControlLine,
 };

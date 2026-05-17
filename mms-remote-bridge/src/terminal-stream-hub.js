@@ -9,7 +9,7 @@ const {
   TerminalStreamMessageTypes,
   createTerminalStreamProtocol,
 } = require("./terminal-protocol");
-const { createTmuxControlAdapter } = require("./tmux-control-adapter");
+const { createTmuxControlAdapter, normalizeTerminalOutputBuffer } = require("./tmux-control-adapter");
 
 function createTerminalStreamHub(options = {}) {
   const protocol = options.protocol || createTerminalStreamProtocol(options.protocolOptions || {});
@@ -43,6 +43,7 @@ function createTerminalStreamHub(options = {}) {
       heartbeatTimer: null,
       isReplaying: shouldReplayOnStart,
       replayBuffer: [],
+      replayMirrorText: "",
       replayViewportOnly: params.replayViewportOnly === true,
     };
     streams.set(streamId, state);
@@ -122,7 +123,8 @@ function createTerminalStreamHub(options = {}) {
         viewportOnly: params.viewportOnly === true || state.replayViewportOnly === true,
         start: Number.isInteger(params.start) ? params.start : undefined,
       });
-      const content = Buffer.from(`${capture.content || ""}\r\n`, "utf8");
+      const content = normalizeTerminalOutputBuffer(Buffer.from(`${capture.content || ""}\r\n`, "utf8"));
+      state.replayMirrorText = normalizeReplayMirrorText(content);
       if (content.length > 2) {
         emitOutput(state, content, { replay: true });
       }
@@ -223,8 +225,9 @@ function createTerminalStreamHub(options = {}) {
       state.replayBuffer = [];
       return;
     }
-    const buffered = state.replayBuffer;
+    const buffered = dropReplayMirroredPrefix(state.replayBuffer, state.replayMirrorText);
     state.replayBuffer = [];
+    state.replayMirrorText = "";
     for (const buffer of buffered) {
       emitOutput(state, buffer, { replay: true });
     }
@@ -236,6 +239,7 @@ function createTerminalStreamHub(options = {}) {
     streams.delete(state.streamId);
     streamsByPaneId.delete(state.paneId);
     state.replayBuffer = [];
+    state.replayMirrorText = "";
     state.isReplaying = false;
     state.status = options.status || "stopped";
     if (options.notify === false) {
@@ -274,6 +278,50 @@ function notificationSender(sendNotification) {
     return sendNotification;
   }
   return () => {};
+}
+
+function dropReplayMirroredPrefix(buffers, replayMirrorText) {
+  if (!Array.isArray(buffers) || !buffers.length || !replayMirrorText) {
+    return buffers || [];
+  }
+
+  const output = [...buffers];
+  while (output.length && isReplayMirroredChunk(output[0], replayMirrorText)) {
+    output.shift();
+  }
+  return output;
+}
+
+function isReplayMirroredChunk(buffer, replayMirrorText) {
+  const text = normalizeReplayMirrorText(buffer);
+  if (text.length < 3) {
+    return false;
+  }
+  if (replayMirrorText.endsWith(text)) {
+    return true;
+  }
+  if (text.length >= 8 && replayMirrorText.includes(text)) {
+    return true;
+  }
+
+  const replayLines = replayMirrorText.split("\n").filter(Boolean);
+  const lastLine = replayLines[replayLines.length - 1] || "";
+  return lastLine.length >= 3 && (lastLine === text || lastLine.endsWith(text) || text.startsWith(lastLine));
+}
+
+function normalizeReplayMirrorText(value) {
+  const text = Buffer.isBuffer(value) ? value.toString("utf8") : String(value || "");
+  return stripTerminalControl(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+}
+
+function stripTerminalControl(text) {
+  return String(text || "")
+    .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b[@-Z\\-_]/g, "");
 }
 
 module.exports = { createTerminalStreamHub };
