@@ -124,7 +124,9 @@ struct SwiftTerminalHubView: View {
         }
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 terminalPaneMenu
@@ -893,7 +895,12 @@ struct SwiftTerminalHubView: View {
     @MainActor
     private func refreshStableSnapshot(target: String) async {
         do {
-            let snapshot = try await codex.refreshTerminalSnapshot(paneId: target, preserveAnsi: true, joinWrapped: false)
+            let snapshot = try await codex.refreshTerminalSnapshot(
+                paneId: target,
+                preserveAnsi: true,
+                joinWrapped: false,
+                fullHistory: true
+            )
             statusLine = "stable"
             paneTitle = snapshot.pane.displayTitle
         } catch {

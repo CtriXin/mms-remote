@@ -213,10 +213,26 @@ function createTerminalHub(options = {}) {
     return adapter.capturePane({
       target,
       viewportOnly,
-      start: viewportOnly ? "visible" : (Number.isInteger(params.start) ? params.start : -2000),
+      start: captureStart(params, viewportOnly),
       preserveAnsi: Boolean(params.preserveAnsi),
       joinWrapped: params.joinWrapped !== false,
     });
+  }
+
+  function captureStart(params = {}, viewportOnly = false) {
+    if (viewportOnly) {
+      return "visible";
+    }
+    if (params.historyStart === "-" || params.start === "-") {
+      return "-";
+    }
+    if (Number.isInteger(params.historyStart)) {
+      return params.historyStart;
+    }
+    if (Number.isInteger(params.start)) {
+      return params.start;
+    }
+    return -2000;
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, createdPane, visibleApp }) {

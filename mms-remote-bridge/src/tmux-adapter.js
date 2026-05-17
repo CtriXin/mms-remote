@@ -231,7 +231,7 @@ function createTmuxAdapter(options = {}) {
     const viewportOnly = params.viewportOnly === true || params.start === "visible";
     const args = ["capture-pane", "-t", target, "-p"];
     if (!viewportOnly) {
-      const start = Number.isInteger(params.start) ? params.start : -DEFAULT_HISTORY_LINES;
+      const start = params.start === "-" ? "-" : (Number.isInteger(params.start) ? params.start : -DEFAULT_HISTORY_LINES);
       args.push("-S", String(start));
     }
     if (Number.isInteger(params.end)) {

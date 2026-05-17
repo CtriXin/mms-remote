@@ -210,6 +210,49 @@ test("tmux adapter captures only the visible viewport for SwiftTerm snapshots", 
   assert.deepEqual(calls[0].args, ["capture-pane", "-t", "%1", "-p", "-e"]);
 });
 
+test("tmux adapter can capture the full pane history", async () => {
+  const calls = [];
+  const adapter = createTmuxAdapter({
+    execFile(file, args, options, callback) {
+      calls.push({ file, args, options });
+      callback(null, "full history\n", "");
+    },
+  });
+
+  const result = await adapter.capturePane({
+    target: "%1",
+    start: "-",
+    preserveAnsi: true,
+    joinWrapped: false,
+  });
+
+  assert.equal(result.content, "full history");
+  assert.deepEqual(calls[0].args, ["capture-pane", "-t", "%1", "-p", "-S", "-", "-e"]);
+});
+
+test("terminal hub forwards full-history snapshot requests", async () => {
+  const captureStarts = [];
+  const hub = createTerminalHub({
+    adapter: {
+      async version() {
+        return "tmux mock";
+      },
+      async findPane(target) {
+        return { id: target, paneId: target, paneKey: "mms:0.0", sessionName: "mms", windowIndex: 0, paneIndex: 0 };
+      },
+      async capturePane(params) {
+        captureStarts.push(params.start);
+        return { paneId: params.target, content: "full pane", capturedAt: "now" };
+      },
+    },
+  });
+
+  const result = await hub.snapshot({ paneId: "%1", historyStart: "-" });
+
+  assert.equal(result.content, "full pane");
+  assert.deepEqual(captureStarts, ["-"]);
+});
+
 test("terminal hub lists newest panes first", async () => {
   const hub = createTerminalHub({
     adapter: {

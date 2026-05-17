@@ -75,7 +75,8 @@ extension CodexService {
         paneId: String? = nil,
         preserveAnsi: Bool = false,
         joinWrapped: Bool = true,
-        viewportOnly: Bool = false
+        viewportOnly: Bool = false,
+        fullHistory: Bool = false
     ) async throws -> ManagedTerminalSnapshot {
         let targetPaneId = normalizedTerminalTarget(paneId)
             ?? selectedTerminalPaneTarget
@@ -93,6 +94,9 @@ extension CodexService {
         }
         if viewportOnly {
             params["viewportOnly"] = .bool(true)
+        }
+        if fullHistory {
+            params["historyStart"] = .string("-")
         }
 
         let response = try await sendRequest(
