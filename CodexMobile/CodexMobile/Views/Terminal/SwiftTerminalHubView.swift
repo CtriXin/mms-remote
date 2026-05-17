@@ -1371,7 +1371,11 @@ struct SwiftTerminalHubView: View {
     }
 
     private func toggleKeyBarExpanded() {
-        keyBarExpanded.toggle()
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            keyBarExpanded.toggle()
+        }
     }
 
     private func latchControlModifier() {

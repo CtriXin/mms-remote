@@ -40,44 +40,96 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 stableInput()
             }
 
-            HStack(spacing: 8) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        Button(LocalizationManager.shared.localized("swift_terminal.focus"), action: onFocusTerminalInput)
-                        if !isKeyboardPresented {
-                            Button(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"), action: onHideTerminalKeyboard)
-                        }
-                        if isSwiftTermRendererActive {
-                            modifierButton(LocalizationManager.shared.localized("terminal.button.ctrl"), isActive: isControlModifierLatched, action: onControlModifier)
-                            modifierButton(LocalizationManager.shared.localized("terminal.button.alt"), isActive: isMetaModifierLatched, action: onMetaModifier)
-                        }
-                        Button("Tab", action: onSendTab)
-                        SwiftTerminalDirectionPadButton(theme: theme, onSend: onSendDirectionalKey)
-                        Button("ESC", action: onSendEscape)
-                        Button("⌃C", action: onSendInterrupt)
-                        Button(LocalizationManager.shared.localized("terminal.button.paste"), action: onPasteClipboard)
-                    }
-                }
-                HStack(spacing: 8) {
-                    Button(keyBarExpanded ? "↓" : "↑", action: onToggleKeyBarExpanded)
-                        .accessibilityLabel(LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"))
-                    if isKeyboardPresented {
-                        Button(action: onHideTerminalKeyboard) {
-                            Image(systemName: "keyboard.chevron.compact.down")
-                        }
-                        .accessibilityLabel(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"))
-                    }
-                }
-            }
-            .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
-
             if keyBarExpanded {
                 expandedControls
             }
+
+            primaryControls
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, keyBarExpanded ? 10 : 8)
+        .padding(.top, keyBarExpanded ? 10 : 8)
+        .padding(.bottom, 8)
         .background(.regularMaterial)
+    }
+
+    private var primaryControls: some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if !isKeyboardPresented {
+                        Button(LocalizationManager.shared.localized("swift_terminal.focus"), action: onFocusTerminalInput)
+                    }
+                    if isSwiftTermRendererActive {
+                        modifierButton(LocalizationManager.shared.localized("terminal.button.ctrl"), isActive: isControlModifierLatched, action: onControlModifier)
+                        modifierButton(LocalizationManager.shared.localized("terminal.button.alt"), isActive: isMetaModifierLatched, action: onMetaModifier)
+                    }
+                    Button("Tab", action: onSendTab)
+                    SwiftTerminalDirectionPadButton(theme: theme, onSend: onSendDirectionalKey)
+                    Button("ESC", action: onSendEscape)
+                    Button("⌃C", action: onSendInterrupt)
+                    Button(LocalizationManager.shared.localized("terminal.button.paste"), action: onPasteClipboard)
+                }
+                .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
+            }
+            fixedTrailingControls
+        }
+    }
+
+    private var fixedTrailingControls: some View {
+        HStack(spacing: 8) {
+            fixedTextButton(
+                keyBarExpanded ? "↓" : "↑",
+                accessibilityLabel: LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"),
+                action: onToggleKeyBarExpanded
+            )
+            if isKeyboardPresented {
+                fixedIconButton(
+                    "keyboard.chevron.compact.down",
+                    accessibilityLabel: LocalizationManager.shared.localized("swift_terminal.hide_keyboard"),
+                    action: onHideTerminalKeyboard
+                )
+            }
+        }
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
+    }
+
+    private func fixedTextButton(
+        _ title: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(AppFont.caption(weight: .semibold))
+                .foregroundStyle(theme.buttonText)
+                .frame(minWidth: 44, minHeight: 32)
+                .padding(.horizontal, 8)
+                .background(theme.buttonBackground, in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func fixedIconButton(
+        _ systemName: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(AppFont.caption(weight: .semibold))
+                .foregroundStyle(theme.buttonText)
+                .frame(minWidth: 44, minHeight: 32)
+                .padding(.horizontal, 8)
+                .background(theme.buttonBackground, in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var expandedControls: some View {
