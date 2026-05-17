@@ -1,6 +1,6 @@
 {
   "name": "mms-remote",
-  "version": "1.7.54",
+  "version": "1.7.55",
   "description": "Local bridge between Codex and the MMS Remote mobile app. Run `mms-remote up` to start.",
   "main": "src/index.js",
   "bin": {
