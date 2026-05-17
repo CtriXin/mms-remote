@@ -42,6 +42,7 @@ struct ContentView: View {
     @State private var isSidebarPrewarmed = false
     @State private var selectedThread: CodexThread?
     @State private var navigationPath = NavigationPath()
+    @State private var terminalNavigationPath = NavigationPath()
     @State private var selectedAppTab: MainAppTab = .chats
     @State private var terminalPaneSheetRequestID = 0
     @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
@@ -393,7 +394,7 @@ struct ContentView: View {
     }
 
     private var mainAppBottomBar: some View {
-        HStack(alignment: .bottom, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             HStack(spacing: 2) {
                 bottomTabButton(
                     tab: .chats,
@@ -575,7 +576,7 @@ struct ContentView: View {
     }
 
     private var terminalAppBody: some View {
-        NavigationStack {
+        NavigationStack(path: $terminalNavigationPath) {
             if useLegacyTerminalInterface {
                 TerminalHubView(onClose: nil)
                     .adaptiveNavigationBar()
@@ -584,9 +585,15 @@ struct ContentView: View {
                     paneSheetRequestID: terminalPaneSheetRequestID,
                     showsPaneToolbarButton: false,
                     onOpenSettings: {
-                        selectedAppTab = .settings
+                        terminalNavigationPath.append("settings")
                     }
                 )
+                    .adaptiveNavigationBar()
+            }
+        }
+        .navigationDestination(for: String.self) { destination in
+            if destination == "settings" {
+                SettingsView()
                     .adaptiveNavigationBar()
             }
         }

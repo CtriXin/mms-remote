@@ -157,15 +157,11 @@ struct SidebarView: View {
 
     private var sidebarSheetHeader: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image("AppLogo")
-                .resizable()
-                .scaledToFit()
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(codexSheetAccent)
                 .frame(width: 38, height: 38)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(codexSheetAccent.opacity(0.22), lineWidth: 1)
-                }
+                .background(codexSheetAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(localized: "sidebar.title")
