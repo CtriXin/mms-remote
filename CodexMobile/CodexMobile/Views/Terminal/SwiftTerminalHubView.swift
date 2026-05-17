@@ -31,6 +31,7 @@ struct SwiftTerminalHubView: View {
     @AppStorage("terminal.openVisibleOnCreate") private var openVisibleTerminalOnCreate = false
 
     @State private var keyBarExpanded = false
+    @State private var isKeyboardPresented = false
     @State private var isControlModifierLatched = false
     @State private var isMetaModifierLatched = false
     @State private var selectedChordModifiers = Set<SwiftTerminalChordModifier>()
@@ -286,7 +287,13 @@ struct SwiftTerminalHubView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            keyBarExpanded = false
+            isKeyboardPresented = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardPresented = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+            isKeyboardPresented = false
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwiftTerm.TerminalView.controlModifierReset"))) { _ in
             isControlModifierLatched = false
@@ -503,6 +510,7 @@ struct SwiftTerminalHubView: View {
             pinnedShortcuts: pinnedShortcuts,
             displayedActiveShortcuts: displayedActiveShortcuts,
             shortcutProfile: shortcutProfile,
+            isKeyboardPresented: isKeyboardPresented,
             isControlModifierLatched: isControlModifierLatched,
             isMetaModifierLatched: isMetaModifierLatched,
             onFocusTerminalInput: { focusTerminalInput() },
@@ -1363,12 +1371,7 @@ struct SwiftTerminalHubView: View {
     }
 
     private func toggleKeyBarExpanded() {
-        if keyBarExpanded {
-            keyBarExpanded = false
-        } else {
-            hideTerminalKeyboard()
-            keyBarExpanded = true
-        }
+        keyBarExpanded.toggle()
     }
 
     private func latchControlModifier() {

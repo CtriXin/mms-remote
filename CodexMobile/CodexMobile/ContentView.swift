@@ -45,6 +45,7 @@ struct ContentView: View {
     @State private var terminalNavigationPath = NavigationPath()
     @State private var selectedAppTab: MainAppTab = .chats
     @State private var terminalPaneSheetRequestID = 0
+    @State private var isKeyboardPresented = false
     @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
     @State private var showSettings = false
     @State private var isShowingManualScanner = false
@@ -365,9 +366,22 @@ struct ContentView: View {
         VStack(spacing: 0) {
             selectedMainTabBody
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            mainAppBottomBar
+            if !hidesMainAppBottomBar {
+                mainAppBottomBar
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .background(Color(.systemBackground))
+        .animation(.spring(response: 0.24, dampingFraction: 0.9), value: hidesMainAppBottomBar)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardPresented = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardPresented = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+            isKeyboardPresented = false
+        }
         .onChange(of: selectedAppTab) { previousTab, tab in
             if previousTab == .terminal, tab != .terminal {
                 Task {
@@ -377,6 +391,10 @@ struct ContentView: View {
             guard tab != .chats else { return }
             dismissChatDrawerForTabSwitch()
         }
+    }
+
+    private var hidesMainAppBottomBar: Bool {
+        selectedAppTab == .terminal && isKeyboardPresented
     }
 
     @ViewBuilder

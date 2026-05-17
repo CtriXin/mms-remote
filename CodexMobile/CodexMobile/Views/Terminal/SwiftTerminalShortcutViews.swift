@@ -13,6 +13,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
     let pinnedShortcuts: [SwiftTerminalShortcut]
     let displayedActiveShortcuts: [SwiftTerminalShortcut]
     let shortcutProfile: SwiftTerminalShortcutProfile
+    let isKeyboardPresented: Bool
     let isControlModifierLatched: Bool
     let isMetaModifierLatched: Bool
     let onFocusTerminalInput: () -> Void
@@ -43,7 +44,9 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         Button(LocalizationManager.shared.localized("swift_terminal.focus"), action: onFocusTerminalInput)
-                        Button(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"), action: onHideTerminalKeyboard)
+                        if !isKeyboardPresented {
+                            Button(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"), action: onHideTerminalKeyboard)
+                        }
                         if isSwiftTermRendererActive {
                             modifierButton(LocalizationManager.shared.localized("terminal.button.ctrl"), isActive: isControlModifierLatched, action: onControlModifier)
                             modifierButton(LocalizationManager.shared.localized("terminal.button.alt"), isActive: isMetaModifierLatched, action: onMetaModifier)
@@ -55,8 +58,16 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                         Button(LocalizationManager.shared.localized("terminal.button.paste"), action: onPasteClipboard)
                     }
                 }
-                Button(keyBarExpanded ? "↓" : "↑", action: onToggleKeyBarExpanded)
-                    .accessibilityLabel(LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"))
+                HStack(spacing: 8) {
+                    Button(keyBarExpanded ? "↓" : "↑", action: onToggleKeyBarExpanded)
+                        .accessibilityLabel(LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"))
+                    if isKeyboardPresented {
+                        Button(action: onHideTerminalKeyboard) {
+                            Image(systemName: "keyboard.chevron.compact.down")
+                        }
+                        .accessibilityLabel(LocalizationManager.shared.localized("swift_terminal.hide_keyboard"))
+                    }
+                }
             }
             .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
 
