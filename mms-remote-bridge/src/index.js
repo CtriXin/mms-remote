@@ -9,6 +9,7 @@ const { readBridgeDeviceState, resetBridgeDeviceState } = require("./secure-devi
 const { openLastActiveThread } = require("./session-state");
 const { watchThreadRollout } = require("./rollout-watch");
 const { createMMSChatHub } = require("./mmschat-hub");
+const { createMMSMetadataHub } = require("./mms-metadata-hub");
 const { createTerminalHub } = require("./terminal-hub");
 const { readBridgeConfig } = require("./codex-desktop-refresher");
 const {
@@ -23,6 +24,7 @@ const {
 
 module.exports = {
   createMMSChatHub,
+  createMMSMetadataHub,
   createTerminalHub,
   getMacOSBridgeServiceStatus,
   printMacOSBridgePairingQr,

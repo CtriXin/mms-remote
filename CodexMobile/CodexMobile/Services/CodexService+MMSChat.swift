@@ -142,6 +142,124 @@ extension MMSChatOpenVisibleResponse {
     }
 }
 
+// MARK: - MMS Metadata JSONValue Decoding Helpers
+
+extension MMSProviderSummary {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSProviderSummary")
+        }
+        self.id = obj["id"]?.stringValue ?? ""
+        self.name = obj["name"]?.stringValue ?? id
+        self.defaultModel = obj["defaultModel"]?.stringValue
+        self.models = obj["models"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        self.visible = obj["visible"]?.boolValue ?? true
+        self.credentialPresent = obj["credentialPresent"]?.boolValue ?? false
+    }
+}
+
+extension MMSProvidersResponse {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSProvidersResponse")
+        }
+        self.providers = try (obj["providers"]?.arrayValue ?? []).map { try MMSProviderSummary(json: $0) }
+        self.source = obj["source"]?.stringValue ?? "unknown"
+        self.found = obj["found"]?.boolValue ?? false
+    }
+}
+
+extension MMSPresetSummary {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSPresetSummary")
+        }
+        self.id = obj["id"]?.stringValue ?? ""
+        self.provider = obj["provider"]?.stringValue
+        self.model = obj["model"]?.stringValue
+        self.defaultModel = obj["defaultModel"]?.stringValue
+        self.visible = obj["visible"]?.boolValue ?? true
+        self.credentialPresent = obj["credentialPresent"]?.boolValue ?? false
+    }
+}
+
+extension MMSPresetsResponse {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSPresetsResponse")
+        }
+        self.presets = try (obj["presets"]?.arrayValue ?? []).map { try MMSPresetSummary(json: $0) }
+        self.source = obj["source"]?.stringValue ?? "unknown"
+        self.found = obj["found"]?.boolValue ?? false
+    }
+}
+
+extension MMSModelSummary {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSModelSummary")
+        }
+        self.id = obj["id"]?.stringValue ?? ""
+        self.provider = obj["provider"]?.stringValue ?? ""
+        self.providerName = obj["providerName"]?.stringValue ?? provider
+        self.model = obj["model"]?.stringValue ?? ""
+        self.defaultModel = obj["defaultModel"]?.stringValue
+        self.isDefault = obj["isDefault"]?.boolValue ?? false
+        self.credentialPresent = obj["credentialPresent"]?.boolValue ?? false
+    }
+}
+
+extension MMSModelsResponse {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSModelsResponse")
+        }
+        self.models = try (obj["models"]?.arrayValue ?? []).map { try MMSModelSummary(json: $0) }
+        self.source = obj["source"]?.stringValue ?? "unknown"
+        self.found = obj["found"]?.boolValue ?? false
+    }
+}
+
+extension MMSLaunchProfileSummary {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSLaunchProfileSummary")
+        }
+        self.agent = obj["agent"]?.stringValue
+        self.provider = obj["provider"]?.stringValue
+        self.model = obj["model"]?.stringValue
+        self.preset = obj["preset"]?.stringValue
+        self.launchProfileName = obj["launchProfileName"]?.stringValue
+        self.launchProfileFingerprint = obj["launchProfileFingerprint"]?.stringValue
+        self.credentialPresent = obj["credentialPresent"]?.boolValue ?? false
+    }
+}
+
+extension MMSLaunchPlanConfigSummary {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSLaunchPlanConfigSummary")
+        }
+        self.found = obj["found"]?.boolValue ?? false
+        self.source = obj["source"]?.stringValue ?? "unknown"
+    }
+}
+
+extension MMSLaunchPlanResponse {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSLaunchPlanResponse")
+        }
+        self.dryRun = obj["dryRun"]?.boolValue ?? true
+        self.command = obj["command"]?.stringValue ?? "mms"
+        self.argv = obj["argv"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        self.cwd = obj["cwd"]?.stringValue ?? ""
+        self.spawn = obj["spawn"]?.boolValue ?? false
+        self.profile = try MMSLaunchProfileSummary(json: obj["profile"] ?? .object([:]))
+        self.config = try MMSLaunchPlanConfigSummary(json: obj["config"] ?? .object([:]))
+    }
+}
+
 // MARK: - Decode Error
 
 enum MMSChatDecodeError: Error, LocalizedError {
@@ -252,5 +370,50 @@ extension CodexService {
             timeoutMessage: "MMSChat send timed out."
         )
         return try MMSChatSendResponse(json: response.result ?? .null)
+    }
+
+    func mmsProviders() async throws -> MMSProvidersResponse {
+        let response = try await sendRequest(
+            method: "mms/providers",
+            params: .object([:]),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "MMS provider metadata timed out while contacting the Mac bridge."
+        )
+        return try MMSProvidersResponse(json: response.result ?? .null)
+    }
+
+    func mmsPresets() async throws -> MMSPresetsResponse {
+        let response = try await sendRequest(
+            method: "mms/presets",
+            params: .object([:]),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "MMS preset metadata timed out while contacting the Mac bridge."
+        )
+        return try MMSPresetsResponse(json: response.result ?? .null)
+    }
+
+    func mmsModels() async throws -> MMSModelsResponse {
+        let response = try await sendRequest(
+            method: "mms/models",
+            params: .object([:]),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "MMS model metadata timed out while contacting the Mac bridge."
+        )
+        return try MMSModelsResponse(json: response.result ?? .null)
+    }
+
+    func mmsLaunchPlan(cwd: String, preset: String? = nil, provider: String? = nil, model: String? = nil) async throws -> MMSLaunchPlanResponse {
+        var params: RPCObject = ["cwd": .string(cwd)]
+        if let preset { params["preset"] = .string(preset) }
+        if let provider { params["provider"] = .string(provider) }
+        if let model { params["model"] = .string(model) }
+
+        let response = try await sendRequest(
+            method: "mms/launch/plan",
+            params: .object(params),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "MMS launch plan timed out while contacting the Mac bridge."
+        )
+        return try MMSLaunchPlanResponse(json: response.result ?? .null)
     }
 }

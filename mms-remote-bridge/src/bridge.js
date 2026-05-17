@@ -22,6 +22,7 @@ const { handleThreadContextRequest } = require("./thread-context-handler");
 const { handleWorkspaceRequest } = require("./workspace-handler");
 const { handleProjectRequest } = require("./project-handler");
 const { createMMSChatHub, handleMMSChatRequest } = require("./mmschat-hub");
+const { createMMSMetadataHub, handleMMSMetadataRequest } = require("./mms-metadata-hub");
 const { createTerminalHub, handleTerminalRequest } = require("./terminal-hub");
 const { handlePetRequest } = require("./pet-handler");
 const { createNotificationsHandler } = require("./notifications-handler");
@@ -85,6 +86,7 @@ function startBridge({
   onPairingSession = null,
   onBridgeStatus = null,
   mmschatHub: explicitMMSChatHub = null,
+  mmsMetadataHub: explicitMMSMetadataHub = null,
   terminalHub: explicitTerminalHub = null,
 } = {}) {
   const WebSocket = require("ws");
@@ -142,6 +144,7 @@ function startBridge({
   });
   const readBridgePackageVersionStatus = createBridgePackageVersionStatusReader();
   const mmschatHub = explicitMMSChatHub || createMMSChatHub();
+  const mmsMetadataHub = explicitMMSMetadataHub || createMMSMetadataHub();
   const terminalHub = explicitTerminalHub || createTerminalHub({
     tmux: {
       socketName: config.terminalTmuxSocketName || "",
@@ -552,6 +555,9 @@ function startBridge({
       return;
     }
     if (handleProjectRequest(rawMessage, sendApplicationResponse)) {
+      return;
+    }
+    if (handleMMSMetadataApplicationMessage(rawMessage, sendApplicationResponse, mmsMetadataHub)) {
       return;
     }
     if (handleMMSChatApplicationMessage(rawMessage, sendApplicationResponse, mmschatHub)) {
@@ -1233,6 +1239,10 @@ function handleTerminalApplicationMessage(rawMessage, sendResponse, terminalHub)
 
 function handleMMSChatApplicationMessage(rawMessage, sendResponse, mmschatHub) {
   return handleMMSChatRequest(rawMessage, sendResponse, { hub: mmschatHub });
+}
+
+function handleMMSMetadataApplicationMessage(rawMessage, sendResponse, mmsMetadataHub) {
+  return handleMMSMetadataRequest(rawMessage, sendResponse, { hub: mmsMetadataHub });
 }
 
 // Holds a single macOS idle-sleep assertion for as long as the bridge process stays alive.
@@ -2496,6 +2506,7 @@ module.exports = {
   createMacOSBridgeWakeAssertion,
   fetchAdaptiveThreadTurnsListForRelay,
   handleMMSChatApplicationMessage,
+  handleMMSMetadataApplicationMessage,
   handleTerminalApplicationMessage,
   hasRelayConnectionGoneStale,
   persistBridgePreferences,

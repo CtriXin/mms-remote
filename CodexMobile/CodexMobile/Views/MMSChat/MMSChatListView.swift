@@ -12,6 +12,7 @@ struct MMSChatListView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var selectedSessionId: String?
+    @State private var isShowingLaunchPlanSheet = false
 
     var body: some View {
         Group {
@@ -28,7 +29,14 @@ struct MMSChatListView: View {
         .navigationTitle(LocalizationManager.shared.localized("mmschat.list_title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    isShowingLaunchPlanSheet = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                }
+                .disabled(!codex.isConnected)
+
                 Button {
                     Task { await refresh() }
                 } label: {
@@ -46,6 +54,9 @@ struct MMSChatListView: View {
         }
         .refreshable {
             await refresh()
+        }
+        .sheet(isPresented: $isShowingLaunchPlanSheet) {
+            MMSChatLaunchPlanSheetView(defaultCwd: defaultLaunchCwd)
         }
         .navigationDestination(item: Binding(
             get: { selectedSessionId.flatMap { id in sessions.first { $0.mmschatId == id } } },
@@ -76,6 +87,12 @@ struct MMSChatListView: View {
             )
         } description: {
             Text(LocalizationManager.shared.localized("mmschat.empty_description"))
+        } actions: {
+            Button(LocalizationManager.shared.localized("mmschat.model_picker.open")) {
+                isShowingLaunchPlanSheet = true
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!codex.isConnected)
         }
     }
 
@@ -137,6 +154,10 @@ struct MMSChatListView: View {
                 }
                 return latest1 > latest2
             }
+    }
+
+    private var defaultLaunchCwd: String {
+        sessions.first?.cwd ?? "/"
     }
 
     // MARK: - Actions
