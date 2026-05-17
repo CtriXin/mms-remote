@@ -107,7 +107,10 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         terminalView.scrollIndicatorInsets = .zero
         terminalView.indicatorStyle = usesDarkTheme ? .white : .black
         terminalView.keyboardDismissMode = .onDrag
-        (terminalView as? MMSStreamTerminalView)?.disableSwiftTermAccessory()
+        if let streamView = terminalView as? MMSStreamTerminalView {
+            streamView.disableSwiftTermAccessory()
+            streamView.enforceGhostSafeCursorStyle()
+        }
     }
 }
 
@@ -538,6 +541,18 @@ private final class MMSStreamTerminalView: TerminalView {
         inputAssistantItem.trailingBarButtonGroups = []
         if isFirstResponder {
             reloadInputViews()
+        }
+    }
+
+    func enforceGhostSafeCursorStyle() {
+        getTerminal().setCursorStyle(.steadyBar)
+    }
+
+    override func cursorStyleChanged(source: Terminal, newStyle: CursorStyle) {
+        super.cursorStyleChanged(source: source, newStyle: .steadyBar)
+        guard newStyle != .steadyBar else { return }
+        DispatchQueue.main.async { [weak source] in
+            source?.setCursorStyle(.steadyBar)
         }
     }
 
