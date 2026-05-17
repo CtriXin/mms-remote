@@ -163,6 +163,7 @@ enum Strings {
 
             // Tabs
             "tab.chats": "Codex",
+            "tab.conversations": "会话",
             "tab.terminal": "终端",
             "tab.swift": "Swift",
             "tab.settings": "设置",
@@ -472,7 +473,6 @@ enum Strings {
             "composer.accessibility.starting": "正在开始运行",
             "composer.accessibility.stop": "停止当前运行",
             "composer.accessibility.options": "编辑器选项",
-            "composer.accessibility.conversations": "打开对话列表",
             "composer.photo_library": "照片库",
             "composer.take_photo": "拍照",
             "composer.plan_indicator": "计划",
@@ -931,6 +931,7 @@ enum Strings {
 
             // Tabs
             "tab.chats": "Codex",
+            "tab.conversations": "Chats",
             "tab.terminal": "Terminal",
             "tab.swift": "Swift",
             "tab.settings": "Settings",
@@ -1240,7 +1241,6 @@ enum Strings {
             "composer.accessibility.starting": "Starting run",
             "composer.accessibility.stop": "Stop current run",
             "composer.accessibility.options": "Composer options",
-            "composer.accessibility.conversations": "Open conversations",
             "composer.photo_library": "Photo library",
             "composer.take_photo": "Take a photo",
             "composer.plan_indicator": "Plan",

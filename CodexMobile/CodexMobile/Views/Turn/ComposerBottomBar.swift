@@ -31,7 +31,6 @@ struct ComposerBottomBar: View {
     let onTapAddImage: () -> Void
     let onTapTakePhoto: () -> Void
     let onTapVoice: () -> Void
-    var onOpenConversations: (() -> Void)? = nil
     let onSetPlanModeArmed: (Bool) -> Void
     let onResumeQueue: () -> Void
     let onStopTurn: (String?) -> Void
@@ -60,9 +59,6 @@ struct ComposerBottomBar: View {
     var body: some View {
         HStack(spacing: 12) {
             attachmentMenu
-            if let onOpenConversations {
-                conversationsButton(onOpenConversations)
-            }
             ComposerRuntimeMenuControl(
                 orderedModelOptions: orderedModelOptions,
                 selectedModelID: selectedModelID,
@@ -231,22 +227,6 @@ struct ComposerBottomBar: View {
         .tint(metaLabelColor)
         .disabled(isComposerInteractionLocked)
         .accessibilityLabel(LocalizationManager.shared.localized("composer.accessibility.options"))
-    }
-
-    private func conversationsButton(_ action: @escaping () -> Void) -> some View {
-        Button {
-            HapticFeedback.shared.triggerImpactFeedback(style: .light)
-            action()
-        } label: {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(metaTextFont)
-                .fontWeight(.regular)
-                .frame(width: plusTapTargetSide, height: plusTapTargetSide)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(metaLabelColor)
-        .accessibilityLabel(LocalizationManager.shared.localized("composer.accessibility.conversations"))
     }
 
     private var planModeIndicator: some View {

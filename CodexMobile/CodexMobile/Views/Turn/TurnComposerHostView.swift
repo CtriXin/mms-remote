@@ -31,7 +31,6 @@ struct TurnComposerHostView: View {
     let onOpenWorktreeHandoff: () -> Void
     let onOpenFeedbackMail: () -> Void
     let onShowStatus: () -> Void
-    var onOpenConversations: (() -> Void)? = nil
     let voiceButtonPresentation: TurnComposerVoiceButtonPresentation
     let isVoiceRecording: Bool
     let voiceAudioLevels: [CGFloat]
@@ -163,7 +162,6 @@ struct TurnComposerHostView: View {
             onTapAddImage: { viewModel.openPhotoLibraryPicker(codex: codex) },
             onTapTakePhoto: { viewModel.openCamera(codex: codex) },
             onTapVoice: onTapVoice,
-            onOpenConversations: onOpenConversations,
             onCancelVoiceRecording: onCancelVoiceRecording,
             onTapCreateWorktree: onOpenWorktreeHandoff,
             onSetPlanModeArmed: viewModel.setPlanModeArmed,

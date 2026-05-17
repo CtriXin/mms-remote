@@ -11,7 +11,6 @@ import UIKit
 struct TurnView: View {
     let thread: CodexThread
     let isWakingMacDisplayRecovery: Bool
-    var onOpenConversations: (() -> Void)? = nil
 
     @Environment(CodexService.self) private var codex
     @Environment(SubscriptionService.self) private var subscriptions
@@ -1501,7 +1500,6 @@ struct TurnView: View {
                     ))
                 },
                 onShowStatus: presentStatusSheet,
-                onOpenConversations: onOpenConversations,
                 voiceButtonPresentation: voiceButtonPresentation,
                 isVoiceRecording: isVoiceRecording,
                 voiceAudioLevels: voiceTranscriptionManager.audioLevels,

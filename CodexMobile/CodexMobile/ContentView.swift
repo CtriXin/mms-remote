@@ -23,6 +23,7 @@ private enum RootSheetRoute: Identifiable, Equatable {
 
 private enum MainAppTab: Hashable {
     case chats
+    case conversations
     case terminal
     case settings
 }
@@ -366,6 +367,12 @@ struct ContentView: View {
                 }
                 .tag(MainAppTab.chats)
 
+            Color.clear
+                .tabItem {
+                    Label(LocalizationManager.shared.localized("tab.conversations"), systemImage: "list.bullet.rectangle")
+                }
+                .tag(MainAppTab.conversations)
+
             terminalTabBody
                 .tabItem {
                     Label(LocalizationManager.shared.localized("tab.terminal"), systemImage: "terminal")
@@ -382,6 +389,19 @@ struct ContentView: View {
         .toolbarBackground(Color(.systemBackground), for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .onChange(of: selectedAppTab) { previousTab, tab in
+            if tab == .conversations {
+                if previousTab == .terminal {
+                    Task {
+                        await codex.stopAllTerminalStreams()
+                    }
+                }
+                selectedAppTab = .chats
+                Task { @MainActor in
+                    await Task.yield()
+                    setSidebar(open: true)
+                }
+                return
+            }
             if previousTab == .terminal, tab != .terminal {
                 Task {
                     await codex.stopAllTerminalStreams()
@@ -539,10 +559,7 @@ struct ContentView: View {
         } else if let thread = selectedThread {
             TurnView(
                 thread: thread,
-                isWakingMacDisplayRecovery: isWakingSavedMacDisplay,
-                onOpenConversations: {
-                    setSidebar(open: true)
-                }
+                isWakingMacDisplayRecovery: isWakingSavedMacDisplay
             )
                 .id(thread.id)
                 .environment(\.reconnectAction, {

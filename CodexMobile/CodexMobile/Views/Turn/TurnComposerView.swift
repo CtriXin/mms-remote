@@ -64,7 +64,6 @@ struct TurnComposerView: View {
     let onTapAddImage: () -> Void
     let onTapTakePhoto: () -> Void
     let onTapVoice: () -> Void
-    var onOpenConversations: (() -> Void)? = nil
     let onCancelVoiceRecording: () -> Void
     let onTapCreateWorktree: () -> Void
     let onSetPlanModeArmed: (Bool) -> Void
@@ -178,7 +177,6 @@ struct TurnComposerView: View {
                     onTapAddImage: onTapAddImage,
                     onTapTakePhoto: onTapTakePhoto,
                     onTapVoice: onTapVoice,
-                    onOpenConversations: onOpenConversations,
                     onSetPlanModeArmed: onSetPlanModeArmed,
                     onResumeQueue: onResumeQueue,
                     onStopTurn: onStopTurn,
