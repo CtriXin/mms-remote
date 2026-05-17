@@ -67,6 +67,7 @@ struct SwiftTerminalHubView: View {
     @State private var shortcutEditorError: String?
     @State private var showsShortcutEditor = false
     @State private var showsPinnedShortcutPicker = false
+    @State private var isShowingTerminalPaneSheet = false
     @State private var pendingCloseRequest: SwiftTerminalCloseRequest?
     @State private var lastInputSignature = ""
     @State private var lastInputAt: TimeInterval = 0
@@ -210,6 +211,28 @@ struct SwiftTerminalHubView: View {
         .sheet(isPresented: $showsPinnedShortcutPicker) {
             pinnedShortcutPickerSheet
         }
+        .sheet(isPresented: $isShowingTerminalPaneSheet) {
+            SwiftTerminalPanePickerSheet(
+                panes: displayedPanes,
+                selectedPaneTarget: selectedPaneTarget,
+                onSelectPane: { pane in
+                    selectedPaneTarget = pane.requestTarget
+                    isShowingTerminalPaneSheet = false
+                },
+                onCopyJoin: copyJoinCommand(for:),
+                onCopyAddress: { pane in
+                    UIPasteboard.general.string = pane.paneAddress
+                },
+                onClosePane: { pane in
+                    isShowingTerminalPaneSheet = false
+                    pendingCloseRequest = .pane(pane)
+                },
+                onCloseSession: { pane in
+                    isShowingTerminalPaneSheet = false
+                    pendingCloseRequest = .session(pane)
+                }
+            )
+        }
         .sheet(isPresented: $isShowingCreateTerminalSheet) {
             SwiftTerminalCreateSheet(
                 name: $newTerminalName,
@@ -291,31 +314,11 @@ struct SwiftTerminalHubView: View {
     }
 
     private var terminalPaneMenu: some View {
-        Menu {
-            ForEach(displayedPanes) { pane in
-                Button {
-                    selectedPaneTarget = pane.requestTarget
-                } label: {
-                    Label(pane.displayTitle, systemImage: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
-                }
-            }
-            if let selectedPane {
-                Divider()
-                Button(role: .destructive) {
-                    pendingCloseRequest = .pane(selectedPane)
-                } label: {
-                    Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
-                }
-                if !selectedPane.sessionName.isEmpty {
-                    Button(role: .destructive) {
-                        pendingCloseRequest = .session(selectedPane)
-                    } label: {
-                        Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
-                    }
-                }
-            }
+        Button {
+            hideTerminalKeyboard()
+            isShowingTerminalPaneSheet = true
         } label: {
-            terminalToolbarIcon("rectangle.stack")
+            terminalToolbarIcon("sidebar.left")
         }
         .disabled(displayedPanes.isEmpty)
     }
@@ -1662,6 +1665,89 @@ struct SwiftTerminalHubView: View {
     }
 
 
+}
+
+private struct SwiftTerminalPanePickerSheet: View {
+    let panes: [ManagedTerminalPane]
+    let selectedPaneTarget: String?
+    let onSelectPane: (ManagedTerminalPane) -> Void
+    let onCopyJoin: (ManagedTerminalPane) -> Void
+    let onCopyAddress: (ManagedTerminalPane) -> Void
+    let onClosePane: (ManagedTerminalPane) -> Void
+    let onCloseSession: (ManagedTerminalPane) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(panes) { pane in
+                    Button {
+                        onSelectPane(pane)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
+                                .foregroundStyle(pane.matches(target: selectedPaneTarget) ? Color.accentColor : Color.secondary)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(pane.displayTitle)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                Text(paneDetailText(for: pane))
+                                    .font(AppFont.mono(.caption2))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            onCopyJoin(pane)
+                        } label: {
+                            Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "terminal")
+                        }
+                        Button {
+                            onCopyAddress(pane)
+                        } label: {
+                            Label(LocalizationManager.shared.localized("terminal.context.copy_address"), systemImage: "number")
+                        }
+                        Button(role: .destructive) {
+                            onClosePane(pane)
+                        } label: {
+                            Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
+                        }
+                        if !pane.sessionName.isEmpty {
+                            Button(role: .destructive) {
+                                onCloseSession(pane)
+                            } label: {
+                                Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(LocalizationManager.shared.localized("common.cancel")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func paneDetailText(for pane: ManagedTerminalPane) -> String {
+        let cwd = pane.cwd.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cwd.isEmpty {
+            return cwd
+        }
+        return pane.paneAddress
+    }
 }
 
 private struct SwiftTerminalCreateSheet: View {
