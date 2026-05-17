@@ -15,6 +15,7 @@ struct SidebarView: View {
     @Binding var isSearchActive: Bool
     var showsInlineCloseButton: Bool = false
     var isVisible: Bool = true
+    var usesSheetChrome: Bool = false
 
     let onClose: () -> Void
     let onNewChatCreationStateChange: (Bool) -> Void
@@ -79,7 +80,13 @@ struct SidebarView: View {
     private var sidebarChrome: some View {
         sidebarContent
             .frame(maxHeight: .infinity)
-            .background(Color(.systemBackground))
+            .background {
+                if usesSheetChrome {
+                    Rectangle().fill(.ultraThinMaterial)
+                } else {
+                    Color(.systemBackground)
+                }
+            }
             .overlay {
                 sidebarLoadingOverlay
             }
@@ -105,6 +112,7 @@ struct SidebarView: View {
             showsCloseButton: showsInlineCloseButton,
             showsSelectionButton: hasVisibleSelectableThreads || isThreadSelectionMode,
             isSelectionMode: isThreadSelectionMode,
+            closeButtonSystemImage: usesSheetChrome ? "xmark" : nil,
             onClose: onClose,
             onSelectionModeToggle: toggleThreadSelectionMode
         )

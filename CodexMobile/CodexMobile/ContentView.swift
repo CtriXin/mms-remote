@@ -36,6 +36,7 @@ struct ContentView: View {
 
     @State private var viewModel = ContentViewModel()
     @State private var isSidebarOpen = false
+    @State private var isChatSidebarSheetPresented = false
     @State private var sidebarDragOffset: CGFloat = 0
     @State private var isSidebarPrewarmed = false
     @State private var selectedThread: CodexThread?
@@ -118,20 +119,21 @@ struct ContentView: View {
                     "open-state changed wasOpen=\(wasOpen) isOpen=\(isOpen) prewarmed=\(isSidebarPrewarmed) "
                         + "dragOffset=\(Int(sidebarDragOffset)) threadCount=\(codex.threads.count)"
                 )
-                guard !wasOpen, isOpen else {
-                    return
+                if !wasOpen, isOpen {
+                    handleSidebarBecameVisible()
                 }
-                if !isSidebarPrewarmed,
-                   viewModel.shouldRequestSidebarFreshSync(isConnected: codex.isConnected) {
-                    debugSidebarLog("sidebar open triggers immediate sync activeThread=\(codex.activeThreadId ?? "nil")")
-                    codex.requestImmediateSync(threadId: codex.activeThreadId)
-                } else {
-                    debugSidebarLog("sidebar open skips immediate sync prewarmed=\(isSidebarPrewarmed) connected=\(codex.isConnected)")
+            }
+            .onChange(of: isChatSidebarSheetPresented) { wasPresented, isPresented in
+                debugSidebarLog("sheet-sidebar changed wasPresented=\(wasPresented) isPresented=\(isPresented)")
+                if !wasPresented, isPresented {
+                    handleSidebarBecameVisible()
+                } else if wasPresented, !isPresented {
+                    isSearchActive = false
                 }
             }
             .onChange(of: navigationPath) { _, _ in
                 debugSidebarLog("navigation path changed count=\(navigationPath.count) sidebarOpen=\(isSidebarOpen)")
-                if isSidebarOpen {
+                if isSidebarOpen || isChatSidebarSheetPresented {
                     closeSidebar()
                 }
             }
@@ -348,6 +350,10 @@ struct ContentView: View {
         horizontalSizeClass == .compact || isSearchActive
     }
 
+    private var shouldUseSheetSidebar: Bool {
+        horizontalSizeClass == .compact
+    }
+
     private func effectiveSidebarWidth(for availableWidth: CGFloat) -> CGFloat {
         shouldUseFullWidthSidebar ? availableWidth : min(sidebarWidth, availableWidth)
     }
@@ -443,6 +449,29 @@ struct ContentView: View {
             }
         }
         .simultaneousGesture(edgeDragGesture)
+        .sheet(isPresented: $isChatSidebarSheetPresented) {
+            chatSidebarSheet
+        }
+    }
+
+    private var chatSidebarSheet: some View {
+        SidebarView(
+            selectedThread: $selectedThread,
+            showSettings: $showSettings,
+            isSearchActive: $isSearchActive,
+            showsInlineCloseButton: true,
+            isVisible: isChatSidebarSheetPresented,
+            usesSheetChrome: true,
+            onClose: { closeSidebar() },
+            onNewChatCreationStateChange: { isCreating in
+                setNewChatOpeningState(isCreating)
+            },
+            onOpenThread: { thread in
+                openThreadFromSidebar(thread)
+            }
+        )
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var terminalAppBody: some View {
@@ -824,6 +853,7 @@ struct ContentView: View {
         dismissActiveKeyboard()
         withAnimation(Self.sidebarSpring) {
             isSidebarOpen = false
+            isChatSidebarSheetPresented = false
             sidebarDragOffset = 0
         }
         sidebarGestureAutoCommitted = false
@@ -842,7 +872,7 @@ struct ContentView: View {
         }
 
         isOpeningNewChatFromSidebar = false
-        if isSidebarOpen || sidebarDragOffset > 0 {
+        if isSidebarOpen || isChatSidebarSheetPresented || sidebarDragOffset > 0 {
             closeSidebar()
         }
 
@@ -962,12 +992,33 @@ struct ContentView: View {
             isSearchActive = false
         }
         dismissActiveKeyboard()
+        if shouldUseSheetSidebar {
+            withAnimation(Self.sidebarSpring) {
+                isSidebarOpen = false
+                sidebarDragOffset = 0
+            }
+            isChatSidebarSheetPresented = open
+            sidebarGestureAutoCommitted = false
+            resetSidebarGestureDebug()
+            return
+        }
         withAnimation(Self.sidebarSpring) {
             isSidebarOpen = open
+            isChatSidebarSheetPresented = false
             sidebarDragOffset = 0
         }
         sidebarGestureAutoCommitted = false
         resetSidebarGestureDebug()
+    }
+
+    private func handleSidebarBecameVisible() {
+        if !isSidebarPrewarmed,
+           viewModel.shouldRequestSidebarFreshSync(isConnected: codex.isConnected) {
+            debugSidebarLog("sidebar open triggers immediate sync activeThread=\(codex.activeThreadId ?? "nil")")
+            codex.requestImmediateSync(threadId: codex.activeThreadId)
+        } else {
+            debugSidebarLog("sidebar open skips immediate sync prewarmed=\(isSidebarPrewarmed) connected=\(codex.isConnected)")
+        }
     }
 
     // Warms the sidebar view tree offscreen after launch/reconnect so the first drawer gesture

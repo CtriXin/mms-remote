@@ -9,6 +9,7 @@ struct SidebarHeaderView: View {
     var showsCloseButton = false
     var showsSelectionButton = false
     var isSelectionMode = false
+    var closeButtonSystemImage: String?
     var onClose: () -> Void = {}
     var onSelectionModeToggle: () -> Void = {}
 
@@ -39,14 +40,22 @@ struct SidebarHeaderView: View {
             }
 
             if showsCloseButton {
-                // Mirrors the top-bar menu affordance so full-width sidebar presentations still
-                // have an obvious close target after the content shifts completely offscreen.
                 Button(action: onClose) {
-                    TwoLineHamburgerIcon()
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
-                        .adaptiveGlass(.regular, in: Circle())
-                        .contentShape(Circle())
+                    if let closeButtonSystemImage {
+                        Image(systemName: closeButtonSystemImage)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary.opacity(0.08), in: Circle())
+                            .contentShape(Circle())
+                    } else {
+                        // Mirrors the top-bar menu affordance for the legacy side drawer.
+                        TwoLineHamburgerIcon()
+                            .foregroundStyle(.primary)
+                            .frame(width: 44, height: 44)
+                            .adaptiveGlass(.regular, in: Circle())
+                            .contentShape(Circle())
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(LocalizationManager.shared.localized("sidebar.close_menu"))
