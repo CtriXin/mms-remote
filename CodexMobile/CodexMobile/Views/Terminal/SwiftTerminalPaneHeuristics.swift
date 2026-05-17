@@ -47,11 +47,12 @@ enum SwiftTerminalPaneHeuristics {
             pane.windowName,
             pane.sessionName,
         ].joined(separator: " ").lowercased()
-        let agentMarkers = ["claude", "codex"]
+        // tmux history capture is not an ANSI replay; TUI agents need viewport replay.
+        let agentMarkers = ["claude", "codex", "opencode", "gemini", "kimi", "minimax", "deepseek", "glm"]
         if agentMarkers.contains(where: { text.contains($0) }) {
-            return false
+            return true
         }
-        let tuiMarkers = ["vim", "nvim", "less", "top", "htop"]
+        let tuiMarkers = ["vim", "nvim", "less", "top", "htop", "btop", "nano"]
         return tuiMarkers.contains { text.contains($0) }
     }
 
