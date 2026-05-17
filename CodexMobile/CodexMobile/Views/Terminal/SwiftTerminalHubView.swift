@@ -114,6 +114,7 @@ struct SwiftTerminalHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
+        .toolbar(isTerminalSidebarOpen ? .hidden : .visible, for: .navigationBar)
         .ignoresSafeArea(edges: .top)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -234,6 +235,9 @@ struct SwiftTerminalHubView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            if isTerminalSidebarOpen {
+                hideTerminalKeyboard()
+            }
             keyBarExpanded = false
         }
     }
@@ -787,6 +791,10 @@ struct SwiftTerminalHubView: View {
 
     private func setTerminalSidebar(open: Bool) {
         HapticFeedback.shared.triggerImpactFeedback(style: .light)
+        if open {
+            showsChordComposer = false
+            hideTerminalKeyboard()
+        }
         withAnimation(Self.terminalSidebarSpring) {
             isTerminalSidebarOpen = open
             if open {
