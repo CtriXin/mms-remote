@@ -234,6 +234,44 @@ const normalized = normalizeTerminalOutputBuffer(
 
 ---
 
+## Web Research Findings
+
+### Community Issues (SwiftTerm GitHub)
+
+| Issue | Relevance | Impact On Our Ghost |
+|-------|-----------|-------------------|
+| [#133](https://github.com/migueldeicaza/SwiftTerm/issues/133) — iOS UIScrollView cursor position broken | **Direct.** Maintainer: "cursor position is off... not aware of this new approach at being positioned in the screen". Describes "garbage left behind" after operations — same ghost pattern | Confirms iOS cursor positioning is known architectural weakness. No community fix exists |
+| [#227](https://github.com/migueldeicaza/SwiftTerm/issues/227) — CJK/emoji double-width cursor misalignment | **Partial.** Cursor size/position calc ignores glyph runs before cursor. Space appended after double-width chars causes visual artifacts | If our app feeds double-width chars (CJK paths, emoji in prompt), CaretView glyph overlay amplifies |
+| [#342](https://github.com/migueldeicaza/SwiftTerm/issues/342) — `setCursorColor()` doesn't work | **Indirect.** `drawCursor()` uses `bgColor` not `caretColor`. `bgColor` not updated when `caretColor` changes after init | Shows CaretView has color management bugs. Not direct ghost cause |
+| [#244](https://github.com/migueldeicaza/SwiftTerm/issues/244) — CaretView stale position on layout change | **Indirect.** CaretView position not refreshed after split view divider drag | Similar stale-position pattern on macOS. iOS may have same issue with layout changes |
+| [#407](https://github.com/migueldeicaza/SwiftTerm/issues/407) — CJK keyboard input broken | **Partial.** Selected ideograms don't appear. Wide char insertion fails | If ghost appears with CJK input, this compounds |
+
+### CodeEdit PR #1117 — SwiftTerm 1.2.0
+
+[PR #1117](https://github.com/CodeEditApp/CodeEdit/pull/1117) updated SwiftTerm to 1.2.0 with cursor style changes and "bleeding edge" rendering fix. But:
+- We **cannot** upgrade SwiftTerm (no Metal Toolchain, `602be53` generic build failed)
+- 1.2.0 fixes don't address CaretView compositing overlay specifically
+- CodeEdit doesn't report ghost issues → suggests their usage pattern (macOS-first) avoids iOS-specific CaretView problem
+
+### xterm.js #3613 — iOS Scroll/Compositing Conflict
+
+[xterm.js#3613](https://github.com/xtermjs/xterm.js/issues/3613) describes iOS UIScrollView touch interception by character rendering layers. Same architectural constraint: iOS compositing between text layers and cursor overlay creates artifacts. Cross-browser terminal emulators face same iOS rendering quirk.
+
+### Alternative Solutions Considered
+
+| Approach | Source | Why Not Better Than addSubview Intercept |
+|----------|--------|----------------------------------------|
+| `clipsToBounds = true` on TerminalView | Community workaround | Already set. Doesn't stop CaretView glyph overlay within visible area |
+| `updateDisplay()` after every addSubview | Issue #244 workaround | Already happens via queuePendingDisplay. Doesn't prevent stale glyph |
+| Remove/re-add CaretView on layout | Issue #244 | Same as quarantine — updateCursorPosition re-adds it |
+| Cursor style bar/underline | General advice | Reduces glyph area but CTFontDrawGlyphs still renders character |
+| SwiftTerm 1.2.0 upgrade | CodeEdit PR #1117 | Blocked by Metal Toolchain. No guarantee fixes iOS CaretView overlay |
+| Custom gesture recognizer | xterm.js workaround | Addresses scroll, not ghost |
+
+### Verdict
+
+**No existing community solution for this specific ghost.** Our addSubview interception is the novel minimal fix. SwiftTerm maintainer acknowledges iOS cursor positioning is broken (#133) but hasn't fixed it. The CaretView drawCursor bgColor/caretColor mismatch (#342) shows CaretView rendering is under-maintained.
+
 ## What Prior Agents Got Wrong
 
 ### mimo-v2.5-pro

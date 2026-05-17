@@ -423,6 +423,25 @@ Prior agents analyzed quarantine logic at lines 957/1116-1139. **These lines do 
 2. **Defensive: `setContentOffset` override** with `setNeedsDisplay()` for old CaretView rect
 3. **Bridge: Conditional trailing CRLF** in viewport replay
 
+### Web Research — Community Issues & Alternatives
+
+**No existing community solution for this specific ghost.** SwiftTerm maintainer acknowledges iOS UIScrollView cursor positioning is broken ([#133](https://github.com/migueldeicaza/SwiftTerm/issues/133)) — "cursor position is off... not aware of new approach at being positioned in screen". Describes "garbage left behind" — same ghost pattern.
+
+Key related issues:
+- [#227](https://github.com/migueldeicaza/SwiftTerm/issues/227): CJK/emoji double-width cursor misalignment. Cursor size not computed from glyph runs. Space appended after double-width chars creates visual artifacts.
+- [#342](https://github.com/migueldeicaza/SwiftTerm/issues/342): `setCursorColor()` broken. CaretView.drawCursor uses `bgColor` not `caretColor`. Shows CaretView rendering is under-maintained.
+- [#244](https://github.com/migueldeicaza/SwiftTerm/issues/244): CaretView stale position on layout change. macOS, but same stale-position pattern.
+- [CodeEdit PR #1117](https://github.com/CodeEditApp/CodeEdit/pull/1117): SwiftTerm 1.2.0 cursor fixes but we're blocked by Metal Toolchain.
+
+**Alternatives evaluated:**
+- `clipsToBounds = true`: already set, doesn't stop glyph overlay
+- `updateDisplay()` after every addSubview: already happens, doesn't prevent stale glyph
+- Remove/re-add CaretView: same as quarantine, updateCursorPosition re-adds it
+- Cursor style bar/underline: reduces glyph area but CTFontDrawGlyphs still renders
+- SwiftTerm 1.2.0 upgrade: blocked. No guarantee fixes iOS CaretView compositing
+
+**Verdict: addSubview interception remains optimal fix.** No community workaround exists. CaretView addSubview/setText/drawCursor path is SwiftTerm internal behavior with no public API to control it.
+
 ### Full Report
 
 `.ai/plan/progress/swiftterm-ghost-deepseek-v4-flash.md`
