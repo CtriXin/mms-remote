@@ -7,10 +7,17 @@
 import SwiftUI
 import UIKit
 
+enum TerminalSubTab: String, CaseIterable {
+    case terminal
+    case sessions
+}
+
 struct TerminalHubView: View {
     @Environment(CodexService.self) private var codex
 
     let onClose: (() -> Void)?
+
+    @State private var terminalSubTab: TerminalSubTab = .terminal
 
     @AppStorage("terminal.experimentalSwiftTermRenderer") private var useExperimentalSwiftTermRenderer = false
     @AppStorage(TerminalFontFamily.storageKey) private var terminalFontFamilyRaw = TerminalFontFamily.defaultStoredRawValue
@@ -43,14 +50,22 @@ struct TerminalHubView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !codex.isConnected {
-                terminalOfflineBanner
-            }
+            terminalSubTabPicker
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
 
-            if displayedTerminalPanes.isEmpty && !codex.isLoadingTerminals {
-                emptyState
+            if terminalSubTab == .terminal {
+                if !codex.isConnected {
+                    terminalOfflineBanner
+                }
+
+                if displayedTerminalPanes.isEmpty && !codex.isLoadingTerminals {
+                    emptyState
+                } else {
+                    terminalContent
+                }
             } else {
-                terminalContent
+                MMSChatListView()
             }
         }
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
@@ -180,6 +195,14 @@ struct TerminalHubView: View {
             }
             .presentationDetents([.large])
         }
+    }
+
+    private var terminalSubTabPicker: some View {
+        Picker("", selection: $terminalSubTab) {
+            Text(LocalizationManager.shared.localized("mmschat.tab.terminal")).tag(TerminalSubTab.terminal)
+            Text(LocalizationManager.shared.localized("mmschat.tab.sessions")).tag(TerminalSubTab.sessions)
+        }
+        .pickerStyle(.segmented)
     }
 
     private var terminalContent: some View {

@@ -66,6 +66,7 @@ struct SwiftTerminalHubView: View {
     @State private var lastInputSignature = ""
     @State private var lastInputAt: TimeInterval = 0
     @State private var lastStreamReconnectSignature = ""
+    @State private var swiftTerminalSubTab: TerminalSubTab = .terminal
     @FocusState private var isCommandFieldFocused: Bool
     private let stableFallbackRevision = 1
     private let emptyPinnedShortcutSentinel = "__empty__"
@@ -94,18 +95,25 @@ struct SwiftTerminalHubView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !codex.isConnected {
-                offlineBanner
-            }
-            header
-            Divider().overlay(swiftTerminalBorder)
-            terminalCanvas
-            if showsChordComposer {
+            swiftTerminalSubTabPicker
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+
+            if swiftTerminalSubTab == .terminal {
+                if !codex.isConnected {
+                    offlineBanner
+                }
+                header
                 Divider().overlay(swiftTerminalBorder)
-                chordComposerPanel
+                terminalCanvas
+                if showsChordComposer {
+                    Divider().overlay(swiftTerminalBorder)
+                    chordComposerPanel
+                }
+                keyBar
+            } else {
+                MMSChatListView()
             }
-            Divider().overlay(swiftTerminalBorder)
-            keyBar
         }
         .background(theme.shellBackground)
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
@@ -233,6 +241,14 @@ struct SwiftTerminalHubView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyBarExpanded = false
         }
+    }
+
+    private var swiftTerminalSubTabPicker: some View {
+        Picker("", selection: $swiftTerminalSubTab) {
+            Text(LocalizationManager.shared.localized("mmschat.tab.terminal")).tag(TerminalSubTab.terminal)
+            Text(LocalizationManager.shared.localized("mmschat.tab.sessions")).tag(TerminalSubTab.sessions)
+        }
+        .pickerStyle(.segmented)
     }
 
     private var header: some View {
