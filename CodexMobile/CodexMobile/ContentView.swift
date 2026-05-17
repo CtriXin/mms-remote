@@ -1654,13 +1654,14 @@ struct TopSessionsDrawerChrome<Content: View>: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+        .ignoresSafeArea(edges: .top)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private func topDrawerClearance(proxySafeTop: CGFloat) -> CGFloat {
         let minimumTopInset: CGFloat = horizontalSizeClass == .compact ? 54 : 24
-        let navigationBarAllowance: CGFloat = horizontalSizeClass == .compact ? 52 : 46
-        return max(proxySafeTop, keyWindowTopSafeArea, minimumTopInset) + navigationBarAllowance
+        let drawerGap: CGFloat = horizontalSizeClass == .compact ? 10 : 14
+        return max(proxySafeTop, keyWindowTopSafeArea, minimumTopInset) + drawerGap
     }
 
     private var keyWindowTopSafeArea: CGFloat {
