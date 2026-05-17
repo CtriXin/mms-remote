@@ -114,19 +114,33 @@ struct SwiftTerminalHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
-        .toolbar(isTerminalSidebarOpen ? .hidden : .visible, for: .navigationBar)
         .ignoresSafeArea(edges: .top)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 terminalPaneMenu
+                    .opacity(terminalToolbarOpacity)
+                    .allowsHitTesting(!isTerminalSidebarOpen)
+                    .accessibilityHidden(isTerminalSidebarOpen)
             }
             ToolbarItem(placement: .principal) {
                 terminalToolbarTitle
+                    .opacity(terminalToolbarOpacity)
+                    .allowsHitTesting(!isTerminalSidebarOpen)
+                    .accessibilityHidden(isTerminalSidebarOpen)
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 terminalRendererMenu
+                    .opacity(terminalToolbarOpacity)
+                    .allowsHitTesting(!isTerminalSidebarOpen)
+                    .accessibilityHidden(isTerminalSidebarOpen)
                 terminalCreateButton
+                    .opacity(terminalToolbarOpacity)
+                    .allowsHitTesting(!isTerminalSidebarOpen)
+                    .accessibilityHidden(isTerminalSidebarOpen)
                 terminalRefreshButton
+                    .opacity(terminalToolbarOpacity)
+                    .allowsHitTesting(!isTerminalSidebarOpen)
+                    .accessibilityHidden(isTerminalSidebarOpen)
             }
         }
         .task {
@@ -235,9 +249,6 @@ struct SwiftTerminalHubView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            if isTerminalSidebarOpen {
-                hideTerminalKeyboard()
-            }
             keyBarExpanded = false
         }
     }
@@ -251,13 +262,16 @@ struct SwiftTerminalHubView: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .scaleEffect(isTerminalSidebarOpen ? 0.982 : 1, anchor: .trailing)
                     .offset(x: isTerminalSidebarOpen ? terminalContentRevealOffset(for: width) : 0)
+                    .zIndex(0)
 
                 if isTerminalSidebarOpen {
                     terminalSidebarScrim
                         .transition(.opacity)
+                        .zIndex(1)
 
                     terminalSidebar(width: width)
                         .transition(.move(edge: .leading).combined(with: .opacity))
+                        .zIndex(2)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
@@ -282,6 +296,10 @@ struct SwiftTerminalHubView: View {
             Divider().overlay(swiftTerminalBorder)
             keyBar
         }
+    }
+
+    private var terminalToolbarOpacity: Double {
+        isTerminalSidebarOpen ? 0 : 1
     }
 
     private var terminalSidebarScrim: some View {
@@ -792,15 +810,12 @@ struct SwiftTerminalHubView: View {
     private func setTerminalSidebar(open: Bool) {
         HapticFeedback.shared.triggerImpactFeedback(style: .light)
         if open {
+            keyBarExpanded = false
             showsChordComposer = false
             hideTerminalKeyboard()
         }
         withAnimation(Self.terminalSidebarSpring) {
             isTerminalSidebarOpen = open
-            if open {
-                keyBarExpanded = false
-                isCommandFieldFocused = false
-            }
         }
     }
 
@@ -1529,11 +1544,8 @@ struct SwiftTerminalHubView: View {
     }
 
     private func hideTerminalKeyboard() {
-        if isSwiftTermRendererActive {
-            blurRequestID += 1
-        } else {
-            isCommandFieldFocused = false
-        }
+        blurRequestID += 1
+        isCommandFieldFocused = false
         dismissActiveKeyboard()
     }
 
@@ -1543,33 +1555,15 @@ struct SwiftTerminalHubView: View {
 
     private func suppressKeyboardForChordComposer() {
         keyBarExpanded = false
-        isCommandFieldFocused = false
-        if isSwiftTermRendererActive {
-            blurRequestID += 1
-        }
-        dismissActiveKeyboard()
+        hideTerminalKeyboard()
     }
 
     private func suppressKeyboardForVirtualShortcut() {
-        isCommandFieldFocused = false
-        if isSwiftTermRendererActive {
-            blurRequestID += 1
-        }
-        dismissActiveKeyboard()
+        hideTerminalKeyboard()
     }
 
     private func suppressKeyboardForChordComposerRepeatedly() {
         suppressKeyboardForChordComposer()
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 80_000_000)
-            if showsChordComposer {
-                suppressKeyboardForChordComposer()
-            }
-            try? await Task.sleep(nanoseconds: 220_000_000)
-            if showsChordComposer {
-                suppressKeyboardForChordComposer()
-            }
-        }
     }
 
     private func pageUpOrTop() {
