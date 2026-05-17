@@ -131,6 +131,7 @@ enum Strings {
 
             // Sidebar
             "sidebar.title": "MMS Remote",
+            "sidebar.count": "%d 个对话",
             "sidebar.new_chat": "新聊天",
             "sidebar.no_conversations": "没有对话",
             "sidebar.no_matching_conversations": "没有匹配的对话",
@@ -189,6 +190,8 @@ enum Strings {
             "swift_terminal.create": "创建 Terminal",
             "swift_terminal.sidebar.title": "Terminal 窗格",
             "swift_terminal.sidebar.count": "%d 个窗格",
+            "swift_terminal.sidebar.search": "搜索窗格",
+            "swift_terminal.sidebar.no_match": "没有匹配的窗格",
             "swift_terminal.sidebar.current": "当前",
             "swift_terminal.sidebar.empty_hint": "连接 Mac Bridge 后可在这里切换 Terminal 窗格。",
             "swift_terminal.reset": "重置",
@@ -903,6 +906,7 @@ enum Strings {
 
             // Sidebar
             "sidebar.title": "MMS Remote",
+            "sidebar.count": "%d chats",
             "sidebar.new_chat": "New Chat",
             "sidebar.no_conversations": "No conversations",
             "sidebar.no_matching_conversations": "No matching conversations",
@@ -961,6 +965,8 @@ enum Strings {
             "swift_terminal.create": "Create Terminal",
             "swift_terminal.sidebar.title": "Terminal Panes",
             "swift_terminal.sidebar.count": "%d panes",
+            "swift_terminal.sidebar.search": "Search panes",
+            "swift_terminal.sidebar.no_match": "No matching panes",
             "swift_terminal.sidebar.current": "Current",
             "swift_terminal.sidebar.empty_hint": "Connect to the Mac Bridge to switch Terminal panes here.",
             "swift_terminal.reset": "Reset",

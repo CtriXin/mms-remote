@@ -1711,27 +1711,45 @@ private struct SwiftTerminalPanePickerSheet: View {
     let onCloseSession: (ManagedTerminalPane) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider().overlay(theme.border)
+            searchField
             actionRow
             paneList
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(.ultraThinMaterial)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient(
+                    colors: [
+                        terminalSheetAccent.opacity(theme.isDark ? 0.16 : 0.10),
+                        Color(red: 0.02, green: 0.06, blue: 0.10).opacity(theme.isDark ? 0.22 : 0.10)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var terminalSheetAccent: Color {
+        Color(red: 0.38, green: 0.82, blue: 1.00)
     }
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "rectangle.stack")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(theme.terminalAccent)
+                .foregroundStyle(terminalSheetAccent)
                 .frame(width: 38, height: 38)
-                .background(theme.terminalAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(terminalSheetAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(LocalizationManager.shared.localized("swift_terminal.sidebar.title"))
@@ -1762,6 +1780,34 @@ private struct SwiftTerminalPanePickerSheet: View {
         .padding(.bottom, 14)
     }
 
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(theme.secondaryText)
+
+            TextField(LocalizationManager.shared.localized("swift_terminal.sidebar.search"), text: $searchText)
+                .font(AppFont.body())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(theme.secondaryText)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 46)
+        .background(theme.buttonBackground.opacity(theme.isDark ? 0.72 : 0.88), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
     private var actionRow: some View {
         HStack(spacing: 10) {
             Button(action: onCreate) {
@@ -1787,14 +1833,14 @@ private struct SwiftTerminalPanePickerSheet: View {
             .disabled(!isConnected || isRefreshing)
         }
         .buttonStyle(.bordered)
-        .tint(theme.terminalAccent)
+        .tint(terminalSheetAccent)
         .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder
     private var paneList: some View {
-        if panes.isEmpty {
+        if filteredPanes.isEmpty {
             emptyState
         } else {
             ScrollView {
@@ -1812,6 +1858,7 @@ private struct SwiftTerminalPanePickerSheet: View {
                                     pane: pane,
                                     isSelected: pane.matches(target: selectedPaneTarget),
                                     theme: theme,
+                                    accent: terminalSheetAccent,
                                     joinCommand: joinCommand(for: pane),
                                     path: displayPath(for: pane),
                                     onSelect: { onSelectPane(pane) },
@@ -1835,23 +1882,38 @@ private struct SwiftTerminalPanePickerSheet: View {
         VStack(spacing: 12) {
             Image(systemName: "terminal")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(theme.terminalAccent)
-            Text(LocalizationManager.shared.localized("swift_terminal.no_pane"))
+                .foregroundStyle(terminalSheetAccent)
+            Text(searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                 ? LocalizationManager.shared.localized("swift_terminal.no_pane")
+                 : LocalizationManager.shared.localized("swift_terminal.sidebar.no_match"))
                 .font(AppFont.callout(weight: .semibold))
                 .foregroundStyle(theme.primaryText)
-            Text(LocalizationManager.shared.localized("swift_terminal.sidebar.empty_hint"))
-                .font(AppFont.caption())
-                .foregroundStyle(theme.secondaryText)
-                .multilineTextAlignment(.center)
+            if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(LocalizationManager.shared.localized("swift_terminal.sidebar.empty_hint"))
+                    .font(AppFont.caption())
+                    .foregroundStyle(theme.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(24)
     }
 
+    private var filteredPanes: [ManagedTerminalPane] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return panes }
+        return panes.filter { pane in
+            pane.displayTitle.localizedCaseInsensitiveContains(query)
+                || pane.sessionName.localizedCaseInsensitiveContains(query)
+                || pane.cwd.localizedCaseInsensitiveContains(query)
+                || joinCommand(for: pane).localizedCaseInsensitiveContains(query)
+        }
+    }
+
     private var groupedPanes: [SwiftTerminalPanePickerGroup] {
         var orderedSessions: [String] = []
         var buckets: [String: [ManagedTerminalPane]] = [:]
-        for pane in panes {
+        for pane in filteredPanes {
             let title = sessionTitle(for: pane)
             if buckets[title] == nil {
                 orderedSessions.append(title)
@@ -1921,6 +1983,7 @@ private struct SwiftTerminalPanePickerRow: View {
     let pane: ManagedTerminalPane
     let isSelected: Bool
     let theme: SwiftTerminalTheme
+    let accent: Color
     let joinCommand: String
     let path: String
     let onSelect: () -> Void
@@ -1945,7 +2008,7 @@ private struct SwiftTerminalPanePickerRow: View {
             .background(rowBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(isSelected ? theme.terminalAccent.opacity(0.55) : theme.border, lineWidth: 1)
+                    .stroke(isSelected ? accent.opacity(0.62) : theme.border, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -1971,7 +2034,7 @@ private struct SwiftTerminalPanePickerRow: View {
     private var statusIcon: some View {
         ZStack {
             Circle()
-                .fill(isSelected ? theme.terminalAccent : theme.buttonBackground)
+                .fill(isSelected ? accent : theme.buttonBackground)
             Image(systemName: pane.active ? "play.fill" : "terminal")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(isSelected ? theme.selectedChipText : theme.secondaryText)
@@ -1991,7 +2054,7 @@ private struct SwiftTerminalPanePickerRow: View {
                     .foregroundStyle(theme.selectedChipText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(theme.terminalAccent, in: Capsule())
+                    .background(accent, in: Capsule())
             }
         }
     }
@@ -2010,7 +2073,7 @@ private struct SwiftTerminalPanePickerRow: View {
     private var joinLine: some View {
         Text(joinCommand)
             .font(AppFont.mono(.caption2))
-            .foregroundStyle(theme.terminalAccent.opacity(0.9))
+            .foregroundStyle(accent.opacity(0.9))
             .lineLimit(2)
             .textSelection(.enabled)
             .truncationMode(.middle)
@@ -2018,7 +2081,7 @@ private struct SwiftTerminalPanePickerRow: View {
 
     private var rowBackground: Color {
         isSelected
-            ? theme.terminalAccent.opacity(theme.isDark ? 0.18 : 0.13)
+            ? accent.opacity(theme.isDark ? 0.18 : 0.13)
             : theme.buttonBackground.opacity(theme.isDark ? 0.55 : 0.72)
     }
 }

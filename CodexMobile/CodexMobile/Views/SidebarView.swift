@@ -82,7 +82,17 @@ struct SidebarView: View {
             .frame(maxHeight: .infinity)
             .background {
                 if usesSheetChrome {
-                    Rectangle().fill(.ultraThinMaterial)
+                    ZStack {
+                        Rectangle().fill(.ultraThinMaterial)
+                        LinearGradient(
+                            colors: [
+                                codexSheetAccent.opacity(colorScheme == .dark ? 0.14 : 0.10),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    }
                 } else {
                     Color(.systemBackground)
                 }
@@ -95,7 +105,16 @@ struct SidebarView: View {
             }
     }
 
+    @ViewBuilder
     private var sidebarContent: some View {
+        if usesSheetChrome {
+            sheetSidebarContent
+        } else {
+            standardSidebarContent
+        }
+    }
+
+    private var standardSidebarContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             sidebarHeader
             sidebarSearchField
@@ -107,6 +126,23 @@ struct SidebarView: View {
         }
     }
 
+    private var sheetSidebarContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            sidebarSheetHeader
+            Divider().overlay(Color.primary.opacity(0.10))
+            sidebarSearchField
+            sidebarSheetActionRow
+            sidebarInlineLoadingStatus
+            sidebarThreadList
+            sidebarSelectionActions
+            sidebarFooter
+        }
+    }
+
+    private var codexSheetAccent: Color {
+        Color(red: 0.31, green: 0.58, blue: 1.00)
+    }
+
     private var sidebarHeader: some View {
         SidebarHeaderView(
             showsCloseButton: showsInlineCloseButton,
@@ -116,6 +152,47 @@ struct SidebarView: View {
             onClose: onClose,
             onSelectionModeToggle: toggleThreadSelectionMode
         )
+    }
+
+    private var sidebarSheetHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image("AppLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 38, height: 38)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(codexSheetAccent.opacity(0.22), lineWidth: 1)
+                }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(localized: "sidebar.title")
+                    .font(AppFont.title3(weight: .semibold))
+                    .lineLimit(1)
+                Text(String(format: LocalizationManager.shared.localized("sidebar.count"), codex.threads.count))
+                    .font(AppFont.caption())
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            if showsInlineCloseButton {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.primary.opacity(0.08), in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(LocalizationManager.shared.localized("sidebar.close_menu"))
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 14)
     }
 
     private var sidebarSearchField: some View {
@@ -134,6 +211,43 @@ struct SidebarView: View {
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    private var sidebarSheetActionRow: some View {
+        HStack(spacing: 10) {
+            Button(action: handleNewChatButtonTap) {
+                HStack(spacing: 8) {
+                    if isCreatingThread {
+                        ProgressView()
+                            .tint(.primary)
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "plus")
+                    }
+                    Text(localized: "sidebar.new_chat")
+                }
+                .font(AppFont.caption(weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(!canCreateThread || isCreatingThread)
+
+            if hasVisibleSelectableThreads || isThreadSelectionMode {
+                Button(action: toggleThreadSelectionMode) {
+                    Label(
+                        LocalizationManager.shared.localized(isThreadSelectionMode ? "sidebar.done" : "sidebar.select"),
+                        systemImage: isThreadSelectionMode ? "checkmark" : "checkmark.circle"
+                    )
+                    .font(AppFont.caption(weight: .semibold))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+        .tint(codexSheetAccent)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder
@@ -231,6 +345,7 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
+        .padding(.bottom, usesSheetChrome ? 18 : 14)
     }
 
     @ViewBuilder

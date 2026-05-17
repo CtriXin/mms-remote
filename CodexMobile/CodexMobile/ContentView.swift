@@ -361,44 +361,34 @@ struct ContentView: View {
     }
 
     private var mainAppBody: some View {
-        TabView(selection: $selectedAppTab) {
-            chatAppBody
-                .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.chats"), systemImage: "bubble.left.and.bubble.right")
-                }
-                .tag(MainAppTab.chats)
-
-            mmsChatPlaceholderBody
-                .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.mmschat"), systemImage: "icloud")
-                }
-                .tag(MainAppTab.mmsChat)
-
-            terminalTabBody
-                .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.terminal"), systemImage: "terminal")
-                }
-                .tag(MainAppTab.terminal)
-
-            settingsTabBody
-                .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.settings"), systemImage: "gearshape")
-                }
-                .tag(MainAppTab.settings)
-        }
-        .background(Color(.systemBackground))
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            mainAppBottomBar
-        }
-        .onChange(of: selectedAppTab) { previousTab, tab in
-            if previousTab == .terminal, tab != .terminal {
-                Task {
-                    await codex.stopAllTerminalStreams()
-                }
+        selectedMainTabBody
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                mainAppBottomBar
             }
-            guard tab != .chats else { return }
-            dismissChatDrawerForTabSwitch()
+            .onChange(of: selectedAppTab) { previousTab, tab in
+                if previousTab == .terminal, tab != .terminal {
+                    Task {
+                        await codex.stopAllTerminalStreams()
+                    }
+                }
+                guard tab != .chats else { return }
+                dismissChatDrawerForTabSwitch()
+            }
+    }
+
+    @ViewBuilder
+    private var selectedMainTabBody: some View {
+        switch selectedAppTab {
+        case .chats:
+            chatAppBody
+        case .mmsChat:
+            mmsChatPlaceholderBody
+        case .terminal:
+            terminalAppBody
+        case .settings:
+            settingsAppBody
         }
     }
 
@@ -625,24 +615,6 @@ struct ContentView: View {
         NavigationStack {
             SettingsView()
                 .adaptiveNavigationBar()
-        }
-    }
-
-    @ViewBuilder
-    private var terminalTabBody: some View {
-        if selectedAppTab == .terminal {
-            terminalAppBody
-        } else {
-            Color.clear
-        }
-    }
-
-    @ViewBuilder
-    private var settingsTabBody: some View {
-        if selectedAppTab == .settings {
-            settingsAppBody
-        } else {
-            Color.clear
         }
     }
 
