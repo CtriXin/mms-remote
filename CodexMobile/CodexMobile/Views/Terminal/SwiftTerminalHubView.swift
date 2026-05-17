@@ -1707,7 +1707,7 @@ private struct SwiftTerminalPanePickerSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(.ultraThinMaterial)
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
