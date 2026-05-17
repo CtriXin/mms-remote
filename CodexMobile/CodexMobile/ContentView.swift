@@ -23,7 +23,7 @@ private enum RootSheetRoute: Identifiable, Equatable {
 
 private enum MainAppTab: Hashable {
     case chats
-    case conversations
+    case mmsChat
     case terminal
     case settings
 }
@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var selectedThread: CodexThread?
     @State private var navigationPath = NavigationPath()
     @State private var selectedAppTab: MainAppTab = .chats
+    @State private var terminalPaneSheetRequestID = 0
     @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
     @State private var showSettings = false
     @State private var isShowingManualScanner = false
@@ -367,11 +368,11 @@ struct ContentView: View {
                 }
                 .tag(MainAppTab.chats)
 
-            Color.clear
+            mmsChatPlaceholderBody
                 .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.conversations"), systemImage: "list.bullet.rectangle")
+                    Label(LocalizationManager.shared.localized("tab.mmschat"), systemImage: "icloud")
                 }
-                .tag(MainAppTab.conversations)
+                .tag(MainAppTab.mmsChat)
 
             terminalTabBody
                 .tabItem {
@@ -386,22 +387,11 @@ struct ContentView: View {
                 .tag(MainAppTab.settings)
         }
         .background(Color(.systemBackground))
-        .toolbarBackground(Color(.systemBackground), for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            mainAppBottomBar
+        }
         .onChange(of: selectedAppTab) { previousTab, tab in
-            if tab == .conversations {
-                if previousTab == .terminal {
-                    Task {
-                        await codex.stopAllTerminalStreams()
-                    }
-                }
-                selectedAppTab = .chats
-                Task { @MainActor in
-                    await Task.yield()
-                    setSidebar(open: true)
-                }
-                return
-            }
             if previousTab == .terminal, tab != .terminal {
                 Task {
                     await codex.stopAllTerminalStreams()
@@ -410,6 +400,104 @@ struct ContentView: View {
             guard tab != .chats else { return }
             dismissChatDrawerForTabSwitch()
         }
+    }
+
+    private var mainAppBottomBar: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            HStack(spacing: 2) {
+                bottomTabButton(
+                    tab: .chats,
+                    title: LocalizationManager.shared.localized("tab.chats"),
+                    systemImage: "bubble.left.and.bubble.right.fill"
+                )
+                bottomTabButton(
+                    tab: .mmsChat,
+                    title: LocalizationManager.shared.localized("tab.mmschat"),
+                    systemImage: "icloud"
+                )
+                bottomTabButton(
+                    tab: .terminal,
+                    title: LocalizationManager.shared.localized("tab.terminal"),
+                    systemImage: "terminal.fill"
+                )
+                bottomTabButton(
+                    tab: .settings,
+                    title: LocalizationManager.shared.localized("tab.settings"),
+                    systemImage: "gearshape.fill"
+                )
+            }
+            .padding(6)
+            .frame(maxWidth: .infinity)
+            .adaptiveGlass(.regular, in: Capsule())
+
+            Button {
+                openCurrentSessionsDrawer()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "rectangle.stack.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                    Text(LocalizationManager.shared.localized("tab.sessions"))
+                        .font(AppFont.caption2(weight: .semibold))
+                }
+                .foregroundStyle(sessionsButtonIsEnabled ? Color.accentColor : Color.secondary)
+                .frame(width: 64, height: 58)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(!sessionsButtonIsEnabled)
+            .adaptiveGlass(.regular, in: Capsule())
+            .accessibilityLabel(LocalizationManager.shared.localized("tab.sessions"))
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+    }
+
+    private func bottomTabButton(
+        tab: MainAppTab,
+        title: String,
+        systemImage: String
+    ) -> some View {
+        Button {
+            guard selectedAppTab != tab else { return }
+            HapticFeedback.shared.triggerImpactFeedback(style: .light)
+            selectedAppTab = tab
+        } label: {
+            MainAppBottomBarItem(
+                title: title,
+                systemImage: systemImage,
+                isSelected: selectedAppTab == tab
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    private var sessionsButtonIsEnabled: Bool {
+        selectedAppTab == .chats || selectedAppTab == .terminal
+    }
+
+    private func openCurrentSessionsDrawer() {
+        HapticFeedback.shared.triggerImpactFeedback(style: .light)
+        switch selectedAppTab {
+        case .chats:
+            openChatSessionsSheet()
+        case .terminal:
+            terminalPaneSheetRequestID += 1
+        case .mmsChat, .settings:
+            break
+        }
+    }
+
+    private func openChatSessionsSheet() {
+        dismissActiveKeyboard()
+        withAnimation(Self.sidebarSpring) {
+            isSidebarOpen = false
+            sidebarDragOffset = 0
+        }
+        isChatSidebarSheetPresented = true
+        sidebarGestureAutoCommitted = false
+        resetSidebarGestureDebug()
     }
 
     private var chatAppBody: some View {
@@ -500,9 +588,36 @@ struct ContentView: View {
                 TerminalHubView(onClose: nil)
                     .adaptiveNavigationBar()
             } else {
-                SwiftTerminalHubView()
+                SwiftTerminalHubView(
+                    paneSheetRequestID: terminalPaneSheetRequestID,
+                    showsPaneToolbarButton: false
+                )
                     .adaptiveNavigationBar()
             }
+        }
+    }
+
+    private var mmsChatPlaceholderBody: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                Image(systemName: "icloud")
+                    .font(.system(size: 42, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(LocalizationManager.shared.localized("mmschat.placeholder.title"))
+                    .font(AppFont.title3(weight: .semibold))
+
+                Text(LocalizationManager.shared.localized("mmschat.placeholder.subtitle"))
+                    .font(AppFont.subheadline())
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemBackground))
+            .navigationTitle(LocalizationManager.shared.localized("tab.mmschat"))
+            .navigationBarTitleDisplayMode(.inline)
+            .adaptiveNavigationBar()
         }
     }
 
@@ -551,11 +666,6 @@ struct ContentView: View {
     private var mainContent: some View {
         if isOpeningNewChatFromSidebar {
             NewChatOpeningStateView()
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        hamburgerButton
-                    }
-                }
         } else if let thread = selectedThread {
             TurnView(
                 thread: thread,
@@ -604,11 +714,6 @@ struct ContentView: View {
             } footer: {
                 if codex.hasReconnectCandidate && !codex.isConnected {
                     reconnectFooterAction
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    hamburgerButton
                 }
             }
         }
@@ -1611,6 +1716,35 @@ private struct NewChatOpeningStateView: View {
         .background(Color(.systemBackground))
         .navigationTitle(LocalizationManager.shared.localized("common.new_chat"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MainAppBottomBarItem: View {
+    let title: String
+    let systemImage: String
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.system(size: 22, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+
+            Text(title)
+                .font(AppFont.caption2(weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+        .frame(maxWidth: .infinity)
+        .frame(height: 58)
+        .background {
+            if isSelected {
+                Capsule()
+                    .fill(Color.primary.opacity(0.10))
+            }
+        }
+        .contentShape(Capsule())
     }
 }
 

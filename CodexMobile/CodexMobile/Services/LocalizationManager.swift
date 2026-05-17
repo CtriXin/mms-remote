@@ -164,9 +164,13 @@ enum Strings {
             // Tabs
             "tab.chats": "Codex",
             "tab.conversations": "会话",
+            "tab.mmschat": "MMS",
+            "tab.sessions": "会话",
             "tab.terminal": "终端",
             "tab.swift": "Swift",
             "tab.settings": "设置",
+            "mmschat.placeholder.title": "MMSChat 入口已预留",
+            "mmschat.placeholder.subtitle": "后续 Cloud Chat 接入后会放在这里，目前先保留底部位置。",
 
             // Terminal
             "terminal.new_terminal": "新建终端",
@@ -932,9 +936,13 @@ enum Strings {
             // Tabs
             "tab.chats": "Codex",
             "tab.conversations": "Chats",
+            "tab.mmschat": "MMS",
+            "tab.sessions": "Sessions",
             "tab.terminal": "Terminal",
             "tab.swift": "Swift",
             "tab.settings": "Settings",
+            "mmschat.placeholder.title": "MMSChat slot reserved",
+            "mmschat.placeholder.subtitle": "Cloud Chat will live here after integration; the bottom slot is reserved now.",
 
             // Terminal
             "terminal.new_terminal": "New Terminal",

@@ -12,6 +12,9 @@ struct SwiftTerminalHubView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
 
+    var paneSheetRequestID = 0
+    var showsPaneToolbarButton = true
+
     @AppStorage("swiftTerminal.fontSize") private var fontSize = 12.0
     @AppStorage("swiftTerminal.bracketedPaste") private var bracketedPaste = true
     @AppStorage("swiftTerminal.rendererMode") private var rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
@@ -115,8 +118,10 @@ struct SwiftTerminalHubView: View {
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
         .ignoresSafeArea(edges: .top)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                terminalPaneMenu
+            if showsPaneToolbarButton {
+                ToolbarItem(placement: .topBarLeading) {
+                    terminalPaneMenu
+                }
             }
             ToolbarItem(placement: .principal) {
                 terminalToolbarTitle
@@ -181,6 +186,10 @@ struct SwiftTerminalHubView: View {
                 stopActiveStream(status: "stable")
                 Task { await refreshStableSnapshotIfNeeded() }
             }
+        }
+        .onChange(of: paneSheetRequestID) { _, requestID in
+            guard requestID > 0 else { return }
+            openPanePicker()
         }
         .alert(LocalizationManager.shared.localized("swift_terminal.error_title"), isPresented: errorIsPresented) {
             Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
@@ -329,12 +338,17 @@ struct SwiftTerminalHubView: View {
 
     private var terminalPaneMenu: some View {
         Button {
-            hideTerminalKeyboard()
-            isShowingTerminalPaneSheet = true
+            openPanePicker()
         } label: {
             terminalToolbarIcon("rectangle.stack")
         }
         .disabled(displayedPanes.isEmpty)
+    }
+
+    private func openPanePicker() {
+        guard !displayedPanes.isEmpty else { return }
+        hideTerminalKeyboard()
+        isShowingTerminalPaneSheet = true
     }
 
     private var terminalRendererMenu: some View {
