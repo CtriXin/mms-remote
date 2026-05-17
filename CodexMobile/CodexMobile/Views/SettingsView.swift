@@ -60,7 +60,7 @@ struct SettingsView: View {
                 if showsTerminalSection {
                     SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_terminal"))
                     SettingsTerminalCard()
-                    if scope == .all {
+                    if scope == .all || scope == .terminal {
                         SettingsBridgeVersionCard()
                         SettingsConnectionCard()
                     }

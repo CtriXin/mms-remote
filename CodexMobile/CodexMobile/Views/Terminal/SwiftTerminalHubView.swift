@@ -258,10 +258,7 @@ struct SwiftTerminalHubView: View {
                 onOpenSettings: onOpenSettings.map { openSettings in
                     {
                         isShowingTerminalPaneSheet = false
-                        Task { @MainActor in
-                            try? await Task.sleep(nanoseconds: 140_000_000)
-                            openSettings()
-                        }
+                        openSettings()
                     }
                 }
             )
