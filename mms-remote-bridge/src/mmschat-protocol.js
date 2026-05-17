@@ -53,6 +53,7 @@ const MMSCHAT_ERROR_CODES = Object.freeze({
 
 const MMSCHAT_FEATURES = Object.freeze({
   sendEnabledByDefault: false,
+  liveActionsEnvName: "MMSCHAT_LIVE_ACTIONS",
 });
 
 const MMSCHAT_METHOD_LIST = Object.freeze(Object.values(MMSCHAT_METHODS));
@@ -75,6 +76,7 @@ const MMSCHAT_STATUS_TRANSITIONS = Object.freeze({
   ]),
   [MMSCHAT_STATUS.dead]: Object.freeze([
     MMSCHAT_STATUS.needsResume,
+    MMSCHAT_STATUS.running,
   ]),
   [MMSCHAT_STATUS.needsResume]: Object.freeze([
     MMSCHAT_STATUS.pending,
@@ -169,9 +171,9 @@ function validateMMSChatParams(method, params = {}) {
     case MMSCHAT_METHODS.send:
       return validateSendParams(params);
     case MMSCHAT_METHODS.resume:
-      return requireMMSChatId(params);
+      return validateResumeParams(params);
     case MMSCHAT_METHODS.openVisible:
-      return requireMMSChatId(params);
+      return validateOpenVisibleParams(params);
     case MMSCHAT_METHODS.kill:
       return requireMMSChatId(params);
     case MMSCHAT_METHODS.hide:
@@ -209,9 +211,11 @@ function validateListParams(params) {
 
   return validParams({
     includeHidden: Boolean(params.includeHidden),
+    discoverNative: params.discoverNative !== false,
     status,
     cwd: readString(params.cwd),
     limit: readPositiveInteger(params.limit),
+    nativeLimit: readPositiveInteger(params.nativeLimit),
   });
 }
 
@@ -253,7 +257,34 @@ function validateSendParams(params) {
     ...base.value,
     text,
     clientMessageId: readString(params.clientMessageId),
+    confirmLiveAction: params.confirmLiveAction === true,
     featureFlag: params.featureFlag === true,
+  });
+}
+
+function validateResumeParams(params) {
+  const base = requireMMSChatId(params);
+  if (!base.ok) {
+    return base;
+  }
+
+  return validParams({
+    ...base.value,
+    confirmLiveAction: params.confirmLiveAction === true,
+    launchProfileFingerprint: readString(params.launchProfileFingerprint),
+  });
+}
+
+function validateOpenVisibleParams(params) {
+  const base = requireMMSChatId(params);
+  if (!base.ok) {
+    return base;
+  }
+
+  return validParams({
+    ...base.value,
+    confirmLiveAction: params.confirmLiveAction === true,
+    visibleApp: readString(params.visibleApp),
   });
 }
 

@@ -67,6 +67,24 @@ extension MMSChatDetailResponse {
         } else {
             self.transcript = nil
         }
+        if let liveActionsJSON = obj["liveActions"] {
+            self.liveActions = try MMSChatLiveActionsState(json: liveActionsJSON)
+        } else {
+            self.liveActions = nil
+        }
+    }
+}
+
+extension MMSChatLiveActionsState {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSChatLiveActionsState")
+        }
+        self.enabled = obj["enabled"]?.boolValue ?? false
+        self.envName = obj["envName"]?.stringValue
+        self.requiresConfirmation = obj["requiresConfirmation"]?.boolValue
+        self.guardText = obj["guard"]?.stringValue
+        self.supportedMethods = obj["supportedMethods"]?.arrayValue?.compactMap(\.stringValue)
     }
 }
 
@@ -368,6 +386,7 @@ extension CodexService {
 
     func mmschatOpenVisible(mmschatId: String, visibleApp: String? = nil) async throws -> MMSChatOpenVisibleResponse {
         var params: RPCObject = ["mmschatId": .string(mmschatId)]
+        params["confirmLiveAction"] = .bool(true)
         if let visibleApp { params["visibleApp"] = .string(visibleApp) }
 
         let response = try await sendRequest(
@@ -379,12 +398,11 @@ extension CodexService {
         return try MMSChatOpenVisibleResponse(json: response.result ?? .null)
     }
 
-    // Send is feature-flagged off for P4. Always returns send_disabled until P5/P6.
     func mmschatSend(mmschatId: String, text: String) async throws -> MMSChatSendResponse {
         let params: RPCObject = [
             "mmschatId": .string(mmschatId),
             "text": .string(text),
-            "featureFlag": .bool(false),
+            "confirmLiveAction": .bool(true),
         ]
         let response = try await sendRequest(
             method: "mmschat/send",

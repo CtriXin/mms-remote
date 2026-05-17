@@ -134,6 +134,15 @@ struct MMSChatTranscriptSnapshot: Codable, Hashable, Sendable {
 struct MMSChatDetailResponse: Codable, Hashable, Sendable {
     let session: MMSChatSession
     let transcript: MMSChatTranscriptSnapshot?
+    let liveActions: MMSChatLiveActionsState?
+}
+
+struct MMSChatLiveActionsState: Codable, Hashable, Sendable {
+    let enabled: Bool
+    let envName: String?
+    let requiresConfirmation: Bool?
+    let guardText: String?
+    let supportedMethods: [String]?
 }
 
 struct MMSChatAttachParams: Codable, Hashable, Sendable {
@@ -157,6 +166,7 @@ struct MMSChatSendParams: Codable, Hashable, Sendable {
     let mmschatId: String
     let text: String
     let clientMessageId: String?
+    let confirmLiveAction: Bool?
     let featureFlag: Bool?
 }
 
@@ -169,6 +179,7 @@ struct MMSChatSendResponse: Codable, Hashable, Sendable {
 struct MMSChatResumeParams: Codable, Hashable, Sendable {
     let mmschatId: String
     let launchProfileFingerprint: String?
+    let confirmLiveAction: Bool?
 }
 
 struct MMSChatResumeResponse: Codable, Hashable, Sendable {
@@ -179,6 +190,7 @@ struct MMSChatResumeResponse: Codable, Hashable, Sendable {
 struct MMSChatOpenVisibleParams: Codable, Hashable, Sendable {
     let mmschatId: String
     let visibleApp: String?
+    let confirmLiveAction: Bool?
 }
 
 struct MMSChatOpenVisibleResponse: Codable, Hashable, Sendable {

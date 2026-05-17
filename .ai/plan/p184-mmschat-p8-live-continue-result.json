@@ -1,0 +1,142 @@
+{
+  "schema": "moebius.p184.p8_live_continue_result.v1",
+  "timestamp": "2026-05-17T07:23:52Z",
+  "owner": "sisyphus-omo-p-agent",
+  "cli": "opencode",
+  "model": "gpt-5.5",
+  "task_id": "p184-mmschat-p8-live-continue",
+  "run_id": "p184-mmschat-20260516",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "active_p": "P184",
+  "verdict": "PASS_FINAL_LIVE_MMSCHAT_READY",
+  "decision": "Advance P184 from 98% to 100% for local MMSChat: native Claude sessions are discoverable/readable without list transcript leakage and guarded live send/resume is validated through a disposable local tmux session.",
+  "progress_percent": {
+    "before": 98,
+    "after": 100
+  },
+  "worktree": {
+    "path": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8-live-continue",
+    "branch": "p184/mmschat-p8-live-continue",
+    "base_head": "1060609bdbec11a3300808ff23ba9eb273520a2c"
+  },
+  "implementation": {
+    "native_discovery": [
+      "Added bounded native Claude JSONL discovery under ~/.claude/projects with caps for project count, session count, and bytes scanned per file.",
+      "mmschat/list now syncs discovered native sessions into the registry so detail can open the selected session by mmschatId.",
+      "List results expose only metadata such as projectKey, cwd, title, timestamps, and counts; raw transcript text remains detail-only."
+    ],
+    "detail_read": [
+      "Discovered sessions carry nativeClaudeSessionId and cwd/project metadata so existing native JSONL detail read can resolve by scan fallback and cache derived transcript snapshots locally."
+    ],
+    "guarded_live_actions": [
+      "mmschat/send, mmschat/resume, and mmschat/openVisible require MMSCHAT_LIVE_ACTIONS=1 plus confirmLiveAction=true.",
+      "Default send/resume responses remain disabled when the environment or request confirmation is missing.",
+      "Live actions use injectable adapters for tests and existing tmux/visible-terminal integration for runtime; kill remains explicitly unsupported."
+    ],
+    "ios_ui": [
+      "MMSChat detail decodes backend liveActions state and displays disabled/enabled live-state messaging from localization keys.",
+      "The unconditional send-disabled banner was replaced with backend-driven live guard messaging."
+    ],
+    "version": {
+      "before": "1.7.56",
+      "after": "1.7.57"
+    }
+  },
+  "validation": [
+    {
+      "command": "node --check mms-remote-bridge/src/mmschat-hub.js && node --check mms-remote-bridge/src/mmschat-demo-fixtures.js && node --check mms-remote-bridge/src/mmschat-protocol.js && node --check mms-remote-bridge/src/mms-metadata-hub.js && node --check mms-remote-bridge/src/mmschat-live-actions.js && node --check mms-remote-bridge/src/mmschat-native-discovery.js && node --check mms-remote-bridge/src/mmschat-transcript.js",
+      "status": "PASS"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/mmschat-hub.test.js",
+      "status": "PASS",
+      "evidence": "7/7 tests passed"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/mmschat-demo-fixtures.test.js",
+      "status": "PASS",
+      "evidence": "2/2 tests passed"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/mms-metadata-hub.test.js",
+      "status": "PASS",
+      "evidence": "8/8 tests passed"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/bridge.test.js",
+      "status": "PASS",
+      "evidence": "Command exited 0; bridge MMSChat routing tests passed"
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p8-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "status": "PASS",
+      "evidence": "BUILD SUCCEEDED"
+    },
+    {
+      "command": "git diff --check",
+      "status": "PASS"
+    }
+  ],
+  "live_validation": {
+    "native_discovery_read_only": {
+      "status": "PASS",
+      "count": 5,
+      "raw_transcript_in_artifact": false,
+      "sample_metadata_only": [
+        {
+          "nativeIdShort": "8ee0220a-7c2",
+          "projectKey": "-Users-xin-auto-skills-CtriXin-repo-agent-soul",
+          "cwd": "/Users/xin/auto-skills/CtriXin-repo/agent-soul",
+          "title": "agent-soul (8ee0220a)",
+          "messageCount": "121",
+          "recordsScanned": "216"
+        },
+        {
+          "nativeIdShort": "8a0a53ec-a82",
+          "projectKey": "-Users-xin-auto-skills-CtriXin-repo-ant",
+          "cwd": "/Users/xin/auto-skills/CtriXin-repo/ant",
+          "title": "ant (8a0a53ec)",
+          "messageCount": "124",
+          "recordsScanned": "228"
+        }
+      ]
+    },
+    "guarded_live_continue": {
+      "status": "PASS",
+      "method": "mmschat/resume + mmschat/send against disposable tmux cat session",
+      "guard": "MMSCHAT_LIVE_ACTIONS=1 + confirmLiveAction=true",
+      "resumeStarted": false,
+      "sendAccepted": true,
+      "finalStatus": "running",
+      "realProviderCall": false,
+      "realUserClaudeSessionModified": false,
+      "notes": "A disposable tmux session validated the guarded live action path without provider/model cost or mutation of real native Claude sessions."
+    }
+  },
+  "changed_files": [
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+    "CodexMobile/CodexMobile/Models/MMSChatModels.swift",
+    "CodexMobile/CodexMobile/Services/CodexService+MMSChat.swift",
+    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
+    "mms-remote-bridge/package-lock.json",
+    "mms-remote-bridge/package.json",
+    "mms-remote-bridge/src/mmschat-hub.js",
+    "mms-remote-bridge/src/mmschat-live-actions.js",
+    "mms-remote-bridge/src/mmschat-native-discovery.js",
+    "mms-remote-bridge/src/mmschat-protocol.js",
+    "mms-remote-bridge/test/mmschat-hub.test.js"
+  ],
+  "humangate": {
+    "used_scope": "local MMSChat live validation only",
+    "still_blocked": [
+      "deploy",
+      "push",
+      "global config mutation",
+      "dependency add",
+      "destructive cleanup",
+      "native Claude history deletion",
+      "phone install"
+    ]
+  }
+}

@@ -30,7 +30,7 @@ struct MMSChatDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 sessionHeader
                 transcriptSection
-                sendDisabledBanner
+                liveActionsBanner
             }
             .padding(16)
         }
@@ -271,20 +271,24 @@ struct MMSChatDetailView: View {
         }
     }
 
-    // MARK: - Send (Disabled)
+    // MARK: - Live Actions
 
-    private var sendDisabledBanner: some View {
+    private var liveActionsBanner: some View {
         HStack {
-            Image(systemName: "lock.fill")
-                .foregroundStyle(.secondary)
-            Text(LocalizationManager.shared.localized("mmschat.send_disabled"))
+            Image(systemName: liveActionsEnabled ? "bolt.circle.fill" : "lock.fill")
+                .foregroundStyle(liveActionsEnabled ? .green : .secondary)
+            Text(LocalizationManager.shared.localized(liveActionsEnabled ? "mmschat.live_enabled" : "mmschat.live_guard_disabled"))
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(liveActionsEnabled ? .green : .secondary)
             Spacer()
         }
         .padding(10)
         .background(Color(.tertiarySystemFill))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var liveActionsEnabled: Bool {
+        detailResponse?.liveActions?.enabled == true
     }
 
     // MARK: - Helpers

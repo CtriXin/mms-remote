@@ -115,6 +115,34 @@ test("mmschat hub detail reads synthetic native transcript, writes cache, and re
   });
 });
 
+test("mmschat hub discovers recent native Claude sessions without leaking transcript text in list", async () => {
+  await withHubFixture(async ({ claudeHome, hub }) => {
+    const nativeClaudeSessionId = "discover-session-123";
+    writeSyntheticNativeTranscript({
+      claudeHome,
+      cwd: "/tmp/discover-project",
+      nativeClaudeSessionId,
+      text: "secret transcript text must stay out of list",
+    });
+
+    const listed = await hub.handleMethod(MMSCHAT_METHODS.list, { nativeLimit: 10 });
+    const discovered = listed.sessions.find((session) => session.nativeClaudeSessionId === nativeClaudeSessionId);
+
+    assert.equal(listed.source, "registry+native-claude");
+    assert.equal(discovered.nativeClaudeSessionStatus, MMSCHAT_NATIVE_SESSION_STATUS.confirmed);
+    assert.equal(discovered.status, MMSCHAT_STATUS.needsResume);
+    assert.equal(discovered.lastPreviewText, null);
+    assert.equal(discovered.metadata.source, "native-claude-discovery");
+    assert.equal(JSON.stringify(listed).includes("secret transcript text"), false);
+
+    const detail = await hub.handleMethod(MMSCHAT_METHODS.detail, {
+      mmschatId: discovered.mmschatId,
+    });
+    assert.equal(detail.transcript.source, "native-jsonl");
+    assert.equal(detail.transcript.messages[0].content[0].text, "secret transcript text must stay out of list");
+  });
+});
+
 test("mmschat hub cache clear removes only derived cache and preserves native transcript", async () => {
   await withHubFixture(async ({ claudeHome, env, hub, registry }) => {
     const cwd = "/tmp/cache-clear-project";
@@ -160,7 +188,7 @@ test("mmschat hub cache clear removes only derived cache and preserves native tr
   });
 });
 
-test("mmschat hub disables send and rejects live resume actions", async () => {
+test("mmschat hub disables send and resume without live opt-in", async () => {
   await withHubFixture(async ({ hub, registry }) => {
     const session = registry.register({
       cwd: "/tmp/live-action-project",
@@ -171,18 +199,80 @@ test("mmschat hub disables send and rejects live resume actions", async () => {
     const sendResult = await hub.handleMethod(MMSCHAT_METHODS.send, {
       mmschatId: session.mmschatId,
       text: "hello",
+      confirmLiveAction: true,
+    });
+    const resumeResult = await hub.handleMethod(MMSCHAT_METHODS.resume, {
+      mmschatId: session.mmschatId,
+      confirmLiveAction: true,
     });
 
     assert.equal(sendResult.accepted, false);
     assert.equal(sendResult.disabled, true);
     assert.equal(sendResult.errorCode, MMSCHAT_ERROR_CODES.sendDisabled);
+    assert.equal(resumeResult.resumeStarted, false);
+    assert.equal(resumeResult.disabled, true);
+    assert.equal(resumeResult.errorCode, MMSCHAT_ERROR_CODES.sendDisabled);
 
-    for (const method of [MMSCHAT_METHODS.resume, MMSCHAT_METHODS.openVisible, MMSCHAT_METHODS.kill]) {
+    for (const method of [MMSCHAT_METHODS.kill]) {
       await assert.rejects(
         hub.handleMethod(method, { mmschatId: session.mmschatId }),
         (error) => error?.errorCode === MMSCHAT_ERROR_CODES.unsupportedMethod
       );
     }
+  });
+});
+
+test("mmschat hub runs send and resume through injected live runner with opt-in", async () => {
+  const calls = [];
+  const liveActionRunner = {
+    async resume(session) {
+      calls.push({ action: "resume", session });
+      return {
+        processAlive: true,
+        resumeStarted: true,
+        tmuxPaneId: "%31",
+        tmuxSessionName: "mmschat-live",
+      };
+    },
+    async send(session, params) {
+      calls.push({ action: "send", session, text: params.text });
+      return {
+        processAlive: true,
+        sent: true,
+        tmuxPaneId: "%31",
+        tmuxSessionName: "mmschat-live",
+      };
+    },
+  };
+
+  await withHubFixture(async ({ hub, registry }) => {
+    const session = registry.register({
+      cwd: "/tmp/live-action-project",
+      mmschatId: "mmschat_live_opt_in",
+      nativeClaudeSessionId: "live-native-1",
+      status: MMSCHAT_STATUS.needsResume,
+    });
+
+    const resumed = await hub.handleMethod(MMSCHAT_METHODS.resume, {
+      mmschatId: session.mmschatId,
+      confirmLiveAction: true,
+    });
+    const sent = await hub.handleMethod(MMSCHAT_METHODS.send, {
+      mmschatId: session.mmschatId,
+      text: "hello live",
+      confirmLiveAction: true,
+    });
+
+    assert.equal(resumed.disabled, false);
+    assert.equal(resumed.resumeStarted, true);
+    assert.equal(resumed.session.status, MMSCHAT_STATUS.running);
+    assert.equal(sent.accepted, true);
+    assert.equal(sent.sent, true);
+    assert.equal(sent.session.tmuxPaneId, "%31");
+    assert.deepEqual(calls.map((call) => call.action), ["resume", "send"]);
+  }, {
+    env: { MMSCHAT_LIVE_ACTIONS: "1" },
+    liveActionRunner,
   });
 });
 
@@ -218,7 +308,7 @@ test("mmschat request dispatcher returns JSON-RPC errors for invalid safe-method
   });
 });
 
-function withHubFixture(run) {
+function withHubFixture(run, hubOptions = {}) {
   return withTempRoot(async (rootDir) => {
     const stateDir = path.join(rootDir, "state");
     const claudeHome = path.join(rootDir, ".claude");
@@ -250,7 +340,9 @@ function withHubFixture(run) {
       registry,
     });
     const hub = createMMSChatHub({
+      env: hubOptions.env || env,
       launcher,
+      liveActionRunner: hubOptions.liveActionRunner,
       registry,
       transcriptOptions: {
         claudeHome,
@@ -262,7 +354,7 @@ function withHubFixture(run) {
   });
 }
 
-function writeSyntheticNativeTranscript({ claudeHome, cwd, nativeClaudeSessionId }) {
+function writeSyntheticNativeTranscript({ claudeHome, cwd, nativeClaudeSessionId, text = "hello from fixture" }) {
   const projectKey = buildClaudeProjectKey(cwd);
   const nativePath = path.join(
     claudeHome,
@@ -273,7 +365,7 @@ function writeSyntheticNativeTranscript({ claudeHome, cwd, nativeClaudeSessionId
   const records = [
     {
       message: {
-        content: [{ type: "text", text: "hello from fixture" }],
+        content: [{ type: "text", text }],
         role: "assistant",
       },
       sessionId: nativeClaudeSessionId,

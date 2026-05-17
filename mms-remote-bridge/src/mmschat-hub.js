@@ -1,12 +1,19 @@
 // FILE: mmschat-hub.js
-// Purpose: Handles safe bridge-side MMSChat JSON-RPC without live sends, resume, or process mutation.
+// Purpose: Handles safe bridge-side MMSChat JSON-RPC with guarded live actions.
 // Layer: Service coordinator
 // Exports: MMSChat hub factory plus JSON-RPC request helpers.
-// Depends on: fs, ./mmschat-launcher, ./mmschat-registry, ./mmschat-profile, ./mmschat-protocol, ./mmschat-transcript
+// Depends on: fs, ./mmschat-launcher, ./mmschat-live-actions, ./mmschat-registry, ./mmschat-profile, ./mmschat-protocol, ./mmschat-transcript
 
 const fs = require("fs");
 const { seedMMSChatDemoFixtures } = require("./mmschat-demo-fixtures");
 const { createMMSChatLauncher } = require("./mmschat-launcher");
+const {
+  buildLiveActionDisabledResult,
+  buildLiveActionsState,
+  createMMSChatLiveActionRunner,
+  isLiveActionAuthorized,
+} = require("./mmschat-live-actions");
+const { discoverNativeClaudeSessions } = require("./mmschat-native-discovery");
 const { createMMSChatRegistry } = require("./mmschat-registry");
 const {
   compareMMSChatProfiles,
@@ -15,8 +22,9 @@ const {
 const {
   MMSCHAT_ERROR_CODES,
   MMSCHAT_METHODS,
+  MMSCHAT_NATIVE_SESSION_STATUS,
+  MMSCHAT_STATUS,
   MMSCHAT_TRANSCRIPT_CACHE_STATE,
-  buildSendDisabledResult,
   createMMSChatError,
   normalizeMMSChatRequest,
   validateMMSChatParams,
@@ -35,7 +43,10 @@ function createMMSChatHub(options = {}) {
     ...(options.launcherOptions || {}),
   });
   const fsImpl = options.fsImpl || fs;
+  const env = options.env || process.env;
+  const liveActionRunner = options.liveActionRunner || createMMSChatLiveActionRunner(options.liveActions || options);
   const transcriptOptions = options.transcriptOptions || {};
+  const discoverNativeSessions = options.discoverNativeSessions || discoverNativeClaudeSessions;
   const readTranscriptCache = options.readTranscriptCache || readMMSChatTranscriptCache;
   const readTranscriptSnapshot = options.readTranscriptSnapshot || readNativeClaudeTranscriptSnapshot;
   const writeTranscriptCache = options.writeTranscriptCache || writeMMSChatTranscriptCache;
@@ -52,14 +63,19 @@ function createMMSChatHub(options = {}) {
       }
 
       switch (method) {
-        case MMSCHAT_METHODS.list:
+        case MMSCHAT_METHODS.list: {
+          const nativeDiscovery = syncDiscoveredNativeSessions({ discoverNativeSessions, registry, transcriptOptions }, validated.value);
           return {
             sessions: registry.list(validated.value),
-            source: "registry",
+            liveActions: buildLiveActionsState(env),
+            nativeDiscovery,
+            source: nativeDiscovery.registered > 0 ? "registry+native-claude" : "registry",
             sortedBy: "lastActivityAt",
           };
+        }
         case MMSCHAT_METHODS.detail:
           return readSessionDetail({
+            env,
             readTranscriptCache,
             readTranscriptSnapshot,
             registry,
@@ -80,13 +96,15 @@ function createMMSChatHub(options = {}) {
         case MMSCHAT_METHODS.demoSeed:
           return seedDemoFixtures({ registry, transcriptOptions, writeTranscriptCache }, validated.value);
         case MMSCHAT_METHODS.send:
-          return buildSendDisabledResult();
+          return sendSession({ env, liveActionRunner, registry }, validated.value);
         case MMSCHAT_METHODS.resume:
+          return resumeSession({ env, liveActionRunner, registry }, validated.value);
         case MMSCHAT_METHODS.openVisible:
+          return openVisibleSession({ env, liveActionRunner, registry }, validated.value);
         case MMSCHAT_METHODS.kill:
           throw createMMSChatError(
             MMSCHAT_ERROR_CODES.unsupportedMethod,
-            `MMSChat live action is disabled in the safe backend slice: ${method}`
+            `MMSChat live action remains unsupported: ${method}`
           );
         default:
           throw createMMSChatError(
@@ -102,7 +120,7 @@ function readSessionDetail(deps, params) {
   const session = getSessionOrThrow(deps.registry, params.mmschatId);
   const cachedTranscript = deps.readTranscriptCache(buildTranscriptCacheOptions(session, deps.transcriptOptions))?.transcript || null;
   if (cachedTranscript) {
-    return buildDetailResult(syncSessionTranscriptState(deps.registry, session, cachedTranscript), cachedTranscript);
+    return buildDetailResult(syncSessionTranscriptState(deps.registry, session, cachedTranscript), cachedTranscript, deps.env);
   }
 
   const transcript = deps.readTranscriptSnapshot({
@@ -117,7 +135,7 @@ function readSessionDetail(deps, params) {
     deps.writeTranscriptCache(transcript, buildTranscriptCacheOptions(session, deps.transcriptOptions));
   }
 
-  return buildDetailResult(syncSessionTranscriptState(deps.registry, session, transcript), transcript);
+  return buildDetailResult(syncSessionTranscriptState(deps.registry, session, transcript), transcript, deps.env);
 }
 
 function attachSession(deps, params) {
@@ -148,10 +166,129 @@ function clearSessionCache({ fsImpl, registry, transcriptOptions }, params) {
   };
 }
 
-function buildDetailResult(session, transcript) {
+function syncDiscoveredNativeSessions(deps, params) {
+  if (params.discoverNative === false) {
+    return { discovered: 0, registered: 0 };
+  }
+
+  let discovered = [];
+  try {
+    discovered = deps.discoverNativeSessions({
+      ...deps.transcriptOptions,
+      maxSessions: params.nativeLimit || params.limit,
+    });
+  } catch {
+    return { discovered: 0, registered: 0 };
+  }
+
+  let registered = 0;
+  for (const session of discovered) {
+    deps.registry.register(session);
+    registered += 1;
+  }
+
+  return { discovered: discovered.length, registered };
+}
+
+async function sendSession(deps, params) {
+  const session = getSessionOrThrow(deps.registry, params.mmschatId);
+  if (!isLiveActionAuthorized(params, deps.env)) {
+    return {
+      ...buildLiveActionDisabledResult("send", deps.env),
+      session,
+    };
+  }
+
+  try {
+    const result = await deps.liveActionRunner.send(session, params);
+    const updated = deps.registry.applyLiveness(session.mmschatId, {
+      hasActivity: true,
+      markTranscriptStale: true,
+      nativeClaudeSessionStatus: MMSCHAT_NATIVE_SESSION_STATUS.confirmed,
+      processAlive: result.processAlive === true,
+      tmuxPaneId: result.tmuxPaneId,
+      tmuxSessionName: result.tmuxSessionName,
+    });
+    return {
+      accepted: true,
+      disabled: false,
+      sent: true,
+      session: updated,
+      liveActions: buildLiveActionsState(deps.env),
+    };
+  } catch (error) {
+    throw createMMSChatError(
+      error?.errorCode || MMSCHAT_ERROR_CODES.resumeFailed,
+      error?.message || "MMSChat send failed."
+    );
+  }
+}
+
+async function resumeSession(deps, params) {
+  const session = getSessionOrThrow(deps.registry, params.mmschatId);
+  if (!isLiveActionAuthorized(params, deps.env)) {
+    return {
+      ...buildLiveActionDisabledResult("resume", deps.env),
+      resumeStarted: false,
+      session,
+    };
+  }
+
+  try {
+    const result = await deps.liveActionRunner.resume(session, params);
+    const updated = deps.registry.applyLiveness(session.mmschatId, {
+      hasActivity: result.resumeStarted === true,
+      nativeClaudeSessionStatus: MMSCHAT_NATIVE_SESSION_STATUS.confirmed,
+      processAlive: result.processAlive === true,
+      status: MMSCHAT_STATUS.running,
+      tmuxPaneId: result.tmuxPaneId,
+      tmuxSessionName: result.tmuxSessionName,
+    });
+    return {
+      disabled: false,
+      resumeStarted: result.resumeStarted === true,
+      session: updated,
+      liveActions: buildLiveActionsState(deps.env),
+    };
+  } catch (error) {
+    throw createMMSChatError(
+      error?.errorCode || MMSCHAT_ERROR_CODES.resumeFailed,
+      error?.message || "MMSChat resume failed."
+    );
+  }
+}
+
+async function openVisibleSession(deps, params) {
+  const session = getSessionOrThrow(deps.registry, params.mmschatId);
+  if (!isLiveActionAuthorized(params, deps.env)) {
+    return {
+      ...buildLiveActionDisabledResult("openVisible", deps.env),
+      opened: false,
+      session,
+    };
+  }
+
+  try {
+    const result = await deps.liveActionRunner.openVisible(session, params);
+    return {
+      disabled: false,
+      opened: result.opened === true,
+      visibleApp: result.visibleApp || null,
+      liveActions: buildLiveActionsState(deps.env),
+    };
+  } catch (error) {
+    throw createMMSChatError(
+      error?.errorCode || MMSCHAT_ERROR_CODES.unsupportedMethod,
+      error?.message || "MMSChat open visible failed."
+    );
+  }
+}
+
+function buildDetailResult(session, transcript, env) {
   return {
     session,
     transcript,
+    liveActions: buildLiveActionsState(env),
     profileSummary: summarizeMMSChatProfile(session),
   };
 }
