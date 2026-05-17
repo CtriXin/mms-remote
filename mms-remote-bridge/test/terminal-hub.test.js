@@ -222,16 +222,19 @@ test("tmux adapter can capture the full pane history", async () => {
   const result = await adapter.capturePane({
     target: "%1",
     start: "-",
+    end: "-",
     preserveAnsi: true,
     joinWrapped: false,
   });
 
   assert.equal(result.content, "full history");
-  assert.deepEqual(calls[0].args, ["capture-pane", "-t", "%1", "-p", "-S", "-", "-e"]);
+  assert.deepEqual(calls[0].args, ["capture-pane", "-t", "%1", "-p", "-S", "-", "-E", "-", "-e"]);
 });
 
 test("terminal hub forwards full-history snapshot requests", async () => {
   const captureStarts = [];
+  const captureEnds = [];
+  const captureBuffers = [];
   const hub = createTerminalHub({
     adapter: {
       async version() {
@@ -242,15 +245,19 @@ test("terminal hub forwards full-history snapshot requests", async () => {
       },
       async capturePane(params) {
         captureStarts.push(params.start);
+        captureEnds.push(params.end);
+        captureBuffers.push(params.maxBuffer);
         return { paneId: params.target, content: "full pane", capturedAt: "now" };
       },
     },
   });
 
-  const result = await hub.snapshot({ paneId: "%1", historyStart: "-" });
+  const result = await hub.snapshot({ paneId: "%1", start: "-", end: "-", maxBuffer: 16 });
 
   assert.equal(result.content, "full pane");
   assert.deepEqual(captureStarts, ["-"]);
+  assert.deepEqual(captureEnds, ["-"]);
+  assert.deepEqual(captureBuffers, [16]);
 });
 
 test("terminal hub lists newest panes first", async () => {

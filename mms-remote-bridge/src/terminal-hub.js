@@ -214,8 +214,10 @@ function createTerminalHub(options = {}) {
       target,
       viewportOnly,
       start: captureStart(params, viewportOnly),
+      end: captureEnd(params, viewportOnly),
       preserveAnsi: Boolean(params.preserveAnsi),
       joinWrapped: params.joinWrapped !== false,
+      maxBuffer: Number.isInteger(params.maxBuffer) ? params.maxBuffer : undefined,
     });
   }
 
@@ -233,6 +235,19 @@ function createTerminalHub(options = {}) {
       return params.start;
     }
     return -2000;
+  }
+
+  function captureEnd(params = {}, viewportOnly = false) {
+    if (viewportOnly) {
+      return undefined;
+    }
+    if (params.end === "-") {
+      return "-";
+    }
+    if (Number.isInteger(params.end)) {
+      return params.end;
+    }
+    return undefined;
   }
 
   async function openVisibleTerminalForCreatedPane({ created, terminalList, createdPane, visibleApp }) {

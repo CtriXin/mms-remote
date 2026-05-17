@@ -234,7 +234,7 @@ function createTmuxAdapter(options = {}) {
       const start = params.start === "-" ? "-" : (Number.isInteger(params.start) ? params.start : -DEFAULT_HISTORY_LINES);
       args.push("-S", String(start));
     }
-    if (Number.isInteger(params.end)) {
+    if (params.end === "-" || Number.isInteger(params.end)) {
       args.push("-E", String(params.end));
     }
     if (params.preserveAnsi) {

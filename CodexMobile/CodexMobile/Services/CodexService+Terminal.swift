@@ -96,7 +96,10 @@ extension CodexService {
             params["viewportOnly"] = .bool(true)
         }
         if fullHistory {
+            params["start"] = .string("-")
+            params["end"] = .string("-")
             params["historyStart"] = .string("-")
+            params["maxBuffer"] = .integer(16 * 1024 * 1024)
         }
 
         let response = try await sendRequest(
@@ -253,7 +256,8 @@ extension CodexService {
         cols: Int? = nil,
         rows: Int? = nil,
         replay: Bool = true,
-        replayViewportOnly: Bool = false
+        replayViewportOnly: Bool = false,
+        replayFullHistory: Bool = false
     ) async throws -> TerminalStreamStartResponse {
         let targetPaneId = try resolveTerminalPaneId(paneId)
         var params: RPCObject = [
@@ -261,6 +265,12 @@ extension CodexService {
             "replay": .bool(replay),
         ]
         if replayViewportOnly { params["replayViewportOnly"] = .bool(true) }
+        if replayFullHistory {
+            params["start"] = .string("-")
+            params["end"] = .string("-")
+            params["historyStart"] = .string("-")
+            params["maxBuffer"] = .integer(16 * 1024 * 1024)
+        }
         if let cols { params["cols"] = .integer(cols) }
         if let rows { params["rows"] = .integer(rows) }
 

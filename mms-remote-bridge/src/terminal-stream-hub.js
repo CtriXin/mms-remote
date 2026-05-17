@@ -45,6 +45,9 @@ function createTerminalStreamHub(options = {}) {
       replayBuffer: [],
       replayMirrorText: "",
       replayViewportOnly: params.replayViewportOnly === true,
+      replayStart: replayStart(params),
+      replayEnd: replayEnd(params),
+      replayMaxBuffer: replayMaxBuffer(params),
     };
     streams.set(streamId, state);
     streamsByPaneId.set(paneId, streamId);
@@ -121,7 +124,9 @@ function createTerminalStreamHub(options = {}) {
         preserveAnsi: true,
         joinWrapped: false,
         viewportOnly: params.viewportOnly === true || state.replayViewportOnly === true,
-        start: Number.isInteger(params.start) ? params.start : undefined,
+        start: replayStart(params, state.replayStart),
+        end: replayEnd(params, state.replayEnd),
+        maxBuffer: replayMaxBuffer(params, state.replayMaxBuffer),
       });
       const content = normalizeTerminalOutputBuffer(Buffer.from(`${capture.content || ""}\r\n`, "utf8"));
       state.replayMirrorText = normalizeReplayMirrorText(content);
@@ -278,6 +283,33 @@ function notificationSender(sendNotification) {
     return sendNotification;
   }
   return () => {};
+}
+
+function replayStart(params = {}, fallback) {
+  if (params.historyStart === "-" || params.start === "-") {
+    return "-";
+  }
+  if (Number.isInteger(params.historyStart)) {
+    return params.historyStart;
+  }
+  if (Number.isInteger(params.start)) {
+    return params.start;
+  }
+  return fallback;
+}
+
+function replayEnd(params = {}, fallback) {
+  if (params.end === "-") {
+    return "-";
+  }
+  if (Number.isInteger(params.end)) {
+    return params.end;
+  }
+  return fallback;
+}
+
+function replayMaxBuffer(params = {}, fallback) {
+  return Number.isInteger(params.maxBuffer) ? params.maxBuffer : fallback;
 }
 
 function dropReplayMirroredPrefix(buffers, replayMirrorText) {

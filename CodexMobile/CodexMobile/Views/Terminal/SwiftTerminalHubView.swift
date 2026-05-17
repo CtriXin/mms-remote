@@ -122,10 +122,15 @@ struct SwiftTerminalHubView: View {
             Divider().overlay(swiftTerminalBorder)
             keyBar
         }
+        .background(alignment: .top) {
+            terminalNavigationBleed
+        }
+        .overlay(alignment: .top) {
+            terminalNavigationGlassOverlay
+        }
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -410,6 +415,68 @@ struct SwiftTerminalHubView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var terminalNavigationBleed: some View {
+        ZStack(alignment: .bottomLeading) {
+            swiftTerminalBackground
+            LinearGradient(
+                colors: [
+                    theme.terminalAccent.opacity(theme.isDark ? 0.22 : 0.12),
+                    swiftTerminalBackground.opacity(0.92),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(terminalBackdropPreviewLines.enumerated()), id: \.offset) { _, line in
+                    Text(line.isEmpty ? " " : line)
+                        .font(AppFont.terminalMono(.caption2))
+                        .foregroundStyle(theme.terminalText.opacity(0.34))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
+            .blur(radius: 0.4)
+        }
+        .frame(height: 112)
+        .frame(maxWidth: .infinity)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
+    }
+
+    private var terminalNavigationGlassOverlay: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    LinearGradient(
+                        colors: [
+                            theme.terminalAccent.opacity(theme.isDark ? 0.12 : 0.08),
+                            Color.clear,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(height: 96)
+
+            LinearGradient(
+                colors: [
+                    theme.terminalSurface.opacity(theme.isDark ? 0.42 : 0.28),
+                    Color.clear,
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 24)
+        }
+        .frame(maxWidth: .infinity)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
+    }
+
     private var stableSnapshotView: some View {
         GeometryReader { geometry in
             StableTerminalSnapshotTextView(
@@ -668,6 +735,17 @@ struct SwiftTerminalHubView: View {
             from: currentSnapshotText,
             defaultForeground: theme.terminalText
         )
+    }
+
+    private var terminalBackdropPreviewLines: [String] {
+        let lines = currentSnapshotDisplayText
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .suffix(6)
+            .map(String.init)
+        if lines.isEmpty {
+            return [paneTitleForHeader, terminalHeaderDetailText]
+        }
+        return Array(lines)
     }
 
     private var paneTitleForHeader: String {
@@ -1036,7 +1114,7 @@ struct SwiftTerminalHubView: View {
                     cols: size.cols,
                     rows: size.rows,
                     replay: true,
-                    replayViewportOnly: true
+                    replayFullHistory: true
                 )
                 guard !Task.isCancelled, token == streamLifecycleToken else {
                     try? await codex.stopTerminalStream(streamId: response.streamId)

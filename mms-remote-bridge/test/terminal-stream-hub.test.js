@@ -228,6 +228,39 @@ test("terminal stream hub can replay only the visible viewport", async () => {
   assert.equal(captureOptions[0].joinWrapped, false);
 });
 
+test("terminal stream hub forwards full-history replay options", async () => {
+  const captureOptions = [];
+  const hub = createTerminalStreamHub({
+    protocol: createTerminalStreamProtocol({ now: () => "now", uuid: () => "full-history" }),
+    controlAdapter: {
+      startOutputStream() {
+        return { stop() {} };
+      },
+    },
+    async capturePane(pane, options) {
+      captureOptions.push(options);
+      return { content: "full history", capturedAt: "capture-time" };
+    },
+    heartbeatMs: 60_000,
+  });
+
+  await hub.start({
+    pane: { paneId: "%13", sessionName: "dev" },
+    paneId: "%13",
+    start: "-",
+    end: "-",
+    maxBuffer: 16,
+  }, {
+    sendNotification() {},
+  });
+
+  assert.equal(captureOptions[0].viewportOnly, false);
+  assert.equal(captureOptions[0].start, "-");
+  assert.equal(captureOptions[0].end, "-");
+  assert.equal(captureOptions[0].maxBuffer, 16);
+  assert.equal(captureOptions[0].joinWrapped, false);
+});
+
 test("terminal stream hub stopAll releases active streams without notifications", async () => {
   const stopped = [];
   const notifications = [];
