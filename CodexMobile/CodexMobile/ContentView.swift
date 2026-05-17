@@ -1599,6 +1599,8 @@ private struct NewChatOpeningStateView: View {
 }
 
 struct TopSessionsDrawerChrome<Content: View>: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     let accent: Color
     let onClose: () -> Void
     let content: Content
@@ -1618,7 +1620,8 @@ struct TopSessionsDrawerChrome<Content: View>: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let maxDrawerHeight = max(320, proxy.size.height - proxy.safeAreaInsets.top - 14)
+            let topClearance = topDrawerClearance(proxySafeTop: proxy.safeAreaInsets.top)
+            let maxDrawerHeight = max(320, proxy.size.height - topClearance - 14)
             let compactHeight = min(max(proxy.size.height * 0.52, 360), maxDrawerHeight * 0.72)
             let expandedHeight = min(max(compactHeight, proxy.size.height * 0.86), maxDrawerHeight)
             let baseHeight = isExpanded ? expandedHeight : compactHeight
@@ -1645,14 +1648,27 @@ struct TopSessionsDrawerChrome<Content: View>: View {
                         .stroke(Color.white.opacity(0.18), lineWidth: 1)
                 )
                 .shadow(color: Color.black.opacity(0.22), radius: 28, x: 0, y: 16)
-                .padding(.top, proxy.safeAreaInsets.top + 6)
+                .padding(.top, topClearance)
                 .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isExpanded)
                 .animation(.spring(response: 0.34, dampingFraction: 0.86), value: dragHeightDelta == 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .ignoresSafeArea(edges: .top)
         .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private func topDrawerClearance(proxySafeTop: CGFloat) -> CGFloat {
+        let minimumTopInset: CGFloat = horizontalSizeClass == .compact ? 54 : 24
+        let navigationBarAllowance: CGFloat = horizontalSizeClass == .compact ? 52 : 46
+        return max(proxySafeTop, keyWindowTopSafeArea, minimumTopInset) + navigationBarAllowance
+    }
+
+    private var keyWindowTopSafeArea: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: { $0.isKeyWindow })?
+            .safeAreaInsets.top ?? 0
     }
 
     private var drawerGrabber: some View {
