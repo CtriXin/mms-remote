@@ -327,6 +327,11 @@ extension SwiftTerminalCanvasView {
         private func blur(_ terminalView: TerminalView) {
             DispatchQueue.main.async {
                 _ = terminalView.resignFirstResponder()
+                terminalView.window?.endEditing(true)
+                DispatchQueue.main.async {
+                    _ = terminalView.resignFirstResponder()
+                    terminalView.window?.endEditing(true)
+                }
             }
         }
 

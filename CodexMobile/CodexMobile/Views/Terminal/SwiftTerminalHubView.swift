@@ -1527,16 +1527,35 @@ struct SwiftTerminalHubView: View {
     }
 
     private func hideTerminalKeyboard() {
+        isCommandFieldFocused = false
         if isSwiftTermRendererActive {
             blurRequestID += 1
-        } else {
-            isCommandFieldFocused = false
         }
         dismissActiveKeyboard()
     }
 
     private func dismissActiveKeyboard() {
+        resignKeyboardResponders()
+        DispatchQueue.main.async {
+            resignKeyboardResponders()
+        }
+    }
+
+    private func resignKeyboardResponders() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        activeKeyboardWindows().forEach { window in
+            window.endEditing(true)
+            window.rootViewController?.view.endEditing(true)
+        }
+    }
+
+    private func activeKeyboardWindows() -> [UIWindow] {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let foregroundScenes = scenes.filter { scene in
+            scene.activationState == .foregroundActive || scene.activationState == .foregroundInactive
+        }
+        let candidateScenes = foregroundScenes.isEmpty ? scenes : foregroundScenes
+        return candidateScenes.flatMap { $0.windows }
     }
 
     private func suppressKeyboardForChordComposer() {
