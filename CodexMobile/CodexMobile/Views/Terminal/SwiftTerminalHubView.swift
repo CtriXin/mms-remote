@@ -1118,6 +1118,9 @@ struct SwiftTerminalHubView: View {
                     }
                 }
                 try Task.checkCancellation()
+                statusLine = "resizing"
+                try await codex.resizeTerminalPane(paneId: target, cols: size.cols, rows: size.rows)
+                try Task.checkCancellation()
                 statusLine = "connecting"
                 let response = try await codex.startTerminalStream(
                     paneId: target,
@@ -1648,6 +1651,10 @@ struct SwiftTerminalHubView: View {
         }
         latestSize = (cols, rows)
         guard let target = selectedPaneTarget else { return }
+        if isSwiftTermRendererActive, streamId == nil, codex.isConnected, scenePhase == .active {
+            startStream()
+            return
+        }
         let streamIdAtResize = streamId
         Task {
             do {
@@ -1656,9 +1663,6 @@ struct SwiftTerminalHubView: View {
             } catch {
                 localErrorMessage = error.localizedDescription
             }
-        }
-        if isSwiftTermRendererActive, streamId == nil, !isStartingStream, codex.isConnected, scenePhase == .active {
-            startStream()
         }
     }
 
