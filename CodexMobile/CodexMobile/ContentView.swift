@@ -539,7 +539,10 @@ struct ContentView: View {
         } else if let thread = selectedThread {
             TurnView(
                 thread: thread,
-                isWakingMacDisplayRecovery: isWakingSavedMacDisplay
+                isWakingMacDisplayRecovery: isWakingSavedMacDisplay,
+                onOpenConversations: {
+                    setSidebar(open: true)
+                }
             )
                 .id(thread.id)
                 .environment(\.reconnectAction, {
@@ -548,11 +551,6 @@ struct ContentView: View {
                     }
                 })
                 .environment(\.wakeMacDisplayAction, wakeMacDisplayRecoveryAction)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        hamburgerButton
-                    }
-                }
         } else {
             HomeEmptyStateView(
                 connectionPhase: homeConnectionPhase,
