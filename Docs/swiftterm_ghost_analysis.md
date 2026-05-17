@@ -704,3 +704,76 @@ func updateCursorPosition() {
 ### 详细分析
 
 完整分析见 `.ai/plan/progress/swiftterm-ghost-external-review.md`。
+
+---
+
+## 2026-05-17 社区调研 — SwiftTerm GitHub Issues/PRs
+
+### 当前 SwiftTerm checkout 状态
+
+| 项目 | 值 |
+|------|-----|
+| 当前 checkout | `9ad1b19` (PR #488, 2026-03-12) |
+| 最新 main HEAD | `432a32d` |
+| 落后 | **45 commits** |
+| 关键遗漏 | PR #498 synchronized output rendering fix |
+
+### 高相关度 Issues/PRs
+
+#### PR #498 — Fix synchronized output rendering (DEC mode 2026) ⭐⭐⭐
+
+- URL: https://github.com/migueldeicaza/SwiftTerm/pull/498
+- 状态: merged (`468d0a8`, 2026-03-23)
+- **在当前 checkout: ❌ 不包含**
+- 问题: tmux 用多个快速 BSU/ESU 对重绘屏幕，中间 render 显示部分重绘的中间状态（scroll-through artifact）
+- 修复: sync block 期间 suppress `updateDisplay()` 和 `queuePendingDisplay()`，等序列 settle 后做一次 atomic render
+- 与 ghost 关系: **高度相关**。tmux 发送 DEC mode 2026 sync sequences 时，每个中间 BSU/ESU 都触发 `updateCursorPosition()` → `addSubview(caretView)` + `setText()`。PR #498 将多次中间 render 合并为一次 atomic render，**大幅减少 CaretView 被反复 addSubview 的次数**
+- 评估: 可能是 ghost 的**重要放大因素**。虽然不直接阻止 `addSubview`（最终 render 仍调用），但消除了 tmux 多次 sync 期间的中间 render
+
+#### PR #452 — Fix cursor ghosting in TUI applications ⭐⭐⭐
+
+- URL: https://github.com/migueldeicaza/SwiftTerm/pull/452
+- 状态: closed, **NOT merged**
+- 问题: TUI apps 使用 DECTCEM hide/show cursor，`updateCursorPosition()` 在 `cursorHidden == true` 时未移除 CaretView，导致累积
+- 修复: `else if terminal.cursorHidden == true && caretView.superview == self { caretView.removeFromSuperview(); return }`
+- 与 ghost 关系: 直接相关但不同。PR #452 解决 cursor hidden 时 CaretView 累积；我们的问题是 cursor 可见时被反复 addSubview。当前 checkout 已包含此逻辑（line 1518-1520）
+- 评估: 确认 SwiftTerm 社区已知 cursor ghosting 问题，但修复不覆盖我们的场景
+
+#### PR #547 — Fix stale Metal cursor on cursor-only buffer moves ⭐⭐
+
+- URL: https://github.com/migueldeicaza/SwiftTerm/pull/547
+- 状态: merged (2026-05-11)
+- **在当前 checkout: ❌ 不包含**
+- 问题: CSI C/D cursor move 序列不 dirty row，Metal renderer cursor 冻结在旧位置
+- 与 ghost 关系: 间接。未来启用 Metal renderer 时相关
+
+#### PR #528 — enforce layer clipping + display freeze API ⭐⭐
+
+- URL: https://github.com/migueldeicaza/SwiftTerm/pull/528
+- 状态: closed, NOT merged
+- 修复: `clipsToBounds`/`masksToBounds`，CGContext clip to bounds，`isDisplayFrozen` API
+- 与 ghost 关系: `clipsToBounds` 防止 bounds 外渲染，不解决 bounds 内 ghost
+
+#### PR #289 — The caret will now render the character underneath it ⭐
+
+- URL: https://github.com/migueldeicaza/SwiftTerm/pull/289
+- 状态: merged (2023-04-17)
+- 评估: 引入 block cursor 渲染字符 glyph 的 PR。是 ghost 视觉表现的前置条件 — 如果 cursor 不渲染字符，ghost 不会显示为"双字符"
+
+### 社区结论
+
+1. **SwiftTerm 社区已知 cursor ghosting**（PR #452），但只修了 `cursorHidden` 场景，未覆盖 cursor 可见时的 `addSubview` 问题
+2. **PR #498 (synchronized output) 是关键遗漏** — 我们落后 45 commits，此 fix 消除 tmux sync 期间的中间 render，减少 CaretView 反复 addSubview 的机会
+3. **Block cursor 渲染字符 glyph** (PR #289) 是 ghost 视觉前提
+4. **Metal renderer fixes** (#547, #539) 不影响当前 CoreGraphics 路径
+
+### 修正后方案优先级
+
+| 优先级 | 方案 | 理由 |
+|--------|------|------|
+| **1** | App-level: `addSubview()` 拦截 CaretView | 最小侵入，不依赖 SwiftTerm 升级，直接阻断根因 |
+| **2** | 升级 SwiftTerm 到包含 PR #498 的版本 | 消除 tmux sync 中间 render，减少 ghost 窗口。需先解决 Metal Toolchain build 问题 |
+| **3** | SwiftTerm source: 移动 CaretView 前 invalidate old frame | 根治但需 fork |
+| **4** | 改 cursor style 为 bar/underline | workaround，不解决根因但让 ghost 肉眼不可见 |
+
+**最优解仍然是 Patch 1（addSubview 拦截）+ 未来升级 SwiftTerm 到包含 PR #498 的版本作为 defense-in-depth。**
