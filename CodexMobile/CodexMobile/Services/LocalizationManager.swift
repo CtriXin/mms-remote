@@ -162,6 +162,7 @@ enum Strings {
             "sidebar.delete_selected": "删除",
 
             // Tabs
+            "tab.mmschat": "会话",
             "tab.chats": "Codex",
             "tab.terminal": "终端",
             "tab.swift": "Swift",
@@ -816,7 +817,7 @@ enum Strings {
             "onboarding.welcome.e2ee": "端到端加密",
 
             // MMSChat
-            "mmschat.list_title": "Sessions",
+            "mmschat.list_title": "会话",
             "mmschat.loading": "正在加载...",
             "mmschat.empty_title": "暂无会话",
             "mmschat.empty_description": "Claude 会话将显示在此处",
@@ -827,6 +828,10 @@ enum Strings {
             "mmschat.transcript_title": "对话记录",
             "mmschat.transcript_unavailable": "对话记录不可用",
             "mmschat.transcript_empty": "暂无对话记录",
+            "mmschat.role.user": "用户",
+            "mmschat.role.assistant": "助手",
+            "mmschat.role.reasoning": "思考",
+            "mmschat.role.tool": "工具",
             "mmschat.send_disabled": "发送功能尚未启用",
             "mmschat.live_guard_disabled": "Live 操作需在 Mac 上显式启用",
             "mmschat.live_enabled": "Live 操作已启用，可继续安全会话",
@@ -863,6 +868,7 @@ enum Strings {
             "mmschat.empty_action_demo": "生成本地演示会话",
             "mmschat.empty_demo_hint": "离线演示数据，仅用于本地预览",
             "mmschat.row.hide": "隐藏",
+            "mmschat.row.last_activity_format": "活动 %@",
             "mmschat.row.hide_confirm_title": "隐藏此会话？",
             "mmschat.row.hide_confirm_message": "隐藏后该会话将从列表中移除，但不会被删除。",
             "mmschat.detail.hide": "隐藏会话",
@@ -993,6 +999,7 @@ enum Strings {
             "sidebar.delete_selected": "Delete",
 
             // Tabs
+            "tab.mmschat": "Chat",
             "tab.chats": "Codex",
             "tab.terminal": "Terminal",
             "tab.swift": "Swift",
@@ -1647,7 +1654,7 @@ enum Strings {
             "onboarding.welcome.e2ee": "End-to-end encrypted",
 
             // MMSChat
-            "mmschat.list_title": "Sessions",
+            "mmschat.list_title": "Chat",
             "mmschat.loading": "Loading...",
             "mmschat.empty_title": "No Sessions",
             "mmschat.empty_description": "Claude sessions will appear here",
@@ -1658,6 +1665,10 @@ enum Strings {
             "mmschat.transcript_title": "Transcript",
             "mmschat.transcript_unavailable": "Transcript unavailable",
             "mmschat.transcript_empty": "No transcript available",
+            "mmschat.role.user": "User",
+            "mmschat.role.assistant": "Assistant",
+            "mmschat.role.reasoning": "Reasoning",
+            "mmschat.role.tool": "Tool",
             "mmschat.send_disabled": "Send is not yet enabled",
             "mmschat.live_guard_disabled": "Live actions require explicit enablement on Mac",
             "mmschat.live_enabled": "Live actions are enabled for safe continuation",
@@ -1694,6 +1705,7 @@ enum Strings {
             "mmschat.empty_action_demo": "Seed Local Demo Sessions",
             "mmschat.empty_demo_hint": "Offline demo data for local preview only",
             "mmschat.row.hide": "Hide",
+            "mmschat.row.last_activity_format": "Active %@",
             "mmschat.row.hide_confirm_title": "Hide this session?",
             "mmschat.row.hide_confirm_message": "The session will be removed from the list but not deleted.",
             "mmschat.detail.hide": "Hide Session",

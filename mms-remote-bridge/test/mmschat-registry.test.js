@@ -56,6 +56,40 @@ test("mmschat-registry supports register, update, getById, and lastActivity sort
   });
 });
 
+test("mmschat-registry de-prioritizes empty Codex rollout discoveries", () => {
+  withRegistryFixture(({ registry }) => {
+    const emptyCodex = registry.register({
+      mmschatId: "mmschat_empty_codex",
+      cwd: "/tmp/empty-codex",
+      provider: "codex",
+      status: MMSCHAT_STATUS.idle,
+      lastActivityAt: "2026-05-17T10:00:00.000Z",
+      transcriptCacheState: MMSCHAT_TRANSCRIPT_CACHE_STATE.empty,
+      metadata: {
+        source: "codex-rollout",
+        messageCount: "0",
+      },
+    });
+    const meaningful = registry.register({
+      mmschatId: "mmschat_meaningful",
+      cwd: "/tmp/meaningful",
+      provider: "codex",
+      status: MMSCHAT_STATUS.idle,
+      lastActivityAt: "2026-05-10T10:00:00.000Z",
+      transcriptCacheState: MMSCHAT_TRANSCRIPT_CACHE_STATE.fresh,
+      metadata: {
+        source: "codex-rollout",
+        messageCount: "2",
+      },
+    });
+
+    assert.deepEqual(
+      registry.list().map((session) => session.mmschatId),
+      [meaningful.mmschatId, emptyCodex.mmschatId]
+    );
+  });
+});
+
 test("mmschat-registry rejects secret-like payloads before writing", () => {
   withRegistryFixture(({ registry }) => {
     assert.throws(() => {

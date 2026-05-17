@@ -22,7 +22,8 @@ private enum RootSheetRoute: Identifiable, Equatable {
 }
 
 private enum MainAppTab: Hashable {
-    case chats
+    case mmschat
+    case codex
     case terminal
     case settings
 }
@@ -40,7 +41,7 @@ struct ContentView: View {
     @State private var isSidebarPrewarmed = false
     @State private var selectedThread: CodexThread?
     @State private var navigationPath = NavigationPath()
-    @State private var selectedAppTab: MainAppTab = .chats
+    @State private var selectedAppTab: MainAppTab = .mmschat
     @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
     @State private var showSettings = false
     @State private var isShowingManualScanner = false
@@ -354,11 +355,17 @@ struct ContentView: View {
 
     private var mainAppBody: some View {
         TabView(selection: $selectedAppTab) {
+            mmsChatAppBody
+                .tabItem {
+                    Label(LocalizationManager.shared.localized("tab.mmschat"), systemImage: "bubble.left.and.bubble.right")
+                }
+                .tag(MainAppTab.mmschat)
+
             chatAppBody
                 .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.chats"), systemImage: "bubble.left.and.bubble.right")
+                    Label(LocalizationManager.shared.localized("tab.chats"), systemImage: "sparkles")
                 }
-                .tag(MainAppTab.chats)
+                .tag(MainAppTab.codex)
 
             terminalTabBody
                 .tabItem {
@@ -381,8 +388,15 @@ struct ContentView: View {
                     await codex.stopAllTerminalStreams()
                 }
             }
-            guard tab != .chats else { return }
+            guard tab != .codex else { return }
             dismissChatDrawerForTabSwitch()
+        }
+    }
+
+    private var mmsChatAppBody: some View {
+        NavigationStack {
+            MMSChatListView()
+                .adaptiveNavigationBar()
         }
     }
 

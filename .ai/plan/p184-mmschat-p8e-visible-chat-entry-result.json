@@ -1,0 +1,115 @@
+{
+  "schema": "moebius.p184_mmschat_p8e_visible_chat_entry_result.v1",
+  "created_at": "2026-05-17T11:10:50Z",
+  "owner": "sisyphus",
+  "cli": "opencode",
+  "model": "gpt-5.5",
+  "task": "p184-mmschat-p8e-visible-chat-entry",
+  "run_id": "p184-mmschat-20260516",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8d-current-main-merge-repair",
+  "base_commit": "801788df5e4895afb26a98425c09433bbc8328e6",
+  "result_commit": null,
+  "verdict": "PASS_LOCAL_READY_HUMANGATE_PHONE_SCREENSHOTS",
+  "summary": [
+    "Added a first-class bottom Chat tab that opens MMSChatListView in its own NavigationStack and made it the default selected tab while keeping Codex, Terminal, and Settings tabs available.",
+    "Changed MMSChat list UX to label lastActivityAt with exact date/time and de-prioritize empty Codex rollout discovery rows on both iOS display ordering and bridge registry ordering.",
+    "Changed Codex rollout discovery to skip empty rollout files so recent file mtimes cannot masquerade as meaningful chat activity.",
+    "Changed MMSChat detail to auto-scroll to the latest transcript after detail load and render user, assistant, reasoning, and tool output as distinct chat-style bubbles while hiding system/developer/internal messages by default.",
+    "Bumped iOS app source version to 1.7.81 build 119 for the next identifiable P8E install; no phone install was performed."
+  ],
+  "files_changed": [
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+    "CodexMobile/CodexMobile/ContentView.swift",
+    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatSessionRowView.swift",
+    "mms-remote-bridge/src/mmschat-codex-rollout.js",
+    "mms-remote-bridge/src/mmschat-registry.js",
+    "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+    "mms-remote-bridge/test/mmschat-registry.test.js",
+    ".ai/plan/p184-mmschat-p8e-visible-chat-entry-result.json"
+  ],
+  "acceptance_evidence": {
+    "chat_entry_visible_by_source": {
+      "status": "PASS",
+      "evidence": [
+        "ContentView.swift selects MainAppTab.mmschat by default.",
+        "ContentView.swift places mmsChatAppBody as the first TabView entry with localized tab.mmschat label.",
+        "mmsChatAppBody wraps MMSChatListView in NavigationStack."
+      ]
+    },
+    "freshness_and_ordering": {
+      "status": "PASS",
+      "evidence": [
+        "mmschat-codex-rollout.js returns null for scanned.messageCount <= 0.",
+        "mmschat-registry.js ranks empty Codex rollout sessions after meaningful sessions before applying lastActivityAt sort.",
+        "MMSChatSessionRowView displays relative time plus an exact lastActivityAt subtitle."
+      ]
+    },
+    "detail_bottom_and_chat_format": {
+      "status": "PASS_BY_BUILD_AND_SOURCE",
+      "evidence": [
+        "MMSChatDetailView uses ScrollViewReader and scrollToLatest on transcript token changes.",
+        "MMSChatDetailView filters system/developer messages by default.",
+        "MMSChatDetailView renders role-specific bubbles and monospaced tool output."
+      ]
+    },
+    "simulator_screenshot_attempt": {
+      "status": "NOT_ACCEPTANCE_EVIDENCE",
+      "path": "/tmp/p184-p8e-chat-tab-simulator.png",
+      "result": "Simulator launched into the existing first-run QR scanner/camera permission screen before main tabs were visible; paired-phone screenshot evidence remains behind the phone reinstall/manual verification HumanGate."
+    }
+  },
+  "validation": [
+    {
+      "command": "git diff --check",
+      "cwd": ".",
+      "result": "PASS"
+    },
+    {
+      "command": "node --test test/mmschat-codex-rollout.test.js test/mmschat-registry.test.js test/mmschat-hub.test.js",
+      "cwd": "mms-remote-bridge",
+      "result": "PASS",
+      "summary": "17 tests passed, 0 failed",
+      "log_path": "/tmp/p184-p8e-mmschat-node-tests.log"
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p8e-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "cwd": ".",
+      "result": "PASS",
+      "summary": "BUILD SUCCEEDED",
+      "log_path": "/tmp/p184-p8e-xcodebuild-after-review.log"
+    },
+    {
+      "command": "lsp_diagnostics on changed Swift files",
+      "cwd": ".",
+      "result": "PARTIAL_TOOL_LIMITATION",
+      "summary": "LocalizationManager.swift, MMSChatDetailView.swift, and MMSChatListView.swift were clean; standalone SourceKit context reported false positives for UIKit/model visibility in ContentView.swift and MMSChatSessionRowView.swift, while xcodebuild compiled the full target successfully."
+    }
+  ],
+  "review_gate": {
+    "verdict": "PASS",
+    "legs": [
+      "goal-fit: PASS",
+      "qa-evidence: PASS",
+      "code-quality: PASS",
+      "security: PASS",
+      "missed-context: PASS"
+    ],
+    "post_review_fix": "Changed zh-Hans tab.mmschat from Chat to 会话 and re-ran xcodebuild successfully."
+  },
+  "remaining_humangate": [
+    "Install P8E 1.7.81 build 119 on song iPhone and collect real phone screenshots for default Chat tab and detail-bottom/chat transcript behavior.",
+    "Apply P184/P8E to /Users/xin/auto-skills/CtriXin-repo/mms-remote main worktree.",
+    "Push, deploy, production verification, rollback, or any shared-infrastructure mutation."
+  ],
+  "completion_percent_if_phone_evidence_passes": {
+    "p184_feature_capability": 100,
+    "expanded_unified_local_agent_sessions": 100,
+    "phone_visible_chat_entry": 100,
+    "phone_mmschat_basic_usability": 100,
+    "applied_to_main": 0
+  }
+}

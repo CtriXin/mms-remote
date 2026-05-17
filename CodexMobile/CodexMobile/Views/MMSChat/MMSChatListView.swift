@@ -176,7 +176,7 @@ struct MMSChatListView: View {
     }
 
     private var groupedSessions: [SessionGroup] {
-        let sorted = sessions.sorted { $0.lastActivityAt > $1.lastActivityAt }
+        let sorted = sessions.sorted(by: compareSessionsForDisplay)
         let grouped = Dictionary(grouping: sorted) { session -> String in
             session.project ?? session.cwd.components(separatedBy: "/").last ?? session.cwd
         }
@@ -187,8 +187,25 @@ struct MMSChatListView: View {
                       let latest2 = group2.sessions.first?.lastActivityAt else {
                     return group1.key < group2.key
                 }
-                return latest1 > latest2
+                return compareSessionsForDisplay(group1.sessions[0], group2.sessions[0])
             }
+    }
+
+    private func compareSessionsForDisplay(_ left: MMSChatSession, _ right: MMSChatSession) -> Bool {
+        let leftRank = activityQualityRank(left)
+        let rightRank = activityQualityRank(right)
+        if leftRank != rightRank {
+            return leftRank < rightRank
+        }
+        return left.lastActivityAt > right.lastActivityAt
+    }
+
+    private func activityQualityRank(_ session: MMSChatSession) -> Int {
+        let messageCount = Int(session.metadata?["messageCount"] ?? "") ?? 0
+        let isEmptyCodexRollout = session.provider == "codex"
+            && session.metadata?["source"] == "codex-rollout"
+            && (session.transcriptCacheState == .empty || messageCount == 0)
+        return isEmptyCodexRollout ? 1 : 0
     }
 
     private var defaultLaunchCwd: String {

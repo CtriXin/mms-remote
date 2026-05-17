@@ -63,6 +63,11 @@ struct MMSChatSessionRowView: View {
                     Text(relativeTimeString)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+
+                    Text(lastActivitySubtitle)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.trailing)
                 }
             }
             .padding(.vertical, 8)
@@ -117,5 +122,19 @@ struct MMSChatSessionRowView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: session.lastActivityAt, relativeTo: Date())
+    }
+
+    private var lastActivitySubtitle: String {
+        String(
+            format: LocalizationManager.shared.localized("mmschat.row.last_activity_format"),
+            exactActivityString
+        )
+    }
+
+    private var exactActivityString: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: session.lastActivityAt)
     }
 }

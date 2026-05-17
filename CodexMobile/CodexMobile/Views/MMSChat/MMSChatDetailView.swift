@@ -19,6 +19,7 @@ struct MMSChatDetailView: View {
     @State private var cacheClearResultMessage: String?
     @State private var showCacheClearResult = false
     @Environment(\.dismiss) private var dismiss
+    private static let transcriptBottomAnchorId = "mmschat-transcript-bottom"
 
     init(session: MMSChatSession, onHidden: @escaping (MMSChatSession) -> Void = { _ in }) {
         self.session = session
@@ -26,99 +27,107 @@ struct MMSChatDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                sessionHeader
-                transcriptSection
-                liveActionsBanner
+        ScrollViewReader { scrollProxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    sessionHeader
+                    transcriptSection
+                    liveActionsBanner
+                    Color.clear
+                        .frame(height: 1)
+                        .id(Self.transcriptBottomAnchorId)
+                }
+                .padding(16)
             }
-            .padding(16)
-        }
-        .navigationTitle(session.title ?? LocalizationManager.shared.localized("mmschat.detail_title"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        showHideConfirmation = true
+            .navigationTitle(session.title ?? LocalizationManager.shared.localized("mmschat.detail_title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            showHideConfirmation = true
+                        } label: {
+                            Label(LocalizationManager.shared.localized("mmschat.detail.hide"), systemImage: "archivebox")
+                        }
+
+                        Button {
+                            showCacheClearConfirmation = true
+                        } label: {
+                            Label(LocalizationManager.shared.localized("mmschat.detail.cache_clear"), systemImage: "xmark.bin")
+                        }
                     } label: {
-                        Label(LocalizationManager.shared.localized("mmschat.detail.hide"), systemImage: "archivebox")
+                        Image(systemName: "ellipsis.circle")
                     }
+                    .disabled(!codex.isConnected || isLoading)
 
                     Button {
-                        showCacheClearConfirmation = true
+                        Task { await openVisible() }
                     } label: {
-                        Label(LocalizationManager.shared.localized("mmschat.detail.cache_clear"), systemImage: "xmark.bin")
+                        Image(systemName: "display")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .disabled(!codex.isConnected || isLoading)
+                    .disabled(!codex.isConnected || isLoading)
 
-                Button {
-                    Task { await openVisible() }
-                } label: {
-                    Image(systemName: "display")
-                }
-                .disabled(!codex.isConnected || isLoading)
-
-                Button {
-                    Task { await loadDetail() }
-                } label: {
-                    if isLoading {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.clockwise")
+                    Button {
+                        Task { await loadDetail() }
+                    } label: {
+                        if isLoading {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
+                    .disabled(!codex.isConnected || isLoading)
                 }
-                .disabled(!codex.isConnected || isLoading)
             }
-        }
-        .task {
-            await loadDetail()
-        }
-        .alert(
-            LocalizationManager.shared.localized("mmschat.error_title"),
-            isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )
-        ) {
-            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
-                errorMessage = nil
+            .task {
+                await loadDetail()
             }
-        } message: {
-            Text(errorMessage ?? "")
-        }
-        .alert(
-            LocalizationManager.shared.localized("mmschat.row.hide_confirm_title"),
-            isPresented: $showHideConfirmation
-        ) {
-            Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
-            Button(LocalizationManager.shared.localized("mmschat.row.hide"), role: .destructive) {
-                Task { await hideSession() }
+            .onChange(of: latestTranscriptScrollToken) { _, _ in
+                scrollToLatest(scrollProxy)
             }
-        } message: {
-            Text(LocalizationManager.shared.localized("mmschat.row.hide_confirm_message"))
-        }
-        .alert(
-            LocalizationManager.shared.localized("mmschat.detail.cache_clear_confirm_title"),
-            isPresented: $showCacheClearConfirmation
-        ) {
-            Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
-            Button(LocalizationManager.shared.localized("mmschat.detail.cache_clear"), role: .destructive) {
-                Task { await clearCache() }
+            .alert(
+                LocalizationManager.shared.localized("mmschat.error_title"),
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
+                    errorMessage = nil
+                }
+            } message: {
+                Text(errorMessage ?? "")
             }
-        } message: {
-            Text(LocalizationManager.shared.localized("mmschat.detail.cache_clear_confirm_message"))
-        }
-        .alert(
-            LocalizationManager.shared.localized("mmschat.detail.cache_clear"),
-            isPresented: $showCacheClearResult
-        ) {
-            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {}
-        } message: {
-            Text(cacheClearResultMessage ?? "")
+            .alert(
+                LocalizationManager.shared.localized("mmschat.row.hide_confirm_title"),
+                isPresented: $showHideConfirmation
+            ) {
+                Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
+                Button(LocalizationManager.shared.localized("mmschat.row.hide"), role: .destructive) {
+                    Task { await hideSession() }
+                }
+            } message: {
+                Text(LocalizationManager.shared.localized("mmschat.row.hide_confirm_message"))
+            }
+            .alert(
+                LocalizationManager.shared.localized("mmschat.detail.cache_clear_confirm_title"),
+                isPresented: $showCacheClearConfirmation
+            ) {
+                Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
+                Button(LocalizationManager.shared.localized("mmschat.detail.cache_clear"), role: .destructive) {
+                    Task { await clearCache() }
+                }
+            } message: {
+                Text(LocalizationManager.shared.localized("mmschat.detail.cache_clear_confirm_message"))
+            }
+            .alert(
+                LocalizationManager.shared.localized("mmschat.detail.cache_clear"),
+                isPresented: $showCacheClearResult
+            ) {
+                Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {}
+            } message: {
+                Text(cacheClearResultMessage ?? "")
+            }
         }
     }
 
@@ -229,36 +238,73 @@ struct MMSChatDetailView: View {
         }
     }
 
+    @ViewBuilder
     private func structuredMessages(_ messages: [MMSChatTranscriptMessage]) -> some View {
-        LazyVStack(alignment: .leading, spacing: 8) {
-            ForEach(messages) { message in
-                messageBubble(message)
+        let visibleMessages = messages.filter { !isHiddenTranscriptMessage($0) }
+        if visibleMessages.isEmpty {
+            Text(LocalizationManager.shared.localized("mmschat.transcript_empty"))
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+        } else {
+            LazyVStack(alignment: .leading, spacing: 10) {
+                ForEach(visibleMessages) { message in
+                    messageBubble(message)
+                }
             }
         }
     }
 
     private func messageBubble(_ message: MMSChatTranscriptMessage) -> some View {
-        let isUser = message.role == "user"
+        let role = normalizedRole(message.role)
+        let isUser = role == "user"
         return HStack {
             if isUser { Spacer(minLength: 40) }
-            VStack(alignment: isUser ? .trailing : .leading, spacing: 4) {
-                Text(message.role.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
+            VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(roleTitle(role))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(roleTint(role))
 
-                ForEach(Array(message.content.enumerated()), id: \.offset) { _, content in
-                    if let text = content.text, !text.isEmpty {
-                        Text(text)
-                            .font(.system(size: 14))
-                            .foregroundStyle(.primary)
-                            .textSelection(.enabled)
+                    if let createdAt = message.createdAt {
+                        Text(dateString(createdAt))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
                     }
                 }
+
+                ForEach(Array(message.content.enumerated()), id: \.offset) { _, content in
+                    messageContent(content, role: role)
+                }
             }
-            .padding(10)
-            .background(isUser ? Color.accentColor.opacity(0.12) : Color(.tertiarySystemFill))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(12)
+            .background(roleBackground(role))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(roleTint(role).opacity(0.22), lineWidth: role == "assistant" ? 0 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             if !isUser { Spacer(minLength: 40) }
+        }
+    }
+
+    @ViewBuilder
+    private func messageContent(_ content: MMSChatTranscriptContent, role: String) -> some View {
+        if let text = content.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+            if shouldUseMonospacedContent(content, role: role) {
+                Text(text)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .padding(8)
+                    .background(Color(.systemBackground).opacity(0.72))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .textSelection(.enabled)
+            } else {
+                markdownText(text)
+                    .font(.system(size: 14))
+                    .lineSpacing(3)
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+            }
         }
     }
 
@@ -269,6 +315,66 @@ struct MMSChatDetailView: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
         }
+    }
+
+    private func isHiddenTranscriptMessage(_ message: MMSChatTranscriptMessage) -> Bool {
+        let role = normalizedRole(message.role)
+        if role == "system" || role == "developer" {
+            return true
+        }
+        return message.content.allSatisfy { content in
+            (content.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private func normalizedRole(_ role: String) -> String {
+        role.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func roleTitle(_ role: String) -> String {
+        switch role {
+        case "user":
+            LocalizationManager.shared.localized("mmschat.role.user")
+        case "assistant":
+            LocalizationManager.shared.localized("mmschat.role.assistant")
+        case "reasoning":
+            LocalizationManager.shared.localized("mmschat.role.reasoning")
+        case "tool":
+            LocalizationManager.shared.localized("mmschat.role.tool")
+        default:
+            role.uppercased()
+        }
+    }
+
+    private func roleTint(_ role: String) -> Color {
+        return switch role {
+        case "user": .accentColor
+        case "assistant": .green
+        case "reasoning": .orange
+        case "tool": .blue
+        default: .secondary
+        }
+    }
+
+    private func roleBackground(_ role: String) -> Color {
+        return switch role {
+        case "user": Color.accentColor.opacity(0.12)
+        case "assistant": Color(.tertiarySystemFill)
+        case "reasoning": Color.orange.opacity(0.10)
+        case "tool": Color.blue.opacity(0.10)
+        default: Color(.secondarySystemGroupedBackground)
+        }
+    }
+
+    private func shouldUseMonospacedContent(_ content: MMSChatTranscriptContent, role: String) -> Bool {
+        role == "tool" || content.type == "tool_result" || content.type == "tool_use"
+    }
+
+    private func markdownText(_ text: String) -> Text {
+        if let attributed = try? AttributedString(markdown: text) {
+            return Text(attributed)
+        }
+        return Text(text)
     }
 
     // MARK: - Live Actions
@@ -291,6 +397,15 @@ struct MMSChatDetailView: View {
         detailResponse?.liveActions?.enabled == true
     }
 
+    private var latestTranscriptScrollToken: String {
+        guard let transcript = detailResponse?.transcript else { return "" }
+        return [
+            transcript.source.rawValue,
+            String(transcript.messages.count),
+            String(transcript.rawPreviewText?.count ?? 0),
+        ].joined(separator: ":")
+    }
+
     // MARK: - Helpers
 
     private var cwdDisplay: String {
@@ -307,6 +422,15 @@ struct MMSChatDetailView: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func scrollToLatest(_ proxy: ScrollViewProxy) {
+        guard !latestTranscriptScrollToken.isEmpty else { return }
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.25)) {
+                proxy.scrollTo(Self.transcriptBottomAnchorId, anchor: .bottom)
+            }
+        }
     }
 
     // MARK: - Actions

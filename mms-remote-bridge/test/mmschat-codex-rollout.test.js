@@ -36,6 +36,16 @@ test("discovers nested Codex CLI rollout sessions without leaking transcript tex
   assert.equal(JSON.stringify(sessions).includes("secret command output"), false);
 });
 
+test("skips empty Codex rollout files so mtimes do not look like chat activity", (t) => {
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-empty-"));
+  t.after(() => fs.rmSync(codexHome, { recursive: true, force: true }));
+
+  writeEmptyCodexRollout({ codexHome, threadId: "thread-empty" });
+
+  const sessions = discoverCodexRolloutSessions({ codexHome });
+  assert.equal(sessions.length, 0);
+});
+
 test("normalizes Codex rollout detail into user assistant reasoning tool and command output items", (t) => {
   const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-detail-"));
   t.after(() => fs.rmSync(codexHome, { recursive: true, force: true }));
@@ -154,5 +164,27 @@ function writeSyntheticCodexRollout({
     `${records.map((entry) => typeof entry === "string" ? entry : JSON.stringify(entry)).join("\n")}\n`,
     "utf8"
   );
+  return rolloutPath;
+}
+
+function writeEmptyCodexRollout({ codexHome, threadId }) {
+  const rolloutDir = path.join(codexHome, "sessions", "2026", "05", "17");
+  const rolloutPath = path.join(rolloutDir, `rollout-2026-05-17T10-00-00-${threadId}.jsonl`);
+  const records = [
+    {
+      timestamp: "2026-05-17T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: threadId,
+        cwd: "/tmp/empty-rollout-project",
+        model: "gpt-5.5",
+        originator: "codex-tui",
+        source: "cli",
+      },
+    },
+  ];
+
+  fs.mkdirSync(rolloutDir, { recursive: true });
+  fs.writeFileSync(rolloutPath, `${records.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
   return rolloutPath;
 }

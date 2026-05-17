@@ -215,7 +215,24 @@ function listSessions(sessions, filters = {}) {
 }
 
 function compareSessionsByActivity(left, right) {
+  const qualityDelta = sessionActivityQualityRank(left) - sessionActivityQualityRank(right);
+  if (qualityDelta !== 0) {
+    return qualityDelta;
+  }
   return toTimestamp(right.lastActivityAt) - toTimestamp(left.lastActivityAt);
+}
+
+function sessionActivityQualityRank(session) {
+  return isEmptyCodexRolloutSession(session) ? 1 : 0;
+}
+
+function isEmptyCodexRolloutSession(session) {
+  if (session?.provider !== "codex" || session?.metadata?.source !== "codex-rollout") {
+    return false;
+  }
+  const messageCount = Number.parseInt(session.metadata.messageCount || "", 10);
+  return session.transcriptCacheState === MMSCHAT_TRANSCRIPT_CACHE_STATE.empty
+    || messageCount === 0;
 }
 
 function createSessionRecord(input, { now = () => Date.now(), generateId = defaultGenerateId } = {}) {

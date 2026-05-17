@@ -106,6 +106,9 @@ function buildDiscoveredCodexSession(candidate, { fsImpl = fs, maxFileBytes = MA
   if (!isCodexCliRolloutOrigin(scanned.sessionMeta)) {
     return null;
   }
+  if (scanned.messageCount <= 0) {
+    return null;
+  }
 
   const rolloutId = readNonEmptyString(scanned.sessionMeta.id) || digestText(candidate.filePath).slice(0, 16);
   const cwd = readNonEmptyString(scanned.sessionMeta.cwd) || "~";
