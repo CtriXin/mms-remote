@@ -1527,8 +1527,11 @@ struct SwiftTerminalHubView: View {
     }
 
     private func hideTerminalKeyboard() {
-        blurRequestID += 1
-        isCommandFieldFocused = false
+        if isSwiftTermRendererActive {
+            blurRequestID += 1
+        } else {
+            isCommandFieldFocused = false
+        }
         dismissActiveKeyboard()
     }
 
@@ -1538,15 +1541,33 @@ struct SwiftTerminalHubView: View {
 
     private func suppressKeyboardForChordComposer() {
         keyBarExpanded = false
-        hideTerminalKeyboard()
+        isCommandFieldFocused = false
+        if isSwiftTermRendererActive {
+            blurRequestID += 1
+        }
+        dismissActiveKeyboard()
     }
 
     private func suppressKeyboardForVirtualShortcut() {
-        hideTerminalKeyboard()
+        isCommandFieldFocused = false
+        if isSwiftTermRendererActive {
+            blurRequestID += 1
+        }
+        dismissActiveKeyboard()
     }
 
     private func suppressKeyboardForChordComposerRepeatedly() {
         suppressKeyboardForChordComposer()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            if showsChordComposer {
+                suppressKeyboardForChordComposer()
+            }
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            if showsChordComposer {
+                suppressKeyboardForChordComposer()
+            }
+        }
     }
 
     private func pageUpOrTop() {
