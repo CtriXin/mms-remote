@@ -10,6 +10,12 @@
   "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8f-phone-live-compose",
   "base_commit": "9963d6f838002d74ff96f924973c98cd9e1529d1",
   "result_commit": "ba284646a035c2d48ed2fc6b36c91aa390ef903f",
+  "review_fix_commits": [
+    {
+      "commit": "cd59254dcfa3963e19a1e8ea4ec7b33eab2c8e6f",
+      "summary": "Stale inline-status timer guard (inlineStatusToken UUID) + liveActionsEnabled gate on Open Mac button + whitespace alignment."
+    }
+  ],
   "verdict": "PASS_LOCAL_READY_HUMANGATE_PHONE_INSTALL",
   "files_changed": [
     "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
@@ -49,6 +55,19 @@
       "result": "PASS",
       "summary": "BUILD SUCCEEDED",
       "log_path": "/tmp/p184-p8f-xcodebuild.log"
+    },
+    {
+      "command": "git diff --check",
+      "cwd": ".",
+      "result": "PASS",
+      "summary": "Post-review-fix whitespace check clean."
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p8f-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "cwd": ".",
+      "result": "PASS",
+      "summary": "Post-review-fix BUILD SUCCEEDED.",
+      "log_path": "/tmp/p184-p8f-xcodebuild-fix.log"
     }
   ],
   "remaining_humangate": [
