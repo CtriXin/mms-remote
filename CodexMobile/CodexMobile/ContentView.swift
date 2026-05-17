@@ -602,7 +602,7 @@ struct ContentView: View {
             }
             .navigationDestination(for: String.self) { destination in
                 if destination == "settings" {
-                    SettingsView()
+                    SettingsView(scope: .terminal)
                         .adaptiveNavigationBar()
                 }
             }
@@ -648,7 +648,7 @@ struct ContentView: View {
                 .adaptiveNavigationBar()
                 .navigationDestination(for: String.self) { destination in
                     if destination == "settings" {
-                        SettingsView()
+                        SettingsView(scope: .codex)
                             .adaptiveNavigationBar()
                     }
                 }

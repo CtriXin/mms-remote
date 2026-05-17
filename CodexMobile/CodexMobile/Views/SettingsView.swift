@@ -34,35 +34,64 @@ enum AppThemeMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum SettingsViewScope {
+    case all
+    case codex
+    case terminal
+    case app
+}
+
 struct SettingsView: View {
+    var scope: SettingsViewScope = .all
+
     @AppStorage("codex.appFontStyle") private var appFontStyleRawValue = AppFont.defaultStoredStyleRawValue
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_codex"))
-                SettingsRuntimeDefaultsCard()
-                SettingsUsageCard()
-                SettingsGPTAccountCard()
-                SettingsArchivedChatsCard()
+                if showsCodexSection {
+                    SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_codex"))
+                    SettingsRuntimeDefaultsCard()
+                    SettingsUsageCard()
+                    SettingsGPTAccountCard()
+                    SettingsArchivedChatsCard()
+                }
 
-                SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_terminal"))
-                SettingsTerminalCard()
-                SettingsBridgeVersionCard()
-                SettingsConnectionCard()
+                if showsTerminalSection {
+                    SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_terminal"))
+                    SettingsTerminalCard()
+                    if scope == .all {
+                        SettingsBridgeVersionCard()
+                        SettingsConnectionCard()
+                    }
+                }
 
-                SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_app"))
-                SettingsAppearanceCard(appFontStyle: appFontStyleBinding)
-                SettingsLanguageCard()
-                SettingsNotificationsCard()
-                SettingsSubscriptionCard()
-                SettingsAppVersionCard()
-                SettingsAboutCard()
+                if showsAppSection {
+                    SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_app"))
+                    SettingsAppearanceCard(appFontStyle: appFontStyleBinding)
+                    SettingsLanguageCard()
+                    SettingsNotificationsCard()
+                    SettingsSubscriptionCard()
+                    SettingsAppVersionCard()
+                    SettingsAboutCard()
+                }
             }
             .padding()
         }
         .font(AppFont.body())
         .navigationTitle(Text(localized: "settings.title"))
+    }
+
+    private var showsCodexSection: Bool {
+        scope == .all || scope == .codex
+    }
+
+    private var showsTerminalSection: Bool {
+        scope == .all || scope == .terminal
+    }
+
+    private var showsAppSection: Bool {
+        scope == .all || scope == .app
     }
 
     private var appFontStyleBinding: Binding<AppFont.Style> {
