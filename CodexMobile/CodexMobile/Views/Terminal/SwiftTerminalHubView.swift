@@ -16,8 +16,9 @@ struct SwiftTerminalHubView: View {
     var showsPaneToolbarButton = true
     var onOpenSettings: (() -> Void)? = nil
 
-    @AppStorage("swiftTerminal.fontSize") private var fontSize = 12.0
+    @AppStorage("swiftTerminal.fontSize") private var defaultFontSize = 12.0
     @AppStorage("swiftTerminal.bracketedPaste") private var bracketedPaste = true
+    @AppStorage("swiftTerminal.bracketedPasteDefaultRevision") private var bracketedPasteDefaultRevision = 0
     @AppStorage("swiftTerminal.rendererMode") private var rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
     @AppStorage("swiftTerminal.shortcutProfile") private var shortcutProfileRaw = SwiftTerminalShortcutProfile.agent.rawValue
     @AppStorage("swiftTerminal.customShortcutsJSON") private var customShortcutsJSON = SwiftTerminalShortcut.defaultCustomJSON
@@ -31,6 +32,7 @@ struct SwiftTerminalHubView: View {
     @AppStorage("terminal.openVisibleOnCreate") private var openVisibleTerminalOnCreate = false
 
     @State private var keyBarExpanded = false
+    @State private var sessionFontSizeOverride: Double?
     @State private var isKeyboardPresented = false
     @State private var isControlModifierLatched = false
     @State private var isMetaModifierLatched = false
@@ -84,6 +86,7 @@ struct SwiftTerminalHubView: View {
     @FocusState private var isCommandFieldFocused: Bool
     private let stableFallbackRevision = 1
     private let swiftTermRestoreRevisionTarget = 1
+    private let bracketedPasteDefaultRevisionTarget = 1
     private let allowsSwiftTermRenderer = true
     private let replaysSwiftTermAfterInput = false
     private let emptyPinnedShortcutSentinel = "__empty__"
@@ -114,13 +117,16 @@ struct SwiftTerminalHubView: View {
         TerminalVisibleAppPreference(rawValue: createVisibleAppRaw) ?? terminalVisibleApp
     }
 
+    private var effectiveFontSize: Double {
+        sessionFontSizeOverride ?? defaultFontSize
+    }
+
     var body: some View {
         terminalContent
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
-        .ignoresSafeArea(edges: .top)
         .toolbar {
             if showsPaneToolbarButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -138,6 +144,7 @@ struct SwiftTerminalHubView: View {
         }
         .task {
             enforceStableRendererDefaultIfNeeded()
+            enableBracketedPasteByDefaultIfNeeded()
             await primeTerminalOnEntry()
         }
         .task(id: stablePollKey) {
@@ -319,6 +326,7 @@ struct SwiftTerminalHubView: View {
             Divider().overlay(swiftTerminalBorder)
             keyBar
         }
+        .background(theme.shellBackground.ignoresSafeArea(edges: .top))
     }
 
     private var terminalToolbarTitle: some View {
@@ -435,7 +443,7 @@ struct SwiftTerminalHubView: View {
                     paneTarget: selectedPaneTarget,
                     streamId: streamId,
                     messages: streamMessages,
-                    fontSize: CGFloat(fontSize),
+                    fontSize: CGFloat(effectiveFontSize),
                     usesDarkTheme: theme.isDark,
                     focusRequestID: focusRequestID,
                     copyRequestID: copyRequestID,
@@ -470,7 +478,7 @@ struct SwiftTerminalHubView: View {
         GeometryReader { geometry in
             StableTerminalSnapshotTextView(
                 attributedText: currentSnapshotAttributedText,
-                fontSize: CGFloat(fontSize),
+                fontSize: CGFloat(effectiveFontSize),
                 backgroundColor: UIColor(theme.terminalSurface),
                 foregroundColor: UIColor(theme.terminalText),
                 scrollTopRequestID: stableScrollTopRequestID,
@@ -505,11 +513,12 @@ struct SwiftTerminalHubView: View {
             isSwiftTermRendererActive: isSwiftTermRendererActive,
             keyBarExpanded: $keyBarExpanded,
             bracketedPaste: $bracketedPaste,
-            fontSize: $fontSize,
+            fontSize: sessionFontSizeBinding,
             theme: theme,
             pinnedShortcuts: pinnedShortcuts,
             displayedActiveShortcuts: displayedActiveShortcuts,
             shortcutProfile: shortcutProfile,
+            customShortcutIDs: customShortcutIDs,
             isKeyboardPresented: isKeyboardPresented,
             isControlModifierLatched: isControlModifierLatched,
             isMetaModifierLatched: isMetaModifierLatched,
@@ -842,12 +851,12 @@ struct SwiftTerminalHubView: View {
         var seen = Set<String>()
         var output = [SwiftTerminalShortcut]()
         let groups = [
+            decodedCustomShortcuts() ?? [],
             SwiftTerminalShortcut.defaultPinnedShortcuts,
             SwiftTerminalShortcut.compactProfile,
             SwiftTerminalShortcut.agentProfile,
             SwiftTerminalShortcut.shellProfile,
             SwiftTerminalShortcut.macProfile,
-            decodedCustomShortcuts() ?? [],
         ]
         for shortcut in groups.flatMap({ $0 }) where seen.insert(shortcut.pinId).inserted {
             output.append(shortcut)
@@ -874,12 +883,23 @@ struct SwiftTerminalHubView: View {
         Set(pinnedShortcutIdList)
     }
 
+    private var customShortcutIDs: Set<String> {
+        Set((decodedCustomShortcuts() ?? []).map(\.id))
+    }
+
     private var stablePollKey: String {
-        "\(rendererModeRaw)|\(selectedPaneTarget ?? "-")|\(codex.isConnected)|\(scenePhase == .active)|\(terminalFontFamilyRaw)|\(useDarkTerminalCanvas)|\(fontSize)"
+        "\(rendererModeRaw)|\(selectedPaneTarget ?? "-")|\(codex.isConnected)|\(scenePhase == .active)|\(terminalFontFamilyRaw)|\(useDarkTerminalCanvas)|\(effectiveFontSize)"
     }
 
     private var stableCanvasResetKey: String {
-        "\(selectedPaneTarget ?? selectedPane?.requestTarget ?? "-")|\(terminalFontFamilyRaw)|\(useDarkTerminalCanvas)|\(colorScheme)|\(fontSize)"
+        "\(selectedPaneTarget ?? selectedPane?.requestTarget ?? "-")|\(terminalFontFamilyRaw)|\(useDarkTerminalCanvas)|\(colorScheme)|\(effectiveFontSize)"
+    }
+
+    private var sessionFontSizeBinding: Binding<Double> {
+        Binding(
+            get: { effectiveFontSize },
+            set: { sessionFontSizeOverride = $0 }
+        )
     }
 
     private var errorIsPresented: Binding<Bool> {
@@ -1620,8 +1640,8 @@ struct SwiftTerminalHubView: View {
     }
 
     private func stableTerminalDimensions(for size: CGSize) -> (cols: Int, rows: Int) {
-        let charWidth = max(5.6, fontSize * 0.60)
-        let rowHeight = max(12.0, fontSize * 1.25)
+        let charWidth = max(5.6, effectiveFontSize * 0.60)
+        let rowHeight = max(12.0, effectiveFontSize * 1.25)
         return (
             cols: max(40, min(140, Int(max(size.width - 28, 1) / charWidth))),
             rows: max(8, min(90, Int(max(size.height - 30, 1) / rowHeight)))
@@ -1724,6 +1744,12 @@ struct SwiftTerminalHubView: View {
             rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
             swiftTermRestoreRevision = swiftTermRestoreRevisionTarget
         }
+    }
+
+    private func enableBracketedPasteByDefaultIfNeeded() {
+        guard bracketedPasteDefaultRevision < bracketedPasteDefaultRevisionTarget else { return }
+        bracketedPaste = true
+        bracketedPasteDefaultRevision = bracketedPasteDefaultRevisionTarget
     }
 
     private func selectDefaultPaneIfNeeded(preferUsefulDefault: Bool = false) {

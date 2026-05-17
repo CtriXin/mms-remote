@@ -369,8 +369,6 @@ struct SwiftTerminalShortcut: Codable, Identifiable, Hashable {
     static let agentProfile: [SwiftTerminalShortcut] = [
         .key("ESC", .escape),
         .key("⌃C", .ctrlC),
-        .key("⌃D", .ctrlD),
-        .key("⌃Z", .ctrlZ),
         .key("tab", .tab),
         .key("return", .enter),
         .key("delete", .backspace),

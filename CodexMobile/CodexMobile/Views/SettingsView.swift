@@ -596,6 +596,7 @@ private struct SettingsTerminalCard: View {
     @AppStorage("terminal.useLegacyInterface") private var useLegacyTerminalInterface = false
     @AppStorage("terminal.darkCanvas") private var useDarkTerminalCanvas = true
     @AppStorage("terminal.openVisibleOnCreate") private var openVisibleOnCreate = false
+    @AppStorage("swiftTerminal.fontSize") private var terminalFontSize = 12.0
     @AppStorage(TerminalFontFamily.storageKey) private var terminalFontFamilyRaw = TerminalFontFamily.defaultStoredRawValue
     @AppStorage(TerminalVisibleAppPreference.storageKey) private var terminalVisibleAppRaw = TerminalVisibleAppPreference.defaultStoredRawValue
     @State private var isShowingTmuxCheatsheet = false
@@ -649,6 +650,15 @@ private struct SettingsTerminalCard: View {
             }
 
             Text(LocalizationManager.shared.localized("terminal.settings.font_hint"))
+                .font(AppFont.caption())
+                .foregroundStyle(.secondary)
+
+            Stepper(value: $terminalFontSize, in: 8...18, step: 1) {
+                Text(String(format: LocalizationManager.shared.localized("terminal.settings.font_size"), Int(terminalFontSize)))
+            }
+            .tint(settingsAccentColor)
+
+            Text(LocalizationManager.shared.localized("terminal.settings.font_size_hint"))
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
 

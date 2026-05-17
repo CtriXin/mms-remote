@@ -13,6 +13,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
     let pinnedShortcuts: [SwiftTerminalShortcut]
     let displayedActiveShortcuts: [SwiftTerminalShortcut]
     let shortcutProfile: SwiftTerminalShortcutProfile
+    let customShortcutIDs: Set<String>
     let isKeyboardPresented: Bool
     let isControlModifierLatched: Bool
     let isMetaModifierLatched: Bool
@@ -184,6 +185,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
     }
 
     private func isPrimaryBarShortcut(_ shortcut: SwiftTerminalShortcut) -> Bool {
+        guard !customShortcutIDs.contains(shortcut.id) else { return false }
         switch shortcut.kind {
         case .action:
             guard let action = SwiftTerminalShortcutAction(shortcut.value) else { return false }
