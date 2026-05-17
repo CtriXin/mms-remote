@@ -81,8 +81,6 @@ struct SwiftTerminalHubView: View {
     private let emptyPinnedShortcutSentinel = "__empty__"
     private let chordPanelMinHeight: CGFloat = 244
     private let chordPanelMaxHeight: CGFloat = 420
-    private let terminalNavigationBackdropHeight: CGFloat = 124
-    private let terminalNavigationContentInset: CGFloat = 104
 
     private var rendererMode: SwiftTerminalRendererMode {
         SwiftTerminalRendererMode(rawValue: rendererModeRaw) ?? .stable
@@ -109,16 +107,12 @@ struct SwiftTerminalHubView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            terminalNavigationBackdrop
-            terminalContent
-                .padding(.top, terminalNavigationContentInset)
-        }
-        .ignoresSafeArea(edges: .top)
+        terminalContent
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
+        .ignoresSafeArea(edges: .top)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 terminalPaneMenu
@@ -420,41 +414,6 @@ struct SwiftTerminalHubView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var terminalNavigationBackdrop: some View {
-        ZStack(alignment: .bottomLeading) {
-            swiftTerminalBackground
-
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(terminalBackdropPreviewLines.enumerated()), id: \.offset) { _, line in
-                    Text(line.isEmpty ? " " : line)
-                        .font(AppFont.terminalMono(.caption2))
-                        .foregroundStyle(theme.terminalText.opacity(theme.isDark ? 0.58 : 0.48))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 10)
-            .blur(radius: 0.45)
-
-            Rectangle()
-                .fill(.ultraThinMaterial)
-
-            LinearGradient(
-                colors: [
-                    theme.terminalAccent.opacity(theme.isDark ? 0.24 : 0.15),
-                    theme.terminalSurface.opacity(theme.isDark ? 0.30 : 0.18),
-                    Color.clear,
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        .frame(height: terminalNavigationBackdropHeight)
-        .frame(maxWidth: .infinity)
-        .allowsHitTesting(false)
-    }
-
     private var stableSnapshotView: some View {
         GeometryReader { geometry in
             StableTerminalSnapshotTextView(
@@ -713,40 +672,6 @@ struct SwiftTerminalHubView: View {
             from: currentSnapshotText,
             defaultForeground: theme.terminalText
         )
-    }
-
-    private var terminalBackdropPreviewLines: [String] {
-        let lines = terminalBackdropSourceText
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .suffix(8)
-            .map(String.init)
-        if lines.isEmpty {
-            return [paneTitleForHeader, terminalHeaderDetailText]
-        }
-        return Array(lines)
-    }
-
-    private var terminalBackdropSourceText: String {
-        if isSwiftTermRendererActive {
-            let streamedText = streamMessages
-                .suffix(80)
-                .compactMap { message -> String? in
-                    guard message.type == .output,
-                          let base64 = message.base64,
-                          let data = Data(base64Encoded: base64) else {
-                        return nil
-                    }
-                    return String(data: data, encoding: .utf8)
-                }
-                .joined()
-            let sanitizedStreamText = TerminalTextUtilities.trimBlankEdges(
-                SwiftTerminalANSIRenderer.plainText(from: streamedText)
-            )
-            if !sanitizedStreamText.isEmpty {
-                return sanitizedStreamText
-            }
-        }
-        return currentSnapshotDisplayText
     }
 
     private var paneTitleForHeader: String {
