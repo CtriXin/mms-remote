@@ -12,6 +12,7 @@ import Observation
 final class ContentViewModel {
     private var hasAttemptedInitialAutoConnect = false
     private var lastSidebarOpenSyncAt: Date = .distantPast
+    private var savedReconnectCandidateCursor = 0
     private let autoReconnectBackoffNanoseconds: [UInt64] = [1_000_000_000, 3_000_000_000]
     private let reconnectSleepChunkNanoseconds: UInt64 = 100_000_000
     private(set) var isRunningAutoReconnect = false
@@ -483,10 +484,16 @@ extension ContentViewModel {
 
     // Reuses the last QR-resolved session when trusted lookup is unavailable or not yet supported end-to-end.
     private func savedReconnectURL(codex: CodexService) -> String? {
-        guard let sessionId = codex.normalizedRelaySessionId,
-              let relayURL = codex.normalizedRelayURL else {
+        guard let sessionId = codex.normalizedRelaySessionId else {
             return nil
         }
+        let relayURLs = codex.normalizedRelayURLs
+        guard !relayURLs.isEmpty else {
+            return nil
+        }
+
+        let relayURL = relayURLs[savedReconnectCandidateCursor % relayURLs.count]
+        savedReconnectCandidateCursor = (savedReconnectCandidateCursor + 1) % relayURLs.count
         return "\(relayURL)/\(sessionId)"
     }
 

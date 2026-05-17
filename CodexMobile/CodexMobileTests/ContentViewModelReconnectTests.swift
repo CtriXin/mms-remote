@@ -77,6 +77,23 @@ final class ContentViewModelReconnectTests: XCTestCase {
         XCTAssertNil(service.lastErrorMessage)
     }
 
+    func testSavedReconnectURLRotatesRelayCandidatesWhenTrustedResolveCannotUseThem() async {
+        let service = makeService()
+        let viewModel = ContentViewModel()
+        let lanRelayURL = "ws://192.168.1.31:9000/relay"
+        let remoteRelayURL = "wss://relay.example/relay"
+
+        service.relaySessionId = "saved-session"
+        service.relayUrl = lanRelayURL
+        service.relayUrls = [lanRelayURL, remoteRelayURL]
+
+        let firstReconnectURL = await viewModel.preferredReconnectURL(codex: service)
+        let secondReconnectURL = await viewModel.preferredReconnectURL(codex: service)
+
+        XCTAssertEqual(firstReconnectURL, "\(lanRelayURL)/saved-session")
+        XCTAssertEqual(secondReconnectURL, "\(remoteRelayURL)/saved-session")
+    }
+
     func testPreferredReconnectURLStopsWhenTrustedResolveReportsOfflineAndNoSavedSessionExists() async {
         let service = makeService()
         let viewModel = ContentViewModel()

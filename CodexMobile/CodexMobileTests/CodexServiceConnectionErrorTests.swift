@@ -66,6 +66,14 @@ final class CodexServiceConnectionErrorTests: XCTestCase {
         XCTAssertFalse(service.shouldSuppressUserFacingConnectionError(error))
     }
 
+    func testNetworkPathLossIsRetryableForRelayReconnect() {
+        let service = CodexService()
+
+        XCTAssertTrue(service.isRecoverableTransientConnectionError(NWError.posix(.ENETDOWN)))
+        XCTAssertTrue(service.isRecoverableTransientConnectionError(NWError.posix(.ENETUNREACH)))
+        XCTAssertTrue(service.isRecoverableTransientConnectionError(NWError.posix(.EHOSTUNREACH)))
+    }
+
     func testOversizedRelayPayloadGetsFriendlyFailureCopy() {
         let service = CodexService()
         let error = NWError.posix(.EMSGSIZE)

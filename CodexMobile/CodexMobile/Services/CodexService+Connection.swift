@@ -893,7 +893,10 @@ extension CodexService {
 
         if let nwError = error as? NWError {
             if case .posix(let code) = nwError,
-               code == .ETIMEDOUT {
+               code == .ETIMEDOUT
+                || code == .ENETDOWN
+                || code == .ENETUNREACH
+                || code == .EHOSTUNREACH {
                 return true
             }
         }

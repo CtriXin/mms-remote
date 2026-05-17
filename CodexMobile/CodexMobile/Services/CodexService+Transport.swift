@@ -415,6 +415,8 @@ extension CodexService {
                 guard self.webSocketConnection === connection, self.usesManualWebSocketTransport else { return }
 
                 switch state {
+                case .waiting(let error):
+                    self.handleReceiveError(error)
                 case .failed(let error):
                     self.handleReceiveError(error)
                 case .cancelled:
@@ -473,6 +475,8 @@ extension CodexService {
                 guard self.webSocketConnection === connection else { return }
 
                 switch state {
+                case .waiting(let error):
+                    self.handleReceiveError(error)
                 case .failed(let error):
                     self.handleReceiveError(error)
                 case .cancelled:
