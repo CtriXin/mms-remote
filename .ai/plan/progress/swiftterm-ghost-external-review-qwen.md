@@ -368,10 +368,88 @@ xcrun devicectl device install app --device 009568BB-3B27-5C91-A94D-34B683F6BCD5
 
 ---
 
-## 结论
+## Web Research & Community Issues (第二轮)
+
+### SwiftTerm 版本核验
+
+Host 复核：`CodexMobile.xcodeproj` 和 `Package.resolved` 当前仍 pin **`9ad1b19`**。本轮外部 review 中提到的 `b1262db` 不应视为当前 app 实际依赖；后续分析以 project pin `9ad1b19` 为准。
+
+### HEAD vs 我们的 AppleTerminalView 关键差异
+
+| 特性 | 我们的 `9ad1b19` | HEAD `432a32d` |
+|------|-----------------|---------------|
+| DEC 2026 sync output debounce | **无** | `inSyncSequence` + `syncEndRenderTimer` + `syncSequenceSettleMs=100ms (iOS)` |
+| `updateDisplay()` sync guard | **无** | `guard !terminal.synchronizedOutputActive && !inSyncSequence else { return }` |
+| `updateCursorPosition()` | `addSubview(caretView)` + `setText(ch:)` | **完全相同逻辑**，无变化 |
+| iOS `setNeedsDisplay` | `bounds`（coarse） | `bounds`（CG path）或 `metalView.setNeedsDisplay`（Metal path） |
+| Metal renderer | 可选 | 新增 GPU backend (#484)，display-link 定时渲染 |
+| cellDimension 像素对齐 | 无 | `snappedWidth/Height = ceil(value * scale) / scale` |
+| `layoutSubviews` 后调用 | `setNeedsDisplay(bounds)` | 新增 `setNeedsDisplay(frame)` 强制全帧重绘 |
+| `feedBegin/finish` 大小检查 | 直接 resize | 零大小 guard，避免 cols=rows=0 触发 resize |
+
+### PR #498 (DEC 2026 sync output) — 对 ghost 的影响评估
+
+**关键代码** (`iOSTerminalView.swift`):
+```swift
+var syncSequenceSettleMs: Int = 100  // iOS 默认 100ms
+```
+
+`synchronizedOutputChanged` 回调：
+- BSU 到达 → `inSyncSequence = true` → 取消 pending render
+- ESU 到达 → 启动 `syncEndRenderTimer`，100ms 后才触发 `updateScroller()` + `queuePendingDisplay()`
+- `updateDisplay()` 开头 `guard !inSyncSequence else { return }` → sync 期间不渲染
+
+**对 ghost 的影响**：
+- PR #498 减少了 tmux sync 期间的 **中间 render 次数**，减少了 CaretView 被反复 addSubview 的机会
+- **但最终 render 仍调用 `updateCursorPosition()` → `addSubview(caretView)` + `setText(ch:)`**
+- PR #498 是 **放大因素修复**，不是根因修复。升级后 ghost 概率降低但仍存在
+- 100ms debounce 意味着每次输入后 display 延迟 100ms 才触发（之前是 16ms）。这会让 ghost 出现频率降低，但单次 ghost 可能更持久（因为 render 间隔更长，旧 tile 更可能被覆盖前残留更久 — 这个方向不确定）
+
+### 其他相关 PRs 对 ghost 的影响
+
+| PR | 与 ghost 关系 |
+|----|-------------|
+| #531 fontSmoothing | macOS only，iOS 无关 |
+| #527 duplicate accessibility | 修复重复方法调用，与 ghost 无关 |
+| #499 force redraw on font change | 只影响字体切换场景 |
+| #484 GPU backend | Metal renderer path，不影响 CG path |
+| #289 caret renders glyph | 已合并（PR #289, 2023-04-17）。这是 ghost 视觉前提 |
+
+### `updateCursorPosition()` 在 HEAD 中的状态
+
+**完全未变**。我们的版本和 HEAD 版本的 `updateCursorPosition()` 代码一模一样：
+```swift
+func updateCursorPosition()
+{
+    guard let caretView else { return }
+    let buffer = terminal.displayBuffer
+    let vy = buffer.yBase + buffer.y
+    if vy >= buffer.yDisp + buffer.rows {
+        caretView.removeFromSuperview()
+        return
+    } else if terminal.cursorHidden == false && caretView.superview != self {
+        addSubview(caretView)
+    } else if terminal.cursorHidden == true && caretView.superview == self {
+        caretView.removeFromSuperview()
+    }
+    // ...frame.origin + setText(ch:)...
+}
+```
+
+`addSubview(caretView)` + `setText(ch:)` 逻辑在 SwiftTerm HEAD **仍然存在**，没有任何社区修复。
+
+### 结论
+
+1. **升级 SwiftTerm 到 HEAD 不能直接修复 ghost**。`updateCursorPosition` 的 CaretView addSubview/setText 逻辑完全未变
+2. PR #498 是有益的补充（减少中间 render 次数），但不是替代品
+3. **App-level 修复（Patch B: addSubview 拦截）仍是唯一能直接阻断根因的方案**
+4. SwiftTerm 升级的好处：PR #498（sync debounce）+ cellDimension 像素对齐 + 零大小 guard + VoiceOver 支持 + 各种 bug 修复
+5. 升级障碍：Metal renderer 需要 Metal Toolchain，但 **iOS CG path 不受影响**（CG path 是独立的，`#if canImport(MetalKit)` 在 iOS 上默认不走 Metal 除非 app 显式启用）。升级后只要不启用 Metal，CG path 应该正常工作
 
 **最可能根因 (75%)**: SwiftTerm `updateCursorPosition()` 在 `updateDisplay()` 周期中 `addSubview(caretView)` + `setText()`，block cursor 模式下渲染完整字符 glyph。CaretView layer 在 CoreAnimation commit 后，旧位置 pixel data 未被 `TerminalView` 的下一帧内容覆盖 → ghost 残留。
 
 **次要可能 (15%)**: `feedPreservingScroll` 恢复 `contentOffset.y` 但不恢复 `yDisp`，导致 `drawTerminalContents` row 计算错位。
 
-**推荐**: 先加 diagnostic logs 验证 H1/H2，确认后 Patch B（拦截 CaretView addSubview）作为最小修复。两个 patch 都是 iOS wrapper 层最小变更，不涉及 SwiftTerm 源码 fork。
+**第二轮 web research 结论**: SwiftTerm HEAD 的 `updateCursorPosition()` 与我们的版本**完全相同** — `addSubview(caretView)` + `setText(ch:)` 未被任何社区 PR 修复。升级 SwiftTerm 到 HEAD 不能直接修复 ghost，但 PR #498 (DEC 2026 sync output debounce, iOS `syncSequenceSettleMs=100ms`) 能减少中间 render 次数，作为 defense-in-depth。
+
+**推荐**: 先加 diagnostic logs 验证 H1/H2，确认后 Patch B（拦截 CaretView addSubview）作为最小修复。建议组合 Patch B + 未来升级 SwiftTerm 到 HEAD（只走 CG path，不启用 Metal）。两个 patch 都是 iOS wrapper 层最小变更，不涉及 SwiftTerm 源码 fork。

@@ -118,3 +118,57 @@ xcodebuild -project CodexMobile/CodexMobile.xcodeproj \
 ```bash
 HOME=/Users/xin CODEX_HOME=/Users/xin/.codex npm test --prefix mms-remote-bridge
 ```
+
+---
+
+## 8. 社区验证与替代方案调研（2026-05-17）
+
+### 8.1 SwiftTerm 社区已知问题
+
+| Issue | 描述 | 与本项目 ghost 的关系 |
+|-------|------|----------------------|
+| [#231 Terminal Rendering Defect](https://github.com/migueldeicaza/SwiftTerm/issues/231) | CodeEdit 团队报告 SwiftTerm rendering defect，涉及终端渲染异常 | 直接相关 — 其他 SwiftTerm 用户遇到同类渲染问题 |
+| [#137 Multi-threading Terminal](https://github.com/migueldeicaza/SwiftTerm/issues/137) | SwiftTerm 多线程 lock 机制讨论 | 间接相关 — `terminalLock`/`terminalUnlock` 影响 feed 与 draw 的线程安全 |
+| [#342 setCursorColor() not working](https://github.com/migueldeicaza/SwiftTerm/issues/342) | cursor 颜色设置不生效，涉及 CaretView 渲染路径 | 佐证 CaretView 渲染路径有已知缺陷 |
+| [#227 Cursor positioning with CJK/emoji](https://github.com/migueldeicaza/SwiftTerm/issues/227) | CJK/emoji 字符宽度导致 cursor 定位偏移 | 佐证 cursor 定位逻辑在 iOS 上不完善 |
+
+### 8.2 UIKit dirty rect 行为验证
+
+社区确认的关键行为：
+
+1. **`setNeedsDisplayInRect:` 不保证 partial redraw**（[SO: CALayer setNeedsDisplayInRect](https://stackoverflow.com/questions/9809306/calayer-setneedsdisplayinrect-causes-the-whole-layer-to-be-redrawn)）— UIKit 可能将多个 dirty rect 合并为 bounding rect，或直接 full redraw
+2. **UIKit backing layer 特殊行为** — `UIView` 的 backing layer 可能在 `setNeedsDisplayInRect:` 时内部标记 entire layer needs display
+3. **`clearsContextBeforeDrawing` 默认 `true`** — 但只清除 `draw()` 实际收到的 `dirtyRect` 区域，不是 `bounds`
+
+**结论**：UIKit dirty rect coalescing 行为不可预测，依赖 `dirtyRect` 做精确背景清除不可靠。这进一步支持 full-bounds 清除方案。
+
+### 8.3 其他 iOS 终端模拟器做法
+
+| 项目 | Cursor 渲染策略 | Ghost 处理 |
+|------|----------------|-----------|
+| **LibTerm** / **La Terminal**（SwiftTermApp） | 直接用 SwiftTerm 引擎，同 Miguel de Icaza | 未公开讨论 ghost 问题 |
+| **Blink Shell** | 开源（[blinksh/blink](https://github.com/blinksh/blink)），用自定义 Metal 渲染 + 独立 cursor overlay layer | cursor 作为独立 CALayer 叠加，不参与主 draw cycle，从架构上避免 dirty rect 问题 |
+| **iSH** | 用 UIView `draw()` 但 cursor 为独立 subview | 类似方案 — cursor 移动只更新自身 layer，不依赖主 view redraw |
+
+**关键发现**：Blink Shell 和 iSH 的做法是将 cursor **从主渲染路径分离**，使用独立 layer/overlay。这从根本上避免 dirty rect coordination 问题。
+
+### 8.4 替代方案评估
+
+| 方案 | 优点 | 缺点 | 推荐度 |
+|------|------|------|--------|
+| **A. Override `draw()` full-bounds 清除** | 最小改动，不改 SwiftTerm 源码 | 每帧全屏重绘，但增量开销有限（已遍历所有行） | ★★★★★ 首选 |
+| **B. Cursor 改 bar/underline** | 从源头消除 glyph ghost 材料 | 改变用户体验，block cursor 是常见期望 | ★★★ 降级 |
+| **C. 独立 cursor overlay layer（Blink 方案）** | 架构最优，彻底分离 | 需要 fork/patch SwiftTerm CaretView 逻辑，改动大 | ★★ 长期 |
+| **D. 每次 cursor 移动 invalidate old+new frame union** | 精确 dirty rect | 需 hook `updateCursorPosition()`，SwiftTerm 源码改动 | ★★★ 精确但侵入 |
+| **E. `setNeedsDisplay(bounds)` on every `queuePendingDisplay`** | 不改 draw 逻辑 | 需 override `queuePendingDisplay`，仍有 16ms throttle 窗口 | ★★ |
+
+### 8.5 最优方案确认
+
+**方案 A（full-bounds draw override）仍然是最优选择**，理由：
+
+1. **最小改动**：只 override 一个方法，不改 SwiftTerm 源码
+2. **社区验证**：dirty rect coalescing 不可靠是 UIKit 已知行为，full-bounds 清除是标准 workaround
+3. **性能可控**：SwiftTerm iOS 已用 `setNeedsDisplay(bounds)` + 全行遍历，full-bounds 清除不增加额外行扫描
+4. **降级路径清晰**：如果 A 不够，可退到 B（bar cursor）或 D（精确 invalidate）
+
+如果方案 A 在设备上验证通过，无需尝试更复杂的方案。如果仍有残留，叠加方案 B（bar cursor）基本可以根治。

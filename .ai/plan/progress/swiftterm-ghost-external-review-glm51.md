@@ -226,3 +226,28 @@ xcrun devicectl device install app \
 | 关键差异 | — | — | 发现当前代码已无 quarantine 逻辑，ghost 仍在；`updateDisplay` 的 `getUpdateRange()` nil path 不调用 `setNeedsDisplay` |
 
 **重要更正**：`Docs/swiftterm_ghost_analysis.md` 中的 Hypothesis 1（CaretView quarantine race）基于已不存在的代码逻辑。当前 `MMSStreamTerminalView` 没有 quarantine、没有 `flushDisplayAfterOutboundInput`、没有 addSubview override。Ghost 在没有这些代码的情况下仍然复现，证明根因不在 quarantine race。
+
+---
+
+## 8. 社区验证与替代方案调研（2026-05-17 补充）
+
+### SwiftTerm 社区已知问题
+
+- [#231 Terminal Rendering Defect](https://github.com/migueldeicaza/SwiftTerm/issues/231): CodeEdit 团队报告，直接相关
+- [#137 Multi-threading Terminal](https://github.com/migueldeicaza/SwiftTerm/issues/137): 线程安全间接相关
+- [#342 setCursorColor() not working](https://github.com/migueldeicaza/SwiftTerm/issues/342): CaretView 渲染路径缺陷佐证
+- [#227 Cursor positioning with CJK/emoji](https://github.com/migueldeicaza/SwiftTerm/issues/227): cursor 定位不完善佐证
+
+### UIKit dirty rect 验证
+
+[SO 确认](https://stackoverflow.com/questions/9809306/calayer-setneedsdisplayinrect-causes-the-whole-layer-to-be-redrawn) `setNeedsDisplayInRect:` 不保证 partial redraw。UIKit 可能合并 dirty rect 或直接 full redraw。`clearsContextBeforeDrawing` 只清实际 `dirtyRect`，非 `bounds`。
+
+### 其他 iOS 终端做法
+
+- **Blink Shell**: cursor 作为独立 CALayer 叠加，不参与主 draw cycle
+- **iSH**: cursor 为独立 subview，移动只更新自身 layer
+- **LibTerm/La Terminal**: 直接用 SwiftTerm，未公开讨论 ghost
+
+### 方案 A 仍为最优
+
+社区验证 dirty rect coalescing 不可靠。Full-bounds draw override 是标准 workaround，最小改动，不改 SwiftTerm 源码。Blink/iSH 的独立 cursor layer 方案架构更优但改动大，作为长期选项保留。

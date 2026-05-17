@@ -777,3 +777,42 @@ func updateCursorPosition() {
 | **4** | 改 cursor style 为 bar/underline | workaround，不解决根因但让 ghost 肉眼不可见 |
 
 **最优解仍然是 Patch 1（addSubview 拦截）+ 未来升级 SwiftTerm 到包含 PR #498 的版本作为 defense-in-depth。**
+
+---
+
+## 2026-05-17 第二轮 Web Research — qwen3.6-plus
+
+### 版本核验
+
+Host 复核后更正：`CodexMobile.xcodeproj` 和 `Package.resolved` 当前仍 pin **`9ad1b19`**。外部 review 中提到的 `b1262db` 不应视为当前 app 实际依赖。
+
+### SwiftTerm HEAD `updateCursorPosition()` 与我们的版本对比
+
+**关键发现: HEAD 中的 `updateCursorPosition()` 与我们的版本完全相同**。`addSubview(caretView)` + `setText(ch:)` 逻辑没有被任何社区 PR 修复。这意味着升级 SwiftTerm 到 HEAD **不能直接修复 ghost**。
+
+### PR #498 DEC 2026 Sync Output 对 ghost 的影响
+
+- iOS `iOSTerminalView.swift` 新增 `inSyncSequence` + `syncEndRenderTimer` + `syncSequenceSettleMs=100ms`
+- `updateDisplay()` 开头: `guard !terminal.synchronizedOutputActive && !inSyncSequence else { return }`
+- 效果: tmux sync 期间不触发 `updateDisplay()`，减少中间 render 次数
+- **限制**: 最终 render 仍会调用 `updateCursorPosition()` → `addSubview(caretView)` + `setText()`
+- **结论**: PR #498 是**放大因素修复**，减少 ghost 出现频率，但不阻断根因
+
+### SwiftTerm 升级价值评估（只走 CG path，不启用 Metal）
+
+| 收益 | 与 ghost 关系 |
+|------|-------------|
+| PR #498 sync output debounce (100ms iOS) | 减少中间 render，间接降低 ghost 频率 |
+| cellDimension 像素对齐 (snappedWidth/Height) | 减少 sub-pixel seam ghost 可能 |
+| layoutSubviews 后 setNeedsDisplay(frame) | 强制全帧重绘，减少 stale tile |
+| 零大小 guard | 避免 cols=0 时 resize 异常 |
+| VoiceOver / accessibility | 与 ghost 无关 |
+| various bug fixes | 与 ghost 无关 |
+
+### 最终结论（两轮研究后）
+
+1. **根因**: SwiftTerm `updateCursorPosition()` → `addSubview(caretView)` + `setText(ch: buffer.lines[vy][buffer.x])` → block cursor 模式渲染字符 glyph → CoreAnimation tile-based rendering 旧位置像素残留
+2. **SwiftTerm HEAD 未修复此问题** — `updateCursorPosition()` 代码完全未变
+3. **唯一直接修复方案**: App-level `addSubview()` 拦截 CaretView（Patch B），阻断 CaretView 加入 view tree
+4. **推荐组合**: Patch B + 升级 SwiftTerm 到 HEAD（CG path，不启用 Metal），PR #498 作为 defense-in-depth
+5. **升级可行性**: Metal renderer 需要 Metal Toolchain，但 iOS CG path 是独立的（`#if canImport(MetalKit)` 默认不走 Metal），升级后不启用 Metal 应该正常工作
