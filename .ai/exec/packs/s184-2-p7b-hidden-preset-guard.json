@@ -1,0 +1,98 @@
+{
+  "schema": "executor.pack.v1",
+  "generated_at": "2026-05-17T03:04:58.693899Z",
+  "task_id": "s184-2-p7b-hidden-preset-guard",
+  "commit": "3f0f3b769b33759dfcf9c3e77c17284d169f5ada",
+  "title": "P7B hidden preset guard",
+  "objective": "Fix P7B MMS metadata dry-run so mms/launch/plan rejects hidden or non-visible presets, and add regression coverage.",
+  "task_kind": "debug",
+  "difficulty": "D2",
+  "status": "ready_for_executor",
+  "dispatch_enabled": false,
+  "identity": {
+    "executor_id_order": [
+      "explicit executor=<id>",
+      "MMS_SESSION_PACKET_JSON model.primary",
+      "EXECUTOR_ID",
+      "MMS_MODEL_NAME"
+    ],
+    "wrapper_ids_forbidden_as_executor": [
+      "agent",
+      "claude-code",
+      "cli",
+      "codex",
+      "default",
+      "executor",
+      "local",
+      "mms",
+      "unknown"
+    ],
+    "case_sensitive": true
+  },
+  "paths": {
+    "pack_json": ".ai/exec/packs/s184-2-p7b-hidden-preset-guard.json",
+    "pack_md": ".ai/exec/packs/s184-2-p7b-hidden-preset-guard.md",
+    "result_glob": ".ai/exec/results/*/s184-2-p7b-hidden-preset-guard-result-*.md"
+  },
+  "read_only_files": [
+    ".ai/plan/p184-mmschat-p7b-visible-ui-result.json",
+    "mms-remote-bridge/src/mms-config-reader.js",
+    "mms-remote-bridge/src/agent-launcher.js",
+    "mms-remote-bridge/src/mms-metadata-hub.js",
+    "mms-remote-bridge/test/mms-metadata-hub.test.js"
+  ],
+  "writable_files": [
+    "mms-remote-bridge/src/mms-metadata-hub.js",
+    "mms-remote-bridge/test/mms-metadata-hub.test.js",
+    ".ai/plan/progress/s184-2-p7b-hidden-preset-guard.md"
+  ],
+  "forbidden_files": [
+    "/Users/xin/auto-skills/CtriXin-repo/mms-remote",
+    "package.json",
+    "package-lock.json",
+    "CodexMobile/"
+  ],
+  "success_criteria": [
+    "mms/launch/plan rejects a preset whose provider is hidden or not in visible_providers.",
+    "mms/launch/plan rejects preset.hidden=true or preset.visible=false.",
+    "Visible preset dry-run remains PASS and does not expose authSecretRef/raw secrets.",
+    "No live mms/claude/provider/model call, no spawn, no tmux send-keys, no dependency add."
+  ],
+  "validation_commands": [
+    "node --check mms-remote-bridge/src/mms-metadata-hub.js",
+    "node --test mms-remote-bridge/test/mms-metadata-hub.test.js",
+    "node --test mms-remote-bridge/test/mms-config-reader.test.js mms-remote-bridge/test/agent-launcher.test.js",
+    "git diff --check -- mms-remote-bridge/src/mms-metadata-hub.js mms-remote-bridge/test/mms-metadata-hub.test.js .ai/plan/progress/s184-2-p7b-hidden-preset-guard.md"
+  ],
+  "non_goals": [
+    "No iOS changes.",
+    "No P7C polish or demo fixtures.",
+    "No live launch/send/resume/kill."
+  ],
+  "expected_outputs": [
+    "one executor result markdown under .ai/exec/results/<executor-id>/"
+  ],
+  "required_result_sections": [
+    "Verdict",
+    "Self Assessment",
+    "Scope Compliance",
+    "Changes",
+    "Validation",
+    "Findings / Loophole Review",
+    "Residual Risk",
+    "Blast Radius",
+    "Notes"
+  ],
+  "scoring": {
+    "confidence": "0-100",
+    "task_complexity": "D1-D5",
+    "completion": "0-100",
+    "debug_depth": "0-100",
+    "evidence_quality": "0-100",
+    "risk_level": "low|medium|high",
+    "status": "PASS|PARTIAL|BLOCKED"
+  },
+  "blocking_count": 0,
+  "blocking_items": [],
+  "allowed": true
+}

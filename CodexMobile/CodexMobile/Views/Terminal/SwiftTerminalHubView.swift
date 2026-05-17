@@ -74,6 +74,7 @@ struct SwiftTerminalHubView: View {
     @State private var lastStreamReconnectSignature = ""
     @State private var pendingStreamStartSignature = ""
     @State private var activeStreamSignature = ""
+    @State private var swiftTerminalSubTab: TerminalSubTab = .terminal
     @FocusState private var isCommandFieldFocused: Bool
     private let stableFallbackRevision = 1
     private let swiftTermRestoreRevisionTarget = 1
@@ -109,19 +110,27 @@ struct SwiftTerminalHubView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Group {
-                if !codex.isConnected {
-                    offlineBanner
+            swiftTerminalSubTabPicker
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+
+            if swiftTerminalSubTab == .terminal {
+                Group {
+                    if !codex.isConnected {
+                        offlineBanner
+                    }
+                    terminalCanvas
+                    if showsChordComposer {
+                        Divider().overlay(swiftTerminalBorder)
+                        chordComposerPanel
+                    }
                 }
-                terminalCanvas
-                if showsChordComposer {
-                    Divider().overlay(swiftTerminalBorder)
-                    chordComposerPanel
-                }
+                .background(theme.shellBackground)
+                Divider().overlay(swiftTerminalBorder)
+                keyBar
+            } else {
+                MMSChatListView()
             }
-            .background(theme.shellBackground)
-            Divider().overlay(swiftTerminalBorder)
-            keyBar
         }
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
@@ -332,6 +341,14 @@ struct SwiftTerminalHubView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyBarExpanded = false
         }
+    }
+
+    private var swiftTerminalSubTabPicker: some View {
+        Picker("", selection: $swiftTerminalSubTab) {
+            Text(LocalizationManager.shared.localized("mmschat.tab.terminal")).tag(TerminalSubTab.terminal)
+            Text(LocalizationManager.shared.localized("mmschat.tab.sessions")).tag(TerminalSubTab.sessions)
+        }
+        .pickerStyle(.segmented)
     }
 
     private var terminalCanvas: some View {
