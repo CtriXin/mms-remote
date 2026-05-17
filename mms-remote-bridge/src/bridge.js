@@ -4,7 +4,6 @@
 // Exports: startBridge
 // Depends on: ws, crypto, os, ./codex-home, ./qr, ./codex-desktop-refresher, ./codex-transport, ./rollout-watch, ./voice-handler, ./ios-app-compatibility
 
-const WebSocket = require("ws");
 const { randomBytes } = require("crypto");
 const { execFile, spawn } = require("child_process");
 const path = require("path");
@@ -14,9 +13,7 @@ const {
   CodexDesktopRefresher,
   readBridgeConfig,
 } = require("./codex-desktop-refresher");
-const { createCodexTransport } = require("./codex-transport");
 const { createThreadRolloutActivityWatcher } = require("./rollout-watch");
-const { printQR } = require("./qr");
 const { rememberActiveThread } = require("./session-state");
 const { handleDesktopRequest } = require("./desktop-handler");
 const { readDaemonConfig, writeDaemonConfig } = require("./daemon-state");
@@ -24,6 +21,7 @@ const { handleGitRequest } = require("./git-handler");
 const { handleThreadContextRequest } = require("./thread-context-handler");
 const { handleWorkspaceRequest } = require("./workspace-handler");
 const { handleProjectRequest } = require("./project-handler");
+const { createMMSChatHub, handleMMSChatRequest } = require("./mmschat-hub");
 const { createTerminalHub, handleTerminalRequest } = require("./terminal-hub");
 const { handlePetRequest } = require("./pet-handler");
 const { createNotificationsHandler } = require("./notifications-handler");
@@ -52,7 +50,6 @@ const {
   buildIOSAppCompatibilitySnapshot,
   normalizeVersionString,
 } = require("./ios-app-compatibility");
-const { createShortPairingCode, SHORT_PAIRING_CODE_LENGTH } = require("./qr");
 
 const execFileAsync = promisify(execFile);
 const RELAY_WATCHDOG_PING_INTERVAL_MS = 10_000;
@@ -87,8 +84,12 @@ function startBridge({
   printPairingQr = true,
   onPairingSession = null,
   onBridgeStatus = null,
+  mmschatHub: explicitMMSChatHub = null,
   terminalHub: explicitTerminalHub = null,
 } = {}) {
+  const WebSocket = require("ws");
+  const { createCodexTransport } = require("./codex-transport");
+  const { createShortPairingCode, printQR, SHORT_PAIRING_CODE_LENGTH } = require("./qr");
   const config = explicitConfig || readBridgeConfig();
   config.keepMacAwakeEnabled = config.keepMacAwakeEnabled === true;
   const bridgeWakeAssertion = createMacOSBridgeWakeAssertion({
@@ -140,6 +141,7 @@ function startBridge({
     previewMaxChars: config.pushPreviewMaxChars,
   });
   const readBridgePackageVersionStatus = createBridgePackageVersionStatusReader();
+  const mmschatHub = explicitMMSChatHub || createMMSChatHub();
   const terminalHub = explicitTerminalHub || createTerminalHub({
     tmux: {
       socketName: config.terminalTmuxSocketName || "",
@@ -550,6 +552,9 @@ function startBridge({
       return;
     }
     if (handleProjectRequest(rawMessage, sendApplicationResponse)) {
+      return;
+    }
+    if (handleMMSChatApplicationMessage(rawMessage, sendApplicationResponse, mmschatHub)) {
       return;
     }
     if (handleTerminalApplicationMessage(rawMessage, sendApplicationResponse, terminalHub)) {
@@ -1224,6 +1229,10 @@ function startBridge({
 
 function handleTerminalApplicationMessage(rawMessage, sendResponse, terminalHub) {
   return handleTerminalRequest(rawMessage, sendResponse, { hub: terminalHub });
+}
+
+function handleMMSChatApplicationMessage(rawMessage, sendResponse, mmschatHub) {
+  return handleMMSChatRequest(rawMessage, sendResponse, { hub: mmschatHub });
 }
 
 // Holds a single macOS idle-sleep assertion for as long as the bridge process stays alive.
@@ -2486,6 +2495,7 @@ module.exports = {
   buildHeartbeatBridgeStatus,
   createMacOSBridgeWakeAssertion,
   fetchAdaptiveThreadTurnsListForRelay,
+  handleMMSChatApplicationMessage,
   handleTerminalApplicationMessage,
   hasRelayConnectionGoneStale,
   persistBridgePreferences,

@@ -13,6 +13,7 @@ const {
   buildHeartbeatBridgeStatus,
   createMacOSBridgeWakeAssertion,
   fetchAdaptiveThreadTurnsListForRelay,
+  handleMMSChatApplicationMessage,
   handleTerminalApplicationMessage,
   hasRelayConnectionGoneStale,
   persistBridgePreferences,
@@ -47,6 +48,52 @@ test("bridge handles terminal RPC before Codex forwarding", async () => {
   const parsed = JSON.parse(response);
   assert.equal(parsed.id, "terminal-list-1");
   assert.deepEqual(parsed.result.panes, []);
+});
+
+test("bridge handles MMSChat RPC before Codex forwarding", async () => {
+  let response = "";
+  let resolveResponse;
+  const responsePromise = new Promise((resolve) => {
+    resolveResponse = resolve;
+  });
+  const mmschatHub = {
+    async handleMethod(method) {
+      assert.equal(method, "mmschat/list");
+      return { sessions: [], source: "registry", sortedBy: "lastActivityAt" };
+    },
+  };
+
+  const handled = handleMMSChatApplicationMessage(
+    JSON.stringify({ id: "mmschat-list-1", method: "mmschat/list", params: {} }),
+    (payload) => {
+      response = payload;
+      resolveResponse();
+    },
+    mmschatHub
+  );
+
+  assert.equal(handled, true);
+  await responsePromise;
+  const parsed = JSON.parse(response);
+  assert.equal(parsed.id, "mmschat-list-1");
+  assert.equal(parsed.result.source, "registry");
+  assert.deepEqual(parsed.result.sessions, []);
+});
+
+test("bridge ignores non-MMSChat RPC in MMSChat dispatcher", () => {
+  const handled = handleMMSChatApplicationMessage(
+    JSON.stringify({ id: "project-1", method: "project/listDirectory", params: {} }),
+    () => {
+      throw new Error("mmschat handler should not respond");
+    },
+    {
+      async handleMethod() {
+        throw new Error("mmschat hub should not run");
+      },
+    }
+  );
+
+  assert.equal(handled, false);
 });
 
 test("bridge ignores non-terminal RPC in terminal dispatcher", () => {
