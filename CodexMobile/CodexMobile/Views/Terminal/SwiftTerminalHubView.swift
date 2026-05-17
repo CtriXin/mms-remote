@@ -332,7 +332,7 @@ struct SwiftTerminalHubView: View {
             hideTerminalKeyboard()
             isShowingTerminalPaneSheet = true
         } label: {
-            terminalToolbarIcon("sidebar.left")
+            terminalToolbarIcon("rectangle.stack")
         }
         .disabled(displayedPanes.isEmpty)
     }
@@ -1713,7 +1713,7 @@ private struct SwiftTerminalPanePickerSheet: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "sidebar.left")
+            Image(systemName: "rectangle.stack")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(theme.terminalAccent)
                 .frame(width: 38, height: 38)
