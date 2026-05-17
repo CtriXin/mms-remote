@@ -81,6 +81,8 @@ struct SwiftTerminalHubView: View {
     private let emptyPinnedShortcutSentinel = "__empty__"
     private let chordPanelMinHeight: CGFloat = 244
     private let chordPanelMaxHeight: CGFloat = 420
+    private let terminalNavigationBackdropHeight: CGFloat = 124
+    private let terminalNavigationContentInset: CGFloat = 104
 
     private var rendererMode: SwiftTerminalRendererMode {
         SwiftTerminalRendererMode(rawValue: rendererModeRaw) ?? .stable
@@ -107,27 +109,12 @@ struct SwiftTerminalHubView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                if !codex.isConnected {
-                    offlineBanner
-                }
-                terminalCanvas
-                if showsChordComposer {
-                    Divider().overlay(swiftTerminalBorder)
-                    chordComposerPanel
-                }
-            }
-            .background(theme.shellBackground)
-            Divider().overlay(swiftTerminalBorder)
-            keyBar
+        ZStack(alignment: .top) {
+            terminalNavigationBackdrop
+            terminalContent
+                .padding(.top, terminalNavigationContentInset)
         }
-        .background(alignment: .top) {
-            terminalNavigationBleed
-        }
-        .overlay(alignment: .top) {
-            terminalNavigationGlassOverlay
-        }
+        .ignoresSafeArea(edges: .top)
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -251,6 +238,24 @@ struct SwiftTerminalHubView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyBarExpanded = false
+        }
+    }
+
+    private var terminalContent: some View {
+        VStack(spacing: 0) {
+            Group {
+                if !codex.isConnected {
+                    offlineBanner
+                }
+                terminalCanvas
+                if showsChordComposer {
+                    Divider().overlay(swiftTerminalBorder)
+                    chordComposerPanel
+                }
+            }
+            .background(theme.shellBackground)
+            Divider().overlay(swiftTerminalBorder)
+            keyBar
         }
     }
 
@@ -415,65 +420,38 @@ struct SwiftTerminalHubView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var terminalNavigationBleed: some View {
+    private var terminalNavigationBackdrop: some View {
         ZStack(alignment: .bottomLeading) {
             swiftTerminalBackground
-            LinearGradient(
-                colors: [
-                    theme.terminalAccent.opacity(theme.isDark ? 0.22 : 0.12),
-                    swiftTerminalBackground.opacity(0.92),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
 
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(terminalBackdropPreviewLines.enumerated()), id: \.offset) { _, line in
                     Text(line.isEmpty ? " " : line)
                         .font(AppFont.terminalMono(.caption2))
-                        .foregroundStyle(theme.terminalText.opacity(0.34))
+                        .foregroundStyle(theme.terminalText.opacity(theme.isDark ? 0.58 : 0.48))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.bottom, 6)
-            .blur(radius: 0.4)
-        }
-        .frame(height: 112)
-        .frame(maxWidth: .infinity)
-        .ignoresSafeArea(edges: .top)
-        .allowsHitTesting(false)
-    }
+            .padding(.bottom, 10)
+            .blur(radius: 0.45)
 
-    private var terminalNavigationGlassOverlay: some View {
-        VStack(spacing: 0) {
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            theme.terminalAccent.opacity(theme.isDark ? 0.12 : 0.08),
-                            Color.clear,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(height: 96)
 
             LinearGradient(
                 colors: [
-                    theme.terminalSurface.opacity(theme.isDark ? 0.42 : 0.28),
+                    theme.terminalAccent.opacity(theme.isDark ? 0.24 : 0.15),
+                    theme.terminalSurface.opacity(theme.isDark ? 0.30 : 0.18),
                     Color.clear,
                 ],
-                startPoint: .top,
-                endPoint: .bottom
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
-            .frame(height: 24)
         }
+        .frame(height: terminalNavigationBackdropHeight)
         .frame(maxWidth: .infinity)
-        .ignoresSafeArea(edges: .top)
         .allowsHitTesting(false)
     }
 
@@ -738,14 +716,37 @@ struct SwiftTerminalHubView: View {
     }
 
     private var terminalBackdropPreviewLines: [String] {
-        let lines = currentSnapshotDisplayText
+        let lines = terminalBackdropSourceText
             .split(separator: "\n", omittingEmptySubsequences: false)
-            .suffix(6)
+            .suffix(8)
             .map(String.init)
         if lines.isEmpty {
             return [paneTitleForHeader, terminalHeaderDetailText]
         }
         return Array(lines)
+    }
+
+    private var terminalBackdropSourceText: String {
+        if isSwiftTermRendererActive {
+            let streamedText = streamMessages
+                .suffix(80)
+                .compactMap { message -> String? in
+                    guard message.type == .output,
+                          let base64 = message.base64,
+                          let data = Data(base64Encoded: base64) else {
+                        return nil
+                    }
+                    return String(data: data, encoding: .utf8)
+                }
+                .joined()
+            let sanitizedStreamText = TerminalTextUtilities.trimBlankEdges(
+                SwiftTerminalANSIRenderer.plainText(from: streamedText)
+            )
+            if !sanitizedStreamText.isEmpty {
+                return sanitizedStreamText
+            }
+        }
+        return currentSnapshotDisplayText
     }
 
     private var paneTitleForHeader: String {
