@@ -530,7 +530,9 @@ struct TerminalHubView: View {
     }
 
     private var currentSnapshotDisplayText: String {
-        trimTerminalBlankEdges(sanitizeTerminalDisplayText(currentSnapshotText))
+        TerminalTextUtilities.trimBlankEdges(
+            TerminalTextUtilities.sanitizeDisplayText(currentSnapshotText)
+        )
     }
 
     private var canSendInput: Bool {
@@ -547,12 +549,12 @@ struct TerminalHubView: View {
 
     private var selectedVisiblePane: ManagedTerminalPane? {
         if let target = localSelectedTerminalPaneTarget,
-           let pane = displayedTerminalPanes.first(where: { paneMatches($0, target: target) }) {
+           let pane = displayedTerminalPanes.first(where: { $0.matches(target: target) }) {
             return pane
         }
         if let pane = codex.selectedTerminalPane,
            let target = paneRequestTarget(pane),
-           displayedTerminalPanes.contains(where: { paneMatches($0, target: target) }) {
+           displayedTerminalPanes.contains(where: { $0.matches(target: target) }) {
             return pane
         }
         return displayedTerminalPanes.first
@@ -661,9 +663,6 @@ struct TerminalHubView: View {
         return false
     }
 
-    private func paneMatches(_ pane: ManagedTerminalPane, target: String) -> Bool {
-        pane.matches(target: target)
-    }
 
     private func refreshTerminals() {
         Task { await refreshTerminalsAsync(presentsErrors: true, source: "manual") }
@@ -1018,7 +1017,7 @@ struct TerminalHubView: View {
         let firstPane = list.panes.first?.paneDebugSummary ?? "none"
         terminalDebugLine = "\(source) terminal/list sessions=\(list.sessions.count) panes=\(list.panes.count) visible=\(visibleTerminalPanes.count) first=\(firstPane)"
         if let target = localSelectedTerminalPaneTarget,
-           visibleTerminalPanes.contains(where: { paneMatches($0, target: target) }) {
+           visibleTerminalPanes.contains(where: { $0.matches(target: target) }) {
             return
         }
         localSelectedTerminalPaneTarget = codex.selectedTerminalPane.flatMap(paneRequestTarget)
@@ -1108,22 +1107,6 @@ struct TerminalHubView: View {
             return 2
         }
         return 1
-    }
-
-    private func trimTerminalBlankEdges(_ text: String) -> String {
-        TerminalTextUtilities.trimBlankEdges(text)
-    }
-
-    private func sanitizeTerminalDisplayText(_ text: String) -> String {
-        TerminalTextUtilities.sanitizeDisplayText(text)
-    }
-
-    private func isTerminalControlScalar(_ scalar: UnicodeScalar) -> Bool {
-        TerminalTextUtilities.isControlScalar(scalar)
-    }
-
-    private func isUnsupportedTerminalDisplayScalar(_ scalar: UnicodeScalar) -> Bool {
-        TerminalTextUtilities.isUnsupportedDisplayScalar(scalar)
     }
 
 }

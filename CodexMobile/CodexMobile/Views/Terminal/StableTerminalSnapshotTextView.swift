@@ -9,6 +9,7 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
     let attributedText: AttributedString
     let fontSize: CGFloat
     let backgroundColor: UIColor
+    let foregroundColor: UIColor
     let scrollTopRequestID: Int
     let scrollBottomRequestID: Int
     let resetKey: String
@@ -54,11 +55,12 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
         let previousOffset = textView.contentOffset
 
         textView.backgroundColor = backgroundColor
+        textView.textColor = foregroundColor
         textView.indicatorStyle = isDark(backgroundColor) ? .white : .black
         textView.font = font
 
         if didChangeText || didChangeResetKey {
-            textView.attributedText = preparedAttributedText(font: font)
+            textView.attributedText = preparedAttributedText(font: font, foregroundColor: foregroundColor)
             context.coordinator.lastPlainText = plainText
             context.coordinator.lastResetKey = resetKey
         }
@@ -79,10 +81,13 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
         }
     }
 
-    private func preparedAttributedText(font: UIFont) -> NSAttributedString {
+    private func preparedAttributedText(font: UIFont, foregroundColor: UIColor) -> NSAttributedString {
         let rendered = NSMutableAttributedString(attributedString: NSAttributedString(attributedText))
         guard rendered.length > 0 else {
-            return NSAttributedString(string: " ", attributes: [.font: font])
+            return NSAttributedString(string: " ", attributes: [
+                .font: font,
+                .foregroundColor: foregroundColor,
+            ])
         }
 
         let paragraph = NSMutableParagraphStyle()
@@ -93,7 +98,16 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
             .font: font,
             .paragraphStyle: paragraph,
         ], range: fullRange)
+        applyDefaultForeground(foregroundColor, to: rendered)
         return rendered
+    }
+
+    private func applyDefaultForeground(_ foregroundColor: UIColor, to rendered: NSMutableAttributedString) {
+        let fullRange = NSRange(location: 0, length: rendered.length)
+        rendered.enumerateAttribute(.foregroundColor, in: fullRange) { value, range, _ in
+            guard value == nil else { return }
+            rendered.addAttribute(.foregroundColor, value: foregroundColor, range: range)
+        }
     }
 
     private func isDark(_ color: UIColor) -> Bool {

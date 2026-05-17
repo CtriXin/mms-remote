@@ -55,7 +55,12 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         context.coordinator.onTitle = onTitle
         context.coordinator.onStatus = onStatus
         configure(terminalView)
-        terminalView.font = AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
+        let nextFont = AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
+        if let streamView = terminalView as? MMSStreamTerminalView {
+            streamView.applyTerminalFontIfNeeded(nextFont)
+        } else {
+            terminalView.font = nextFont
+        }
         context.coordinator.applyCommands(
             to: terminalView,
             paneTarget: paneTarget,
@@ -521,6 +526,12 @@ private final class MMSStreamTerminalView: TerminalView {
     private var preserveScrollUntil: TimeInterval = 0
     private var isApplyingStreamFeed = false
 
+
+    func applyTerminalFontIfNeeded(_ newFont: UIFont) {
+        guard fontSignature(for: font) != fontSignature(for: newFont) else { return }
+        font = newFont
+    }
+
     func disableSwiftTermAccessory() {
         inputAccessoryView = nil
         inputAssistantItem.leadingBarButtonGroups = []
@@ -580,6 +591,11 @@ private final class MMSStreamTerminalView: TerminalView {
 
     private func isNearBottom(threshold: CGFloat = 56) -> Bool {
         maxVerticalOffset - contentOffset.y < threshold
+    }
+
+    private func fontSignature(for font: UIFont) -> String {
+        let traits = font.fontDescriptor.symbolicTraits.rawValue
+        return "\(font.fontName)|\(font.pointSize)|\(traits)"
     }
 
     @objc override func paste(_ sender: Any?) {

@@ -19,6 +19,7 @@ struct SwiftTerminalHubView: View {
     @AppStorage("swiftTerminal.customShortcutsJSON") private var customShortcutsJSON = SwiftTerminalShortcut.defaultCustomJSON
     @AppStorage("swiftTerminal.pinnedShortcutIds") private var pinnedShortcutIdsRaw = SwiftTerminalShortcut.defaultPinnedIds
     @AppStorage("swiftTerminal.stableDefaultRevision") private var stableDefaultRevision = 0
+    @AppStorage("swiftTerminal.swiftTermRestoreRevision") private var swiftTermRestoreRevision = 0
     @AppStorage("swiftTerminal.chordMode") private var chordModeEnabled = false
     @AppStorage(TerminalFontFamily.storageKey) private var terminalFontFamilyRaw = TerminalFontFamily.defaultStoredRawValue
     @AppStorage("terminal.darkCanvas") private var useDarkTerminalCanvas = true
@@ -40,9 +41,13 @@ struct SwiftTerminalHubView: View {
     @State private var isStartingStream = false
     @State private var isCreatingTerminal = false
     @State private var isSendingInput = false
+    @State private var isShowingCreateTerminalSheet = false
     @State private var localErrorMessage: String?
     @State private var commandDraft = ""
+    @State private var newTerminalName = ""
     @State private var newTerminalCwd = "/"
+    @State private var createOpenVisibleOnMac = false
+    @State private var createVisibleAppRaw = TerminalVisibleAppPreference.defaultStoredRawValue
     @State private var focusRequestID = 0
     @State private var copyRequestID = 0
     @State private var pasteRequestID = 0
@@ -57,6 +62,7 @@ struct SwiftTerminalHubView: View {
     @State private var latestSize: (cols: Int, rows: Int)?
     @State private var streamLifecycleToken = 0
     @State private var startStreamTask: Task<Void, Never>?
+    @State private var swiftTermInputReplayTask: Task<Void, Never>?
     @State private var shortcutEditorDraft = SwiftTerminalShortcut.defaultCustomJSON
     @State private var shortcutEditorError: String?
     @State private var showsShortcutEditor = false
@@ -66,8 +72,13 @@ struct SwiftTerminalHubView: View {
     @State private var lastInputSignature = ""
     @State private var lastInputAt: TimeInterval = 0
     @State private var lastStreamReconnectSignature = ""
+    @State private var pendingStreamStartSignature = ""
+    @State private var activeStreamSignature = ""
     @FocusState private var isCommandFieldFocused: Bool
     private let stableFallbackRevision = 1
+    private let swiftTermRestoreRevisionTarget = 1
+    private let allowsSwiftTermRenderer = true
+    private let replaysSwiftTermAfterInput = false
     private let emptyPinnedShortcutSentinel = "__empty__"
     private let chordPanelMinHeight: CGFloat = 244
     private let chordPanelMaxHeight: CGFloat = 420
@@ -81,7 +92,7 @@ struct SwiftTerminalHubView: View {
     }
 
     private var isSwiftTermRendererActive: Bool {
-        rendererMode == .swiftTerm
+        allowsSwiftTermRenderer && rendererMode == .swiftTerm
     }
 
     private var theme: SwiftTerminalTheme {
@@ -90,6 +101,10 @@ struct SwiftTerminalHubView: View {
 
     private var terminalVisibleApp: TerminalVisibleAppPreference {
         TerminalVisibleAppPreference(rawValue: terminalVisibleAppRaw) ?? .auto
+    }
+
+    private var createVisibleApp: TerminalVisibleAppPreference {
+        TerminalVisibleAppPreference(rawValue: createVisibleAppRaw) ?? terminalVisibleApp
     }
 
     var body: some View {
@@ -112,7 +127,7 @@ struct SwiftTerminalHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button { createSwiftTerminal() } label: {
+                Button { openCreateTerminalSheet() } label: {
                     Image(systemName: "plus")
                 }
                 .disabled(!codex.isConnected || isCreatingTerminal)
@@ -125,9 +140,6 @@ struct SwiftTerminalHubView: View {
         .task {
             enforceStableRendererDefaultIfNeeded()
             await primeTerminalOnEntry()
-        }
-        .onAppear {
-            Task { await primeTerminalOnEntry() }
         }
         .task(id: stablePollKey) {
             await pollStableSnapshotIfNeeded()
@@ -153,7 +165,11 @@ struct SwiftTerminalHubView: View {
             }
             Task {
                 await refreshTerminalsAsync(preferUsefulDefault: true)
-                await refreshStableSnapshotIfNeeded()
+                if isSwiftTermRendererActive {
+                    startStream()
+                } else {
+                    await refreshStableSnapshotIfNeeded()
+                }
             }
         }
         .onChange(of: codex.terminalStreamRevision) { _, _ in
@@ -205,6 +221,16 @@ struct SwiftTerminalHubView: View {
         .sheet(isPresented: $showsPinnedShortcutPicker) {
             pinnedShortcutPickerSheet
         }
+        .sheet(isPresented: $isShowingCreateTerminalSheet) {
+            SwiftTerminalCreateSheet(
+                name: $newTerminalName,
+                cwd: $newTerminalCwd,
+                openVisibleOnMac: $createOpenVisibleOnMac,
+                visibleAppRaw: $createVisibleAppRaw,
+                isCreating: isCreatingTerminal,
+                onCreate: createSwiftTerminal
+            )
+        }
         .sheet(isPresented: $isShowingTmuxCheatsheet) {
             NavigationStack {
                 TmuxCheatsheetView(sessionName: selectedPane?.sessionName)
@@ -253,7 +279,7 @@ struct SwiftTerminalHubView: View {
                     Button {
                         selectedPaneTarget = pane.requestTarget
                     } label: {
-                        Label(pane.displayTitle, systemImage: paneMatches(pane, target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
+                        Label(pane.displayTitle, systemImage: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
                     }
                 }
                 if let selectedPane {
@@ -294,12 +320,13 @@ struct SwiftTerminalHubView: View {
                 } label: {
                     Label(SwiftTerminalRendererMode.swiftTerm.localizedTitle, systemImage: rendererMode == .swiftTerm ? "checkmark" : "bolt.horizontal")
                 }
+                .disabled(!allowsSwiftTermRenderer)
             } label: {
                 headerIcon(isSwiftTermRendererActive ? "bolt.horizontal.circle" : "shield.lefthalf.filled")
             }
 
             Button {
-                isSwiftTermRendererActive ? startStream() : refreshTerminals()
+                isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
             } label: {
                 if isStartingStream || isRefreshing {
                     ProgressView()
@@ -364,6 +391,7 @@ struct SwiftTerminalHubView: View {
                 attributedText: currentSnapshotAttributedText,
                 fontSize: CGFloat(fontSize),
                 backgroundColor: UIColor(theme.terminalSurface),
+                foregroundColor: UIColor(theme.terminalText),
                 scrollTopRequestID: stableScrollTopRequestID,
                 scrollBottomRequestID: stableScrollBottomRequestID,
                 resetKey: stableCanvasResetKey
@@ -533,9 +561,8 @@ struct SwiftTerminalHubView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
             Button {
-                createSwiftTerminal()
+                openCreateTerminalSheet()
             } label: {
-                if isCreatingTerminal { ProgressView() }
                 Text(LocalizationManager.shared.localized("swift_terminal.create"))
                     .font(AppFont.body(weight: .semibold))
             }
@@ -572,15 +599,15 @@ struct SwiftTerminalHubView: View {
     }
 
     private var displayedPanes: [ManagedTerminalPane] {
-        codex.terminalPanes.filter { !isInternalBridgePane($0) }
+        codex.terminalPanes.filter { !SwiftTerminalPaneHeuristics.isInternalBridgePane($0) }
     }
 
     private var selectedPane: ManagedTerminalPane? {
         if let selectedPaneTarget,
-           let pane = displayedPanes.first(where: { paneMatches($0, target: selectedPaneTarget) }) {
+           let pane = displayedPanes.first(where: { $0.matches(target: selectedPaneTarget) }) {
             return pane
         }
-        return preferredDefaultPane(in: displayedPanes)
+        return SwiftTerminalPaneHeuristics.preferredDefaultPane(in: displayedPanes)
     }
 
     private var currentSnapshot: ManagedTerminalSnapshot? {
@@ -605,12 +632,17 @@ struct SwiftTerminalHubView: View {
     }
 
     private var currentSnapshotDisplayText: String {
-        let sanitized = trimTerminalBlankEdges(sanitizedTerminalPlainText(from: currentSnapshotText))
+        let sanitized = TerminalTextUtilities.trimBlankEdges(
+            SwiftTerminalANSIRenderer.plainText(from: currentSnapshotText)
+        )
         return sanitized.isEmpty ? " " : sanitized
     }
 
     private var currentSnapshotAttributedText: AttributedString {
-        attributedTerminalText(from: currentSnapshotText)
+        SwiftTerminalANSIRenderer.attributedText(
+            from: currentSnapshotText,
+            defaultForeground: theme.terminalText
+        )
     }
 
     private var paneTitleForHeader: String {
@@ -842,24 +874,42 @@ struct SwiftTerminalHubView: View {
     }
 
     private func createSwiftTerminal() {
+        let requestedName = newTerminalName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effectiveName = requestedName.isEmpty ? uniqueSwiftSessionName() : requestedName
+        let cwd = newTerminalCwd.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cwd.isEmpty else { return }
         Task {
             isCreatingTerminal = true
             defer { isCreatingTerminal = false }
             do {
                 let list = try await codex.createManagedTerminal(
-                    name: uniqueSwiftSessionName(),
-                    cwd: newTerminalCwd,
+                    name: effectiveName,
+                    cwd: cwd,
                     command: nil,
                     cols: latestSize?.cols,
                     rows: latestSize?.rows,
-                    openVisible: openVisibleTerminalOnCreate,
-                    visibleApp: terminalVisibleApp.rpcValue
+                    openVisible: createOpenVisibleOnMac,
+                    visibleApp: createVisibleApp.rpcValue
                 )
+                newTerminalName = ""
+                isShowingCreateTerminalSheet = false
                 selectedPaneTarget = list.createdPane?.requestTarget ?? list.panes.first?.requestTarget
             } catch {
                 localErrorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func openCreateTerminalSheet() {
+        let selectedCwd = selectedPane?.cwd.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !selectedCwd.isEmpty {
+            newTerminalCwd = selectedCwd
+        } else if newTerminalCwd.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            newTerminalCwd = "/"
+        }
+        createOpenVisibleOnMac = openVisibleTerminalOnCreate
+        createVisibleAppRaw = terminalVisibleAppRaw
+        isShowingCreateTerminalSheet = true
     }
 
     private func closeTerminal(_ request: SwiftTerminalCloseRequest) {
@@ -875,7 +925,7 @@ struct SwiftTerminalHubView: View {
                 pendingCloseRequest = nil
                 try? await Task.sleep(nanoseconds: 200_000_000)
                 let list = try await codex.refreshTerminalList(showLoading: false)
-                if selectedWasClosed || selectedPaneTarget == nil || !list.panes.contains(where: { paneMatches($0, target: selectedPaneTarget) }) {
+                if selectedWasClosed || selectedPaneTarget == nil || !list.panes.contains(where: { $0.matches(target: selectedPaneTarget) }) {
                     selectedPaneTarget = list.panes.first?.requestTarget
                 }
                 await refreshStableSnapshotIfNeeded()
@@ -886,7 +936,7 @@ struct SwiftTerminalHubView: View {
         }
     }
 
-    private func startStream() {
+    private func startStream(force: Bool = false) {
         guard isSwiftTermRendererActive else { return }
         guard codex.isConnected else { return }
         guard scenePhase == .active else { return }
@@ -896,41 +946,61 @@ struct SwiftTerminalHubView: View {
             statusLine = "sizing"
             return
         }
+        let startSignature = "\(target)|\(size.cols)x\(size.rows)|\(scenePhase == .active)|\(codex.isConnected)"
+        if !force {
+            if isStartingStream && pendingStreamStartSignature == startSignature {
+                return
+            }
+            if streamId != nil && activeStreamSignature == startSignature {
+                return
+            }
+        }
         let previousStreamId = streamId
         streamLifecycleToken += 1
         let token = streamLifecycleToken
+        pendingStreamStartSignature = startSignature
+        isStartingStream = true
         startStreamTask?.cancel()
         startStreamTask = Task {
-            isStartingStream = true
             defer {
                 if token == streamLifecycleToken {
                     isStartingStream = false
+                    pendingStreamStartSignature = ""
                     startStreamTask = nil
                 }
             }
             do {
                 if let previousStreamId {
                     try? await codex.stopTerminalStream(streamId: previousStreamId)
+                    guard !Task.isCancelled, token == streamLifecycleToken else { return }
+                    if streamId == previousStreamId {
+                        streamId = nil
+                    }
                 }
                 try Task.checkCancellation()
+                statusLine = "connecting"
                 let response = try await codex.startTerminalStream(
                     paneId: target,
                     cols: size.cols,
                     rows: size.rows,
                     replay: true,
-                    replayViewportOnly: shouldUseViewportReplay(pane)
+                    replayViewportOnly: true
                 )
                 guard !Task.isCancelled, token == streamLifecycleToken else {
                     try? await codex.stopTerminalStream(streamId: response.streamId)
                     return
                 }
                 streamId = response.streamId
+                activeStreamSignature = startSignature
                 statusLine = response.status
                 lastStreamReconnectSignature = ""
             } catch is CancellationError {
                 return
             } catch {
                 if token == streamLifecycleToken {
+                    streamId = nil
+                    activeStreamSignature = ""
+                    statusLine = "stream error"
                     localErrorMessage = error.localizedDescription
                 }
             }
@@ -952,6 +1022,7 @@ struct SwiftTerminalHubView: View {
         lastStreamReconnectSignature = signature
         let token = streamLifecycleToken
         streamId = nil
+        activeStreamSignature = ""
         statusLine = "reconnecting"
         Task { @MainActor in
             try? await codex.stopTerminalStream(streamId: failedStreamId)
@@ -971,7 +1042,11 @@ struct SwiftTerminalHubView: View {
         streamLifecycleToken += 1
         startStreamTask?.cancel()
         startStreamTask = nil
+        swiftTermInputReplayTask?.cancel()
+        swiftTermInputReplayTask = nil
         isStartingStream = false
+        pendingStreamStartSignature = ""
+        activeStreamSignature = ""
         guard let streamId else {
             statusLine = status
             return
@@ -1056,6 +1131,7 @@ struct SwiftTerminalHubView: View {
 
     private func sendTerminalData(_ data: Data) {
         guard let target = selectedPaneTarget, !data.isEmpty else { return }
+        let streamIdAtSend = streamId
         if isLineEndingData(data) {
             guard !shouldSuppressInput(signature: "bytes:\(target):enter", interval: 0.35) else { return }
         } else if isPasteLikeTextData(data) {
@@ -1065,15 +1141,40 @@ struct SwiftTerminalHubView: View {
             do {
                 try await codex.sendTerminalData(data, paneId: target)
                 scheduleStableRefresh(target: target)
+                scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
         }
     }
 
+    private func scheduleSwiftTermInputReplay(streamIdAtSend: String?) {
+        guard replaysSwiftTermAfterInput else { return }
+        guard isSwiftTermRendererActive, let streamIdAtSend else { return }
+        swiftTermInputReplayTask?.cancel()
+        swiftTermInputReplayTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            guard !Task.isCancelled,
+                  isSwiftTermRendererActive,
+                  streamId == streamIdAtSend,
+                  scenePhase == .active else {
+                return
+            }
+            do {
+                try await codex.replayTerminalStream(streamId: streamIdAtSend)
+            } catch {
+                if !Task.isCancelled {
+                    statusLine = "replay error"
+                }
+            }
+            swiftTermInputReplayTask = nil
+        }
+    }
+
     private func sendText(_ text: String) {
         guard let target = selectedPaneTarget, !text.isEmpty else { return }
         guard !shouldSuppressInput(signature: "text:\(target):\(text)", interval: 0.25) else { return }
+        let streamIdAtSend = streamId
         Task {
             do {
                 if text.contains("\n") || text.contains("\r") {
@@ -1082,6 +1183,7 @@ struct SwiftTerminalHubView: View {
                     try await codex.sendTerminalText(text, paneId: target)
                 }
                 scheduleStableRefresh(target: target)
+                scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -1212,10 +1314,12 @@ struct SwiftTerminalHubView: View {
         }
         guard let target = selectedPaneTarget else { return }
         guard !shouldSuppressInput(signature: "key:\(target):\(normalizedKey)", interval: normalizedKey == ManagedTerminalKey.enter.rawValue ? 0.35 : 0.18) else { return }
+        let streamIdAtSend = streamId
         Task {
             do {
                 try await codex.sendTerminalKeyValue(normalizedKey, paneId: target)
                 scheduleStableRefresh(target: target)
+                scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
@@ -1326,7 +1430,7 @@ struct SwiftTerminalHubView: View {
         let panes = displayedPanes
         guard panes.count > 1 else { return }
         hideTerminalKeyboard()
-        let currentIndex = panes.firstIndex { paneMatches($0, target: selectedPaneTarget) } ?? 0
+        let currentIndex = panes.firstIndex { $0.matches(target: selectedPaneTarget) } ?? 0
         let nextIndex = (currentIndex + offset + panes.count) % panes.count
         selectedPaneTarget = panes[nextIndex].requestTarget
     }
@@ -1474,16 +1578,22 @@ struct SwiftTerminalHubView: View {
             stableDefaultRevision = stableFallbackRevision
             stopActiveStream(status: "stable")
         }
+        if swiftTermRestoreRevision < swiftTermRestoreRevisionTarget,
+           stableDefaultRevision > stableFallbackRevision,
+           rendererMode == .stable {
+            rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
+            swiftTermRestoreRevision = swiftTermRestoreRevisionTarget
+        }
     }
 
     private func selectDefaultPaneIfNeeded(preferUsefulDefault: Bool = false) {
-        let preferred = preferredDefaultPane(in: displayedPanes)
+        let preferred = SwiftTerminalPaneHeuristics.preferredDefaultPane(in: displayedPanes)
         if let selectedPaneTarget,
-           let currentPane = displayedPanes.first(where: { paneMatches($0, target: selectedPaneTarget) }) {
+           let currentPane = displayedPanes.first(where: { $0.matches(target: selectedPaneTarget) }) {
             if preferUsefulDefault,
                let preferred,
-               !paneMatches(preferred, target: selectedPaneTarget),
-               paneDefaultScore(preferred) >= paneDefaultScore(currentPane) + 200 {
+               !preferred.matches(target: selectedPaneTarget),
+               SwiftTerminalPaneHeuristics.defaultScore(preferred) >= SwiftTerminalPaneHeuristics.defaultScore(currentPane) + 200 {
                 self.selectedPaneTarget = preferred.requestTarget
             }
             return
@@ -1491,355 +1601,107 @@ struct SwiftTerminalHubView: View {
         selectedPaneTarget = preferred?.requestTarget
     }
 
-    private func preferredDefaultPane(in panes: [ManagedTerminalPane]) -> ManagedTerminalPane? {
-        panes.max { lhs, rhs in
-            let lhsScore = paneDefaultScore(lhs)
-            let rhsScore = paneDefaultScore(rhs)
-            if lhsScore != rhsScore { return lhsScore < rhsScore }
-            return tmuxObjectNumber(lhs.requestTarget) < tmuxObjectNumber(rhs.requestTarget)
-        }
-    }
-
-    private func paneDefaultScore(_ pane: ManagedTerminalPane) -> Int {
-        let haystack = [
-            pane.title,
-            pane.currentCommand,
-            pane.windowName,
-            pane.sessionName,
-            pane.cwd,
-        ].joined(separator: " ").lowercased()
-        let command = pane.currentCommand.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let shellCommands = Set(["", "sh", "bash", "zsh", "fish", "tmux", "login"])
-        var score = pane.active ? 20 : 0
-
-        if command == "python" && pane.title.contains("✳") { score += 520 }
-        if haystack.contains("claude") || haystack.contains("codex") { score += 460 }
-        if !shellCommands.contains(command) { score += 260 }
-        if !pane.cwd.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { score += 30 }
-        return score
-    }
-
-    private func isInternalBridgePane(_ pane: ManagedTerminalPane) -> Bool {
-        pane.sessionName == "mms-remote-swiftterm-bridge"
-    }
-
-    private func tmuxObjectNumber(_ value: String) -> Int {
-        Int(value.filter(\.isNumber)) ?? Int.min
-    }
-
-    private func paneMatches(_ pane: ManagedTerminalPane, target: String?) -> Bool {
-        pane.matches(target: target)
-    }
-
     private func uniqueSwiftSessionName() -> String {
         "terminal-\(Int(Date().timeIntervalSince1970))"
     }
 
-    private func shouldUseViewportReplay(_ pane: ManagedTerminalPane?) -> Bool {
-        guard let pane else { return false }
-        let text = [
-            pane.title,
-            pane.currentCommand,
-            pane.windowName,
-            pane.sessionName,
-        ].joined(separator: " ").lowercased()
-        let agentMarkers = ["claude", "codex"]
-        if agentMarkers.contains(where: { text.contains($0) }) {
-            return false
-        }
-        let tuiMarkers = ["vim", "nvim", "less", "top", "htop"]
-        return tuiMarkers.contains { text.contains($0) }
+
+}
+
+private struct SwiftTerminalCreateSheet: View {
+    @Binding var name: String
+    @Binding var cwd: String
+    @Binding var openVisibleOnMac: Bool
+    @Binding var visibleAppRaw: String
+
+    let isCreating: Bool
+    let onCreate: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var isShowingFolderBrowser = false
+
+    private var visibleAppBinding: Binding<TerminalVisibleAppPreference> {
+        Binding(
+            get: { TerminalVisibleAppPreference(rawValue: visibleAppRaw) ?? .auto },
+            set: { visibleAppRaw = $0.rawValue }
+        )
     }
 
-    private func trimTerminalBlankEdges(_ text: String) -> String {
-        TerminalTextUtilities.trimBlankEdges(text)
+    private var canCreate: Bool {
+        !cwd.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isCreating
     }
 
-    private func sanitizedTerminalPlainText(from text: String) -> String {
-        sanitizeTerminalDisplayText(stripTerminalEscapeSequences(from: text))
-    }
-
-    private func attributedTerminalText(from text: String) -> AttributedString {
-        let source = trimTerminalBlankEdgesPreservingAnsi(text)
-        let plain = trimTerminalBlankEdges(sanitizedTerminalPlainText(from: source))
-        let defaultStyle = SwiftTerminalANSIStyle(foreground: theme.terminalText)
-        guard !plain.isEmpty else {
-            return styledTerminalRun(" ", style: defaultStyle)
-        }
-
-        var output = AttributedString()
-        var style = defaultStyle
-        var buffer = ""
-        var index = source.startIndex
-
-        while index < source.endIndex {
-            if source[index] == "\u{001B}" {
-                appendStyledTerminalBuffer(&buffer, style: style, to: &output)
-                index = applyTerminalEscape(in: source, from: index, style: &style)
-                continue
-            }
-
-            appendSanitizedTerminalCharacter(source[index], to: &buffer)
-            index = source.index(after: index)
-        }
-
-        appendStyledTerminalBuffer(&buffer, style: style, to: &output)
-        return output.characters.isEmpty ? styledTerminalRun(" ", style: SwiftTerminalANSIStyle(foreground: theme.terminalText)) : output
-    }
-
-    private func appendStyledTerminalBuffer(_ buffer: inout String, style: SwiftTerminalANSIStyle, to output: inout AttributedString) {
-        guard !buffer.isEmpty else { return }
-        output += styledTerminalRun(buffer, style: style)
-        buffer.removeAll(keepingCapacity: true)
-    }
-
-    private func styledTerminalRun(_ text: String, style: SwiftTerminalANSIStyle) -> AttributedString {
-        var run = AttributedString(text)
-        run.foregroundColor = style.foreground
-        if let background = style.background {
-            run.backgroundColor = background
-        }
-        if style.bold {
-            run.inlinePresentationIntent = .stronglyEmphasized
-        }
-        return run
-    }
-
-    private func appendSanitizedTerminalCharacter(_ character: Character, to output: inout String) {
-        TerminalTextUtilities.appendSanitizedCharacter(character, to: &output)
-    }
-
-    private func stripTerminalEscapeSequences(from text: String) -> String {
-        var output = ""
-        var index = text.startIndex
-        while index < text.endIndex {
-            if text[index] == "\u{001B}" {
-                index = consumeTerminalEscape(in: text, from: index)
-                continue
-            }
-            appendSanitizedTerminalCharacter(text[index], to: &output)
-            index = text.index(after: index)
-        }
-        return output
-    }
-
-    private func trimTerminalBlankEdgesPreservingAnsi(_ text: String) -> String {
-        var lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-
-        func hasVisibleText(_ line: String) -> Bool {
-            !sanitizedTerminalPlainText(from: line).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-
-        while lines.count > 1,
-              lines.first.map({ !hasVisibleText($0) }) == true,
-              lines.contains(where: hasVisibleText) {
-            lines.removeFirst()
-        }
-        while lines.count > 1,
-              lines.last.map({ !hasVisibleText($0) }) == true,
-              lines.contains(where: hasVisibleText) {
-            lines.removeLast()
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private func applyTerminalEscape(in text: String, from start: String.Index, style: inout SwiftTerminalANSIStyle) -> String.Index {
-        var index = text.index(after: start)
-        guard index < text.endIndex else { return index }
-        guard text[index] == "[" else {
-            return consumeTerminalEscape(in: text, from: start)
-        }
-
-        index = text.index(after: index)
-        let parameterStart = index
-        while index < text.endIndex {
-            let value = text[index].unicodeScalars.first?.value ?? 0
-            if (0x40...0x7E).contains(value) {
-                let parameters = String(text[parameterStart..<index])
-                let final = text[index]
-                let next = text.index(after: index)
-                if final == "m" {
-                    applySGRParameters(parameters, to: &style)
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(LocalizationManager.shared.localized("terminal.new_terminal")) {
+                    TextField(LocalizationManager.shared.localized("terminal.placeholder.name"), text: $name)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                 }
-                return next
-            }
-            index = text.index(after: index)
-        }
-        return index
-    }
 
-    private func consumeTerminalEscape(in text: String, from start: String.Index) -> String.Index {
-        var index = text.index(after: start)
-        guard index < text.endIndex else { return index }
+                Section(LocalizationManager.shared.localized("folder.section.current")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(cwd.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "/" : cwd)
+                            .font(AppFont.mono(.footnote))
+                            .textSelection(.enabled)
+                            .lineLimit(3)
+                            .truncationMode(.middle)
 
-        if text[index] == "[" {
-            index = text.index(after: index)
-            while index < text.endIndex {
-                let value = text[index].unicodeScalars.first?.value ?? 0
-                index = text.index(after: index)
-                if (0x40...0x7E).contains(value) {
-                    return index
+                        Button {
+                            isShowingFolderBrowser = true
+                        } label: {
+                            Label(LocalizationManager.shared.localized("picker.add_local"), systemImage: "folder")
+                        }
+                    }
+                    .padding(.vertical, 2)
                 }
-            }
-            return index
-        }
 
-        if text[index] == "]" {
-            index = text.index(after: index)
-            while index < text.endIndex {
-                if text[index] == "\u{0007}" {
-                    return text.index(after: index)
-                }
-                if text[index] == "\u{001B}" {
-                    let next = text.index(after: index)
-                    if next < text.endIndex, text[next] == "\\" {
-                        return text.index(after: next)
+                Section {
+                    Toggle(LocalizationManager.shared.localized("terminal.toggle.open_mac_app"), isOn: $openVisibleOnMac)
+                    if openVisibleOnMac {
+                        Picker(LocalizationManager.shared.localized("terminal.settings.visible_app"), selection: visibleAppBinding) {
+                            ForEach(TerminalVisibleAppPreference.allCases) { app in
+                                Text(app.localizedTitle).tag(app)
+                            }
+                        }
                     }
                 }
-                index = text.index(after: index)
             }
-            return index
-        }
-
-        return text.index(after: index)
-    }
-
-    private func applySGRParameters(_ parameters: String, to style: inout SwiftTerminalANSIStyle) {
-        let normalized = parameters.replacingOccurrences(of: ":", with: ";")
-        let values = normalized
-            .split(separator: ";", omittingEmptySubsequences: false)
-            .map { Int($0) ?? 0 }
-        let codes = values.isEmpty ? [0] : values
-        var index = 0
-
-        while index < codes.count {
-            let code = codes[index]
-            switch code {
-            case 0:
-                style = SwiftTerminalANSIStyle(foreground: theme.terminalText)
-            case 1:
-                style.bold = true
-            case 22:
-                style.bold = false
-            case 30...37:
-                style.foreground = ansiTerminalColor(code - 30, bright: false)
-            case 90...97:
-                style.foreground = ansiTerminalColor(code - 90, bright: true)
-            case 39:
-                style.foreground = theme.terminalText
-            case 40...47:
-                style.background = ansiTerminalColor(code - 40, bright: false).opacity(0.70)
-            case 100...107:
-                style.background = ansiTerminalColor(code - 100, bright: true).opacity(0.70)
-            case 49:
-                style.background = nil
-            case 38, 48:
-                let isForeground = code == 38
-                if let parsed = extendedANSIColor(from: codes, startingAt: index + 1) {
-                    if isForeground {
-                        style.foreground = parsed.color
-                    } else {
-                        style.background = parsed.color.opacity(0.70)
+            .navigationTitle(LocalizationManager.shared.localized("terminal.new_terminal"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(LocalizationManager.shared.localized("common.cancel")) {
+                        dismiss()
                     }
-                    index = parsed.nextIndex - 1
+                    .disabled(isCreating)
                 }
-            default:
-                break
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        onCreate()
+                    } label: {
+                        if isCreating {
+                            ProgressView()
+                        } else {
+                            Text(LocalizationManager.shared.localized("terminal.button.create"))
+                        }
+                    }
+                    .disabled(!canCreate)
+                }
             }
-            index += 1
         }
-    }
-
-    private func extendedANSIColor(from codes: [Int], startingAt index: Int) -> (color: Color, nextIndex: Int)? {
-        guard index < codes.count else { return nil }
-        if codes[index] == 5, index + 1 < codes.count {
-            return (xterm256Color(codes[index + 1]), index + 2)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .sheet(isPresented: $isShowingFolderBrowser) {
+            SidebarLocalFolderBrowserSheet { projectPath in
+                cwd = projectPath
+                isShowingFolderBrowser = false
+            }
         }
-        if codes[index] == 2, index + 3 < codes.count {
-            return (
-                Color(
-                    red: Double(max(0, min(255, codes[index + 1]))) / 255.0,
-                    green: Double(max(0, min(255, codes[index + 2]))) / 255.0,
-                    blue: Double(max(0, min(255, codes[index + 3]))) / 255.0
-                ),
-                index + 4
-            )
-        }
-        return nil
-    }
-
-    private func xterm256Color(_ value: Int) -> Color {
-        let clamped = max(0, min(255, value))
-        if clamped < 16 {
-            return ansiTerminalColor(clamped % 8, bright: clamped >= 8)
-        }
-        if clamped <= 231 {
-            let offset = clamped - 16
-            let red = offset / 36
-            let green = (offset % 36) / 6
-            let blue = offset % 6
-            return Color(
-                red: xtermColorComponent(red),
-                green: xtermColorComponent(green),
-                blue: xtermColorComponent(blue)
-            )
-        }
-        let gray = Double(8 + (clamped - 232) * 10) / 255.0
-        return Color(red: gray, green: gray, blue: gray)
-    }
-
-    private func xtermColorComponent(_ value: Int) -> Double {
-        value == 0 ? 0.0 : Double(55 + value * 40) / 255.0
-    }
-
-    private func ansiTerminalColor(_ index: Int, bright: Bool) -> Color {
-        let normal = [
-            Color(red: 0.18, green: 0.20, blue: 0.23),
-            Color(red: 0.86, green: 0.25, blue: 0.28),
-            Color(red: 0.45, green: 0.78, blue: 0.36),
-            Color(red: 0.87, green: 0.66, blue: 0.28),
-            Color(red: 0.33, green: 0.56, blue: 0.93),
-            Color(red: 0.76, green: 0.42, blue: 0.89),
-            Color(red: 0.30, green: 0.78, blue: 0.83),
-            Color(red: 0.82, green: 0.91, blue: 0.86),
-        ]
-        let brightColors = [
-            Color(red: 0.45, green: 0.49, blue: 0.54),
-            Color(red: 1.00, green: 0.38, blue: 0.40),
-            Color(red: 0.64, green: 0.93, blue: 0.55),
-            Color(red: 1.00, green: 0.81, blue: 0.41),
-            Color(red: 0.46, green: 0.70, blue: 1.00),
-            Color(red: 0.92, green: 0.58, blue: 1.00),
-            Color(red: 0.50, green: 0.93, blue: 0.95),
-            Color(red: 0.95, green: 0.98, blue: 0.92),
-        ]
-        return (bright ? brightColors : normal)[max(0, min(7, index))]
-    }
-
-    private func sanitizeTerminalDisplayText(_ text: String) -> String {
-        TerminalTextUtilities.sanitizeDisplayText(text)
-    }
-
-    private func isTerminalControlScalar(_ scalar: UnicodeScalar) -> Bool {
-        TerminalTextUtilities.isControlScalar(scalar)
-    }
-
-    private func isUnsupportedTerminalDisplayScalar(_ scalar: UnicodeScalar) -> Bool {
-        TerminalTextUtilities.isUnsupportedDisplayScalar(scalar)
     }
 }
 
-private struct SwiftTerminalANSIStyle {
-    var foreground: Color
-    var background: Color?
-    var bold: Bool
-
-    init(foreground: Color, background: Color? = nil, bold: Bool = false) {
-        self.foreground = foreground
-        self.background = background
-        self.bold = bold
-    }
-}
 
 private extension JSONEncoder {
     static var swiftTerminalPretty: JSONEncoder {
