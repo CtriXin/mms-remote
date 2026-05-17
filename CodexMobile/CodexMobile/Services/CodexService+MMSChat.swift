@@ -173,6 +173,16 @@ extension MMSChatOpenVisibleResponse {
     }
 }
 
+extension MMSChatResumeResponse {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSChatResumeResponse")
+        }
+        self.session = try MMSChatSession(json: obj["session"] ?? .null)
+        self.resumeStarted = obj["resumeStarted"]?.boolValue ?? false
+    }
+}
+
 // MARK: - MMS Metadata JSONValue Decoding Helpers
 
 extension MMSProviderSummary {
@@ -396,6 +406,20 @@ extension CodexService {
             timeoutMessage: "MMSChat open visible timed out."
         )
         return try MMSChatOpenVisibleResponse(json: response.result ?? .null)
+    }
+
+    func mmschatResume(mmschatId: String) async throws -> MMSChatResumeResponse {
+        let params: RPCObject = [
+            "mmschatId": .string(mmschatId),
+            "confirmLiveAction": .bool(true),
+        ]
+        let response = try await sendRequest(
+            method: "mmschat/resume",
+            params: .object(params),
+            timeoutNanoseconds: 5_000_000_000,
+            timeoutMessage: "MMSChat resume timed out."
+        )
+        return try MMSChatResumeResponse(json: response.result ?? .null)
     }
 
     func mmschatSend(mmschatId: String, text: String) async throws -> MMSChatSendResponse {

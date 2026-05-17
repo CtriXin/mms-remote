@@ -1,0 +1,59 @@
+{
+  "schema": "moebius.p184_mmschat_p8f_phone_live_compose_result.v1",
+  "created_at": "2026-05-17T13:35:56Z",
+  "owner": "codex",
+  "cli": "opencode",
+  "model": "gpt-5.4",
+  "task": "p184-mmschat-p8f-phone-live-compose",
+  "run_id": "p184-mmschat-20260516",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8f-phone-live-compose",
+  "base_commit": "9963d6f838002d74ff96f924973c98cd9e1529d1",
+  "result_commit": null,
+  "verdict": "PASS_LOCAL_READY_HUMANGATE_PHONE_INSTALL",
+  "files_changed": [
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+    "CodexMobile/CodexMobile/Services/CodexService+MMSChat.swift",
+    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
+    "mms-remote-bridge/package.json",
+    ".ai/plan/p184-mmschat-p8f-phone-live-compose-result.json"
+  ],
+  "implementation_summary": [
+    "Added guarded phone-side MMSChat compose actions in detail view with localized Open Mac, Resume, and Send controls, inline success/error feedback, and transcript-bottom refresh after successful live actions.",
+    "Kept Codex rollout sessions explicitly read-only in detail view while using liveActions.enabled plus supportedMethods to explain why Native Claude send/resume is unavailable when guard conditions are off.",
+    "Added mmschat/resume decoding and RPC support with confirmLiveAction=true, preserved trimmed non-empty send behavior, and bumped the visible app and bridge versions to 1.7.82 build 120."
+  ],
+  "validation": [
+    {
+      "command": "git status --short",
+      "cwd": ".",
+      "result": "PASS",
+      "summary": "Only P8F-owned files were modified before artifact creation."
+    },
+    {
+      "command": "git diff --check",
+      "cwd": ".",
+      "result": "PASS"
+    },
+    {
+      "command": "node --test test/mmschat-hub.test.js test/mmschat-live-actions.test.js test/mmschat-protocol.test.js 2>/tmp/p184-p8f-node-tests.err || node --test test/mmschat-codex-rollout.test.js test/mmschat-registry.test.js test/mmschat-hub.test.js",
+      "cwd": "mms-remote-bridge",
+      "result": "PASS",
+      "summary": "8 tests passed, 0 failed.",
+      "log_path": "/tmp/p184-p8f-node-tests.err"
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p8f-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "cwd": ".",
+      "result": "PASS",
+      "summary": "BUILD SUCCEEDED",
+      "log_path": "/tmp/p184-p8f-xcodebuild.log"
+    }
+  ],
+  "remaining_humangate": [
+    "Install 1.7.82 (120) on phone and verify the real MMSChat detail live compose UI, including guarded Open Mac, Resume, and Send behaviors.",
+    "Apply the P8F commit onto the main worktree at /Users/xin/auto-skills/CtriXin-repo/mms-remote.",
+    "Do not push, deploy, or run shared-infrastructure mutations from this worktree."
+  ]
+}

@@ -884,6 +884,23 @@ enum Strings {
             "mmschat.model_picker.preview_disabled_reason": "选择 Preset 或 Provider/Model 后启用预览",
             "common.yes": "是",
             "common.no": "否",
+
+            // MMSChat P8F – Live Actions / Composer
+            "mmschat.composer.placeholder": "输入消息...",
+            "mmschat.action.open_mac": "在 Mac 上打开",
+            "mmschat.action.resume": "恢复会话",
+            "mmschat.action.resuming": "正在恢复...",
+            "mmschat.status.read_only": "只读会话",
+            "mmschat.status.read_only_detail": "Codex rollout 会话仅支持查看对话记录和打开 Mac，不支持发送或恢复操作。",
+            "mmschat.resume_success": "会话已恢复",
+            "mmschat.resume_not_started": "恢复未启动，请稍后重试",
+            "mmschat.resume_hint": "恢复此会话的 tmux 面板并继续对话",
+            "mmschat.resume_unavailable": "恢复功能暂不可用（需 Mac 启用 Live 操作）",
+            "mmschat.resume_disabled_guard": "恢复操作需要先在 Mac 上启用 Live 操作",
+            "mmschat.send_success": "消息已发送",
+            "mmschat.send_rejected": "消息被拒绝",
+            "mmschat.send_unavailable": "发送功能暂不可用（需 Mac 启用 Live 操作）",
+            "mmschat.send_disabled_guard": "发送操作需要先在 Mac 上启用 Live 操作",
         ],
         .english: [
             // Settings
@@ -1721,6 +1738,23 @@ enum Strings {
             "mmschat.model_picker.preview_disabled_reason": "Preview enabled after selecting a Preset or Provider/Model",
             "common.yes": "Yes",
             "common.no": "No",
+
+            // MMSChat P8F – Live Actions / Composer
+            "mmschat.composer.placeholder": "Type a message...",
+            "mmschat.action.open_mac": "Open on Mac",
+            "mmschat.action.resume": "Resume Session",
+            "mmschat.action.resuming": "Resuming...",
+            "mmschat.status.read_only": "Read-only session",
+            "mmschat.status.read_only_detail": "Codex rollout sessions only support transcript viewing and Open Mac. Send and Resume are not available.",
+            "mmschat.resume_success": "Session resumed",
+            "mmschat.resume_not_started": "Resume did not start, try again later",
+            "mmschat.resume_hint": "Resume this session's tmux pane and continue the conversation",
+            "mmschat.resume_unavailable": "Resume is unavailable (requires Live actions on Mac)",
+            "mmschat.resume_disabled_guard": "Resume requires Live actions to be enabled on Mac first",
+            "mmschat.send_success": "Message sent",
+            "mmschat.send_rejected": "Message was rejected",
+            "mmschat.send_unavailable": "Send is unavailable (requires Live actions on Mac)",
+            "mmschat.send_disabled_guard": "Send requires Live actions to be enabled on Mac first",
         ]
     ]
 }

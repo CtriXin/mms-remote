@@ -18,8 +18,14 @@ struct MMSChatDetailView: View {
     @State private var showCacheClearConfirmation = false
     @State private var cacheClearResultMessage: String?
     @State private var showCacheClearResult = false
+    @State private var composerText = ""
+    @State private var isSending = false
+    @State private var isResuming = false
+    @State private var inlineStatusMessage: String?
+    @State private var inlineStatusIsError = false
     @Environment(\.dismiss) private var dismiss
-    private static let transcriptBottomAnchorId = "mmschat-transcript-bottom"
+    private nonisolated static let transcriptBottomAnchorId = "mmschat-transcript-bottom"
+    @State private var latestTranscriptScrollTokenForce = ""
 
     init(session: MMSChatSession, onHidden: @escaping (MMSChatSession) -> Void = { _ in }) {
         self.session = session
@@ -32,7 +38,8 @@ struct MMSChatDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     sessionHeader
                     transcriptSection
-                    liveActionsBanner
+                    actionArea
+                    inlineStatusView
                     Color.clear
                         .frame(height: 1)
                         .id(Self.transcriptBottomAnchorId)
@@ -377,24 +384,233 @@ struct MMSChatDetailView: View {
         return Text(text)
     }
 
-    // MARK: - Live Actions
+    // MARK: - Live Actions & Composer
 
-    private var liveActionsBanner: some View {
-        HStack {
-            Image(systemName: liveActionsEnabled ? "bolt.circle.fill" : "lock.fill")
-                .foregroundStyle(liveActionsEnabled ? .green : .secondary)
-            Text(LocalizationManager.shared.localized(liveActionsEnabled ? "mmschat.live_enabled" : "mmschat.live_guard_disabled"))
-                .font(.system(size: 12))
-                .foregroundStyle(liveActionsEnabled ? .green : .secondary)
-            Spacer()
+    @ViewBuilder
+    private var actionArea: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Read-only banner for Codex rollout
+            if isCodexRollout {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.doc.fill")
+                        .foregroundStyle(.secondary)
+                    Text(LocalizationManager.shared.localized("mmschat.status.read_only"))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(10)
+                .background(Color(.tertiarySystemFill))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                Text(LocalizationManager.shared.localized("mmschat.status.read_only_detail"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 4)
+            } else {
+                // Live guard state banner
+                HStack(spacing: 6) {
+                    Image(systemName: liveActionsEnabled ? "bolt.circle.fill" : "lock.fill")
+                        .foregroundStyle(liveActionsEnabled ? .green : .secondary)
+                    Text(LocalizationManager.shared.localized(liveActionsEnabled ? "mmschat.live_enabled" : "mmschat.live_guard_disabled"))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(liveActionsEnabled ? .green : .secondary)
+                    Spacer()
+                }
+                .padding(10)
+                .background(Color(.tertiarySystemFill))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                // Open Mac action
+                HStack(spacing: 8) {
+                    Button {
+                        Task { await openVisible() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "display")
+                            Text(LocalizationManager.shared.localized("mmschat.action.open_mac"))
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.blue)
+                    .disabled(!codex.isConnected || !liveActionsEnabled || isLoading)
+
+                    Spacer()
+                }
+
+                // Resume action (only when resumable and guard allows)
+                if canResume {
+                    HStack(spacing: 8) {
+                        Button {
+                            Task { await resumeSession() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if isResuming {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                }
+                                Image(systemName: "play.circle")
+                                Text(LocalizationManager.shared.localized(isResuming ? "mmschat.action.resuming" : "mmschat.action.resume"))
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .disabled(!codex.isConnected || !liveActionsEnabled || isLoading || isSending || isResuming)
+
+                        Text(LocalizationManager.shared.localized("mmschat.resume_hint"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(2)
+
+                        Spacer()
+                    }
+                }
+
+                // Resume disabled reason
+                if !canResume && liveActionsEnabled && session.status.resumable {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text(LocalizationManager.shared.localized("mmschat.resume_unavailable"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 4)
+                }
+
+                // Resume disabled by guard
+                if !canResume && session.status.resumable && !liveActionsEnabled {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(.secondary)
+                        Text(LocalizationManager.shared.localized("mmschat.resume_disabled_guard"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 4)
+                }
+
+                Divider()
+
+                // Composer with Send
+                if canSend {
+                    HStack(spacing: 8) {
+                        TextField(
+                            LocalizationManager.shared.localized("mmschat.composer.placeholder"),
+                            text: $composerText,
+                            axis: .vertical
+                        )
+                        .font(.system(size: 14))
+                        .padding(10)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Color(.separator), lineWidth: 0.5)
+                        )
+                        .lineLimit(1...5)
+                        .disabled(!codex.isConnected || !liveActionsEnabled || isLoading || isSending)
+
+                        Button {
+                            Task { await sendMessage() }
+                        } label: {
+                            if isSending {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundStyle(composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : Color.accentColor)
+                            }
+                        }
+                        .disabled(
+                            !codex.isConnected || !liveActionsEnabled || isLoading || isSending ||
+                            composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                    }
+                } else if liveActionsEnabled {
+                    // Send not in supported methods
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text(LocalizationManager.shared.localized("mmschat.send_unavailable"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 4)
+                } else if !liveActionsEnabled {
+                    // Send disabled by guard
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(.secondary)
+                        Text(LocalizationManager.shared.localized("mmschat.send_disabled_guard"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
         }
-        .padding(10)
-        .background(Color(.tertiarySystemFill))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var inlineStatusView: some View {
+        if let message = inlineStatusMessage {
+            HStack(spacing: 6) {
+                Image(systemName: inlineStatusIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                    .foregroundStyle(inlineStatusIsError ? .red : .green)
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(inlineStatusIsError ? .red : .green)
+                Spacer()
+            }
+            .padding(8)
+            .background(inlineStatusIsError ? Color.red.opacity(0.08) : Color.green.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                    withAnimation {
+                        inlineStatusMessage = nil
+                        inlineStatusIsError = false
+                    }
+                }
+            }
+        }
     }
 
     private var liveActionsEnabled: Bool {
         detailResponse?.liveActions?.enabled == true
+    }
+
+    private var isCodexRollout: Bool {
+        session.provider == "codex"
+            && session.metadata?["source"] == "codex-rollout"
+    }
+
+    private var liveActions: MMSChatLiveActionsState? {
+        detailResponse?.liveActions
+    }
+
+    private var canResume: Bool {
+        guard liveActionsEnabled, let la = liveActions else { return false }
+        guard la.supportedMethods?.contains(where: { $0 == "mmschat/resume" || $0 == "resume" }) == true else {
+            return false
+        }
+        return session.status.resumable || session.status == .idle
+    }
+
+    private var canSend: Bool {
+        guard liveActionsEnabled, let la = liveActions else { return false }
+        return la.supportedMethods?.contains(where: { $0 == "mmschat/send" || $0 == "send" }) == true
     }
 
     private var latestTranscriptScrollToken: String {
@@ -403,6 +619,7 @@ struct MMSChatDetailView: View {
             transcript.source.rawValue,
             String(transcript.messages.count),
             String(transcript.rawPreviewText?.count ?? 0),
+            latestTranscriptScrollTokenForce,
         ].joined(separator: ":")
     }
 
@@ -484,5 +701,51 @@ struct MMSChatDetailView: View {
             showCacheClearResult = true
         }
         isLoading = false
+    }
+
+    private func resumeSession() async {
+        guard codex.isConnected, canResume else { return }
+        isResuming = true
+        inlineStatusMessage = nil
+        do {
+            let response = try await codex.mmschatResume(mmschatId: session.mmschatId)
+            if response.resumeStarted {
+                inlineStatusMessage = LocalizationManager.shared.localized("mmschat.resume_success")
+                inlineStatusIsError = false
+                await loadDetail()
+                latestTranscriptScrollTokenForce = UUID().uuidString
+            } else {
+                inlineStatusMessage = LocalizationManager.shared.localized("mmschat.resume_not_started")
+                inlineStatusIsError = true
+            }
+        } catch {
+            inlineStatusMessage = error.localizedDescription
+            inlineStatusIsError = true
+        }
+        isResuming = false
+    }
+
+    private func sendMessage() async {
+        let text = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard codex.isConnected, canSend, !text.isEmpty else { return }
+        isSending = true
+        inlineStatusMessage = nil
+        do {
+            let response = try await codex.mmschatSend(mmschatId: session.mmschatId, text: text)
+            if response.accepted {
+                composerText = ""
+                inlineStatusMessage = LocalizationManager.shared.localized("mmschat.send_success")
+                inlineStatusIsError = false
+                await loadDetail()
+                latestTranscriptScrollTokenForce = UUID().uuidString
+            } else {
+                inlineStatusMessage = LocalizationManager.shared.localized("mmschat.send_rejected")
+                inlineStatusIsError = true
+            }
+        } catch {
+            inlineStatusMessage = error.localizedDescription
+            inlineStatusIsError = true
+        }
+        isSending = false
     }
 }
