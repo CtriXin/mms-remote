@@ -320,17 +320,28 @@ extension SwiftTerminalCanvasView {
 
         private func focus(_ terminalView: TerminalView) {
             DispatchQueue.main.async {
+                if let streamView = terminalView as? MMSStreamTerminalView {
+                    streamView.enableKeyboardFocus()
+                }
                 _ = terminalView.becomeFirstResponder()
             }
         }
 
         private func blur(_ terminalView: TerminalView) {
             DispatchQueue.main.async {
-                _ = terminalView.resignFirstResponder()
-                terminalView.window?.endEditing(true)
-                DispatchQueue.main.async {
+                if let streamView = terminalView as? MMSStreamTerminalView {
+                    streamView.suppressKeyboardFocus()
+                } else {
                     _ = terminalView.resignFirstResponder()
                     terminalView.window?.endEditing(true)
+                }
+                DispatchQueue.main.async {
+                    if let streamView = terminalView as? MMSStreamTerminalView {
+                        streamView.suppressKeyboardFocus()
+                    } else {
+                        _ = terminalView.resignFirstResponder()
+                        terminalView.window?.endEditing(true)
+                    }
                 }
             }
         }
@@ -533,7 +544,22 @@ private final class MMSStreamTerminalView: TerminalView {
     private var preservedScrollY: CGFloat?
     private var preserveScrollUntil: TimeInterval = 0
     private var isApplyingStreamFeed = false
+    private var allowsKeyboardFocus = true
 
+    override var canBecomeFirstResponder: Bool {
+        allowsKeyboardFocus && super.canBecomeFirstResponder
+    }
+
+    func enableKeyboardFocus() {
+        allowsKeyboardFocus = true
+    }
+
+    func suppressKeyboardFocus() {
+        allowsKeyboardFocus = false
+        _ = resignFirstResponder()
+        window?.endEditing(true)
+        superview?.endEditing(true)
+    }
 
     func applyTerminalFontIfNeeded(_ newFont: UIFont) {
         guard fontSignature(for: font) != fontSignature(for: newFont) else { return }
