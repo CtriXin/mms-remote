@@ -190,6 +190,43 @@ enum SwiftTerminalShortcutAction: String, CaseIterable {
     }
 }
 
+enum SwiftTerminalDirectionalKey: CaseIterable, Identifiable {
+    case left
+    case up
+    case down
+    case right
+
+    var id: String { keyValue }
+
+    var glyph: String {
+        switch self {
+        case .left: return "←"
+        case .up: return "↑"
+        case .down: return "↓"
+        case .right: return "→"
+        }
+    }
+
+    var keyValue: String {
+        switch self {
+        case .left: return ManagedTerminalKey.left.rawValue
+        case .up: return ManagedTerminalKey.up.rawValue
+        case .down: return ManagedTerminalKey.down.rawValue
+        case .right: return ManagedTerminalKey.right.rawValue
+        }
+    }
+
+    static let defaultTap = SwiftTerminalDirectionalKey.right
+
+    static func direction(for translation: CGSize, threshold: CGFloat = 13) -> SwiftTerminalDirectionalKey? {
+        guard max(abs(translation.width), abs(translation.height)) >= threshold else { return nil }
+        if abs(translation.width) >= abs(translation.height) {
+            return translation.width < 0 ? .left : .right
+        }
+        return translation.height < 0 ? .up : .down
+    }
+}
+
 enum SwiftTerminalChordModifier: String, CaseIterable, Identifiable, Hashable {
     case command
     case control
@@ -439,6 +476,32 @@ struct SwiftTerminalKeyButtonStyle: ButtonStyle {
             .frame(minWidth: 44, minHeight: 32)
             .padding(.horizontal, 8)
             .background(configuration.isPressed ? theme.buttonPressedBackground : theme.buttonBackground, in: Capsule())
+    }
+}
+
+struct SwiftTerminalModifierButtonStyle: ButtonStyle {
+    let theme: SwiftTerminalTheme
+    let isActive: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(AppFont.caption(weight: .bold))
+            .foregroundStyle(isActive ? Color.black : theme.buttonText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.78)
+            .multilineTextAlignment(.center)
+            .frame(minWidth: 58, minHeight: 32)
+            .padding(.horizontal, 10)
+            .background(
+                configuration.isPressed
+                    ? theme.accent.opacity(0.72)
+                    : (isActive ? theme.accent : theme.buttonBackground),
+                in: Capsule()
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? theme.accent.opacity(0.95) : Color.clear, lineWidth: 2)
+            )
     }
 }
 

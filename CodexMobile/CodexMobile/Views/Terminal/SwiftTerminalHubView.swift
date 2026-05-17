@@ -31,6 +31,8 @@ struct SwiftTerminalHubView: View {
     @AppStorage("terminal.openVisibleOnCreate") private var openVisibleTerminalOnCreate = false
 
     @State private var keyBarExpanded = false
+    @State private var isControlModifierLatched = false
+    @State private var isMetaModifierLatched = false
     @State private var selectedChordModifiers = Set<SwiftTerminalChordModifier>()
     @State private var showsChordComposer = false
     @State private var selectedChordKeyPage = SwiftTerminalChordKeyPage.letters
@@ -286,6 +288,12 @@ struct SwiftTerminalHubView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyBarExpanded = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwiftTerm.TerminalView.controlModifierReset"))) { _ in
+            isControlModifierLatched = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwiftTerm.TerminalView.metaModifierReset"))) { _ in
+            isMetaModifierLatched = false
+        }
     }
 
     private var terminalContent: some View {
@@ -442,8 +450,7 @@ struct SwiftTerminalHubView: View {
                         suppressKeyboardForChordComposer()
                         return
                     }
-                    keyBarExpanded = false
-                    focusRequestID += 1
+                    focusTerminalInput()
                 }
             } else {
                 stableSnapshotView
@@ -496,13 +503,17 @@ struct SwiftTerminalHubView: View {
             pinnedShortcuts: pinnedShortcuts,
             displayedActiveShortcuts: displayedActiveShortcuts,
             shortcutProfile: shortcutProfile,
+            isControlModifierLatched: isControlModifierLatched,
+            isMetaModifierLatched: isMetaModifierLatched,
             onFocusTerminalInput: { focusTerminalInput() },
             onHideTerminalKeyboard: { hideTerminalKeyboard() },
-            onSelectPreviousPane: { selectAdjacentPane(offset: -1) },
-            onSelectNextPane: { selectAdjacentPane(offset: 1) },
+            onSendTab: { sendKeyValue(ManagedTerminalKey.tab.rawValue) },
+            onSendDirectionalKey: { direction in sendKeyValue(direction.keyValue, duplicateInterval: 0.05) },
+            onSendEscape: { sendKeyValue(ManagedTerminalKey.escape.rawValue) },
+            onSendInterrupt: { sendKeyValue(ManagedTerminalKey.ctrlC.rawValue) },
             onToggleKeyBarExpanded: { toggleKeyBarExpanded() },
-            onControlModifier: { controlModifierRequestID += 1 },
-            onMetaModifier: { metaModifierRequestID += 1 },
+            onControlModifier: { latchControlModifier() },
+            onMetaModifier: { latchMetaModifier() },
             onCopyTerminal: { copyTerminal() },
             onPasteClipboard: { pasteClipboard() },
             onOpenChordComposer: { openChordComposer() },
@@ -1231,6 +1242,7 @@ struct SwiftTerminalHubView: View {
         } else if isPasteLikeTextData(data) {
             guard !shouldSuppressInput(signature: "bytes:\(target):paste:\(data.base64EncodedString())", interval: 0.16) else { return }
         }
+        clearLatchedTerminalModifiers()
         Task {
             do {
                 try await codex.sendTerminalData(data, paneId: target)
@@ -1269,6 +1281,7 @@ struct SwiftTerminalHubView: View {
         guard let target = selectedPaneTarget, !text.isEmpty else { return }
         guard !shouldSuppressInput(signature: "text:\(target):\(text)", interval: 0.25) else { return }
         let streamIdAtSend = streamId
+        clearLatchedTerminalModifiers()
         Task {
             do {
                 if text.contains("\n") || text.contains("\r") {
@@ -1358,6 +1371,27 @@ struct SwiftTerminalHubView: View {
         }
     }
 
+    private func latchControlModifier() {
+        guard isSwiftTermRendererActive else { return }
+        isControlModifierLatched = true
+        isMetaModifierLatched = false
+        controlModifierRequestID += 1
+        focusTerminalInput()
+    }
+
+    private func latchMetaModifier() {
+        guard isSwiftTermRendererActive else { return }
+        isMetaModifierLatched = true
+        isControlModifierLatched = false
+        metaModifierRequestID += 1
+        focusTerminalInput()
+    }
+
+    private func clearLatchedTerminalModifiers() {
+        isControlModifierLatched = false
+        isMetaModifierLatched = false
+    }
+
     private func prepareShortcutSheetPresentation(_ present: @escaping @MainActor () -> Void) {
         hideTerminalKeyboard()
         keyBarExpanded = false
@@ -1391,7 +1425,7 @@ struct SwiftTerminalHubView: View {
         }
     }
 
-    private func sendKeyValue(_ keyValue: String) {
+    private func sendKeyValue(_ keyValue: String, duplicateInterval: TimeInterval? = nil) {
         guard let normalizedKey = ManagedTerminalKey.swiftTerminalKeyValue(from: keyValue) else {
             localErrorMessage = String(format: LocalizationManager.shared.localized("swift_terminal.shortcuts_bad_key"), keyValue)
             return
@@ -1407,8 +1441,10 @@ struct SwiftTerminalHubView: View {
             }
         }
         guard let target = selectedPaneTarget else { return }
-        guard !shouldSuppressInput(signature: "key:\(target):\(normalizedKey)", interval: normalizedKey == ManagedTerminalKey.enter.rawValue ? 0.35 : 0.18) else { return }
+        let interval = duplicateInterval ?? (normalizedKey == ManagedTerminalKey.enter.rawValue ? 0.35 : 0.18)
+        guard !shouldSuppressInput(signature: "key:\(target):\(normalizedKey)", interval: interval) else { return }
         let streamIdAtSend = streamId
+        clearLatchedTerminalModifiers()
         Task {
             do {
                 try await codex.sendTerminalKeyValue(normalizedKey, paneId: target)
@@ -1455,7 +1491,7 @@ struct SwiftTerminalHubView: View {
         }
     }
 
-    private func focusTerminalInput() {
+    private func focusTerminalInput(allowDuringDismissSuppression: Bool = false) {
         guard !showsChordComposer else {
             suppressKeyboardForChordComposer()
             return
@@ -1469,6 +1505,7 @@ struct SwiftTerminalHubView: View {
     }
 
     private func hideTerminalKeyboard() {
+        clearLatchedTerminalModifiers()
         if isSwiftTermRendererActive {
             blurRequestID += 1
         } else {
@@ -1483,6 +1520,7 @@ struct SwiftTerminalHubView: View {
 
     private func suppressKeyboardForChordComposer() {
         keyBarExpanded = false
+        clearLatchedTerminalModifiers()
         isCommandFieldFocused = false
         if isSwiftTermRendererActive {
             blurRequestID += 1
@@ -1491,6 +1529,7 @@ struct SwiftTerminalHubView: View {
     }
 
     private func suppressKeyboardForVirtualShortcut() {
+        clearLatchedTerminalModifiers()
         isCommandFieldFocused = false
         if isSwiftTermRendererActive {
             blurRequestID += 1

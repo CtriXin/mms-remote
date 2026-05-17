@@ -10,10 +10,12 @@ const {
   createTerminalStreamProtocol,
 } = require("./terminal-protocol");
 const { createTmuxControlAdapter, normalizeTerminalOutputBuffer } = require("./tmux-control-adapter");
+const { redactedId, traceTerminalBytes, traceTerminalEvent } = require("./terminal-trace");
 
 function createTerminalStreamHub(options = {}) {
   const protocol = options.protocol || createTerminalStreamProtocol(options.protocolOptions || {});
   const controlAdapter = options.controlAdapter || createTmuxControlAdapter(options.tmux || {});
+  const logger = options.logger || console;
   const capturePane = options.capturePane;
   const streams = new Map();
   const streamsByPaneId = new Map();
@@ -48,6 +50,7 @@ function createTerminalStreamHub(options = {}) {
       replayStart: replayStart(params),
       replayEnd: replayEnd(params),
       replayMaxBuffer: replayMaxBuffer(params),
+      lastOutputTraceKey: "",
     };
     streams.set(streamId, state);
     streamsByPaneId.set(paneId, streamId);
@@ -173,14 +176,30 @@ function createTerminalStreamHub(options = {}) {
     }
     if (state.isReplaying && options.replay !== true) {
       state.replayBuffer.push(buffer);
+      traceTerminalBytes(logger, "bridge.output.buffer", {
+        stream: redactedId(state.streamId),
+        pane: redactedId(state.paneId),
+        phase: "live-during-replay",
+        buffered: state.replayBuffer.length,
+      }, buffer);
       return;
     }
     state.bytesSent += buffer.length;
     state.chunksSent += 1;
+    const seq = nextSeq(state);
+    const traceKey = `${buffer.length}:${buffer.toString("base64")}`;
+    traceTerminalBytes(logger, "bridge.output.emit", {
+      stream: redactedId(state.streamId),
+      pane: redactedId(state.paneId),
+      seq,
+      phase: options.replay === true ? "replay" : "live",
+      repeat: traceKey === state.lastOutputTraceKey ? "immediate" : "no",
+    }, buffer);
+    state.lastOutputTraceKey = traceKey;
     emit(state, protocol.makeOutput({
       streamId: state.streamId,
       paneId: state.paneId,
-      seq: nextSeq(state),
+      seq,
       bytes: buffer,
     }));
   }
@@ -231,6 +250,12 @@ function createTerminalStreamHub(options = {}) {
       return;
     }
     const buffered = dropReplayMirroredPrefix(state.replayBuffer, state.replayMirrorText);
+    traceTerminalEvent(logger, "bridge.replay.flush", {
+      stream: redactedId(state.streamId),
+      pane: redactedId(state.paneId),
+      bufferedIn: state.replayBuffer.length,
+      bufferedOut: buffered.length,
+    });
     state.replayBuffer = [];
     state.replayMirrorText = "";
     for (const buffer of buffered) {
