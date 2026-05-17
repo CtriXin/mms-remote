@@ -82,14 +82,14 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
             .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 62), spacing: 8)], spacing: 8) {
-                ForEach(pinnedShortcuts) { shortcut in
+                ForEach(expandedPinnedShortcuts) { shortcut in
                     Button(shortcut.label) { onSendShortcut(shortcut) }
                 }
             }
             .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 62), spacing: 8)], spacing: 8) {
-                ForEach(displayedActiveShortcuts) { shortcut in
+                ForEach(expandedActiveShortcuts) { shortcut in
                     Button(shortcut.label) { onSendShortcut(shortcut) }
                 }
             }
@@ -110,6 +110,39 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 .frame(maxWidth: 150)
             }
         }
+    }
+
+    private var expandedPinnedShortcuts: [SwiftTerminalShortcut] {
+        pinnedShortcuts.filter { !isPrimaryBarShortcut($0) }
+    }
+
+    private var expandedActiveShortcuts: [SwiftTerminalShortcut] {
+        displayedActiveShortcuts.filter { !isPrimaryBarShortcut($0) }
+    }
+
+    private func isPrimaryBarShortcut(_ shortcut: SwiftTerminalShortcut) -> Bool {
+        switch shortcut.kind {
+        case .action:
+            guard let action = SwiftTerminalShortcutAction(shortcut.value) else { return false }
+            return action == .focus || action == .hideKeyboard || action == .paste
+        case .key:
+            guard let keyValue = ManagedTerminalKey.swiftTerminalKeyValue(from: shortcut.value) else { return false }
+            return primaryBarKeyValues.contains(keyValue)
+        case .bytes, .text:
+            return false
+        }
+    }
+
+    private var primaryBarKeyValues: Set<String> {
+        [
+            ManagedTerminalKey.tab.rawValue,
+            ManagedTerminalKey.escape.rawValue,
+            ManagedTerminalKey.ctrlC.rawValue,
+            ManagedTerminalKey.left.rawValue,
+            ManagedTerminalKey.up.rawValue,
+            ManagedTerminalKey.down.rawValue,
+            ManagedTerminalKey.right.rawValue,
+        ]
     }
 
     private func modifierButton(_ title: String, isActive: Bool, action: @escaping () -> Void) -> some View {
