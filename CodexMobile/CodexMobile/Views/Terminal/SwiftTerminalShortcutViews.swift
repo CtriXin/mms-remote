@@ -55,11 +55,9 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
 
     private var primaryControls: some View {
         HStack(spacing: 8) {
+            fixedLeadingControl
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    if !isKeyboardPresented {
-                        Button(LocalizationManager.shared.localized("swift_terminal.focus"), action: onFocusTerminalInput)
-                    }
                     if isSwiftTermRendererActive {
                         modifierButton(LocalizationManager.shared.localized("terminal.button.ctrl"), isActive: isControlModifierLatched, action: onControlModifier)
                         modifierButton(LocalizationManager.shared.localized("terminal.button.alt"), isActive: isMetaModifierLatched, action: onMetaModifier)
@@ -76,6 +74,28 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         }
     }
 
+    private var fixedLeadingControl: some View {
+        Group {
+            if isKeyboardPresented {
+                fixedIconButton(
+                    "keyboard.chevron.compact.down",
+                    accessibilityLabel: LocalizationManager.shared.localized("swift_terminal.hide_keyboard"),
+                    action: onHideTerminalKeyboard
+                )
+            } else {
+                fixedTextButton(
+                    LocalizationManager.shared.localized("swift_terminal.focus"),
+                    accessibilityLabel: LocalizationManager.shared.localized("swift_terminal.focus"),
+                    action: onFocusTerminalInput
+                )
+            }
+        }
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
+    }
+
     private var fixedTrailingControls: some View {
         HStack(spacing: 8) {
             fixedTextButton(
@@ -83,13 +103,6 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 accessibilityLabel: LocalizationManager.shared.localized(keyBarExpanded ? "swift_terminal.hide_keys" : "swift_terminal.show_keys"),
                 action: onToggleKeyBarExpanded
             )
-            if isKeyboardPresented {
-                fixedIconButton(
-                    "keyboard.chevron.compact.down",
-                    accessibilityLabel: LocalizationManager.shared.localized("swift_terminal.hide_keyboard"),
-                    action: onHideTerminalKeyboard
-                )
-            }
         }
         .transaction { transaction in
             transaction.animation = nil

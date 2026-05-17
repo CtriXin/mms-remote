@@ -52,6 +52,7 @@ struct SettingsView: View {
                 if showsCodexSection {
                     SettingsSectionHeader(title: LocalizationManager.shared.localized("settings.section_codex"))
                     SettingsRuntimeDefaultsCard()
+                    SettingsCodexChatCard()
                     SettingsUsageCard()
                     SettingsGPTAccountCard()
                     SettingsArchivedChatsCard()
@@ -265,6 +266,25 @@ private struct SettingsRuntimeDefaultsCard: View {
             get: { codex.selectedGitWriterModelOption()?.id ?? gitWriterModelOptions.first?.id ?? "" },
             set: { codex.setSelectedGitWriterModelId($0.isEmpty ? nil : $0) }
         )
+    }
+}
+
+private struct SettingsCodexChatCard: View {
+    @AppStorage(AppFont.chatFontSizeStorageKey) private var chatFontSize = AppFont.defaultChatFontSize
+
+    private let settingsAccentColor = Color(.plan)
+
+    var body: some View {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.codex_chat")) {
+            Stepper(value: $chatFontSize, in: 12...22, step: 1) {
+                Text(String(format: LocalizationManager.shared.localized("settings.chat_font_size"), Int(chatFontSize)))
+            }
+            .tint(settingsAccentColor)
+
+            Text(LocalizationManager.shared.localized("settings.chat_font_size_hint"))
+                .font(AppFont.caption())
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

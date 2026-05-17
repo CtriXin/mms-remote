@@ -41,6 +41,8 @@ enum AppFont {
 
     static var storageKey: String { "codex.appFontStyle" }
     static var legacyStorageKey: String { "codex.useJetBrainsMono" }
+    static var chatFontSizeStorageKey: String { "codex.chatFontSize" }
+    static var defaultChatFontSize: Double { 15.0 }
     static var defaultStoredStyleRawValue: String { resolvedStoredStyle.rawValue }
     static var defaultStyle: Style { .system }
 

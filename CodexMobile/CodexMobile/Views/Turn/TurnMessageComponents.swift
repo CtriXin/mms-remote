@@ -325,14 +325,16 @@ private struct MarkdownAttributedTextView: View {
     let profile: MarkdownRenderProfile
     var enablesSelection: Bool = false
     var usesCaches: Bool = true
-    var font: Font = AppFont.body()
+    var font: Font? = nil
+
+    @AppStorage(AppFont.chatFontSizeStorageKey) private var chatFontSize = AppFont.defaultChatFontSize
 
     var body: some View {
         let attributedText = usesCaches
             ? CachingMarkdownParser.attributedString(for: text)
             : NativeMarkdownRenderer.attributedString(for: text)
         let baseView = Text(attributedText)
-            .font(font)
+            .font(font ?? AppFont.system(size: CGFloat(chatFontSize)))
             .lineSpacing(2)
 
         if enablesSelection {
@@ -1473,6 +1475,7 @@ struct MessageRow: View, Equatable {
 
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(UserBubbleColor.storageKey) private var userBubbleColorRawValue = UserBubbleColor.defaultStoredRawValue
+    @AppStorage(AppFont.chatFontSizeStorageKey) private var chatFontSize = AppFont.defaultChatFontSize
 
     let message: CodexMessage
     let isRetryAvailable: Bool
@@ -1590,7 +1593,7 @@ struct MessageRow: View, Equatable {
                         rawText: text
                     ) {
                         userBubbleText(text, bubbleColor: bubbleColor)
-                            .font(AppFont.body())
+                            .font(AppFont.system(size: CGFloat(chatFontSize)))
                             .foregroundStyle(bubbleColor.bubbleForeground(for: colorScheme))
                     }
                         .padding(.vertical, 12)

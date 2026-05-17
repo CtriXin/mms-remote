@@ -18,7 +18,6 @@ struct SwiftTerminalHubView: View {
 
     @AppStorage("swiftTerminal.fontSize") private var defaultFontSize = 12.0
     @AppStorage("swiftTerminal.bracketedPaste") private var bracketedPaste = true
-    @AppStorage("swiftTerminal.bracketedPasteDefaultRevision") private var bracketedPasteDefaultRevision = 0
     @AppStorage("swiftTerminal.rendererMode") private var rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
     @AppStorage("swiftTerminal.shortcutProfile") private var shortcutProfileRaw = SwiftTerminalShortcutProfile.agent.rawValue
     @AppStorage("swiftTerminal.customShortcutsJSON") private var customShortcutsJSON = SwiftTerminalShortcut.defaultCustomJSON
@@ -86,7 +85,6 @@ struct SwiftTerminalHubView: View {
     @FocusState private var isCommandFieldFocused: Bool
     private let stableFallbackRevision = 1
     private let swiftTermRestoreRevisionTarget = 1
-    private let bracketedPasteDefaultRevisionTarget = 1
     private let allowsSwiftTermRenderer = true
     private let replaysSwiftTermAfterInput = false
     private let emptyPinnedShortcutSentinel = "__empty__"
@@ -144,7 +142,6 @@ struct SwiftTerminalHubView: View {
         }
         .task {
             enforceStableRendererDefaultIfNeeded()
-            enableBracketedPasteByDefaultIfNeeded()
             await primeTerminalOnEntry()
         }
         .task(id: stablePollKey) {
@@ -1744,12 +1741,6 @@ struct SwiftTerminalHubView: View {
             rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
             swiftTermRestoreRevision = swiftTermRestoreRevisionTarget
         }
-    }
-
-    private func enableBracketedPasteByDefaultIfNeeded() {
-        guard bracketedPasteDefaultRevision < bracketedPasteDefaultRevisionTarget else { return }
-        bracketedPaste = true
-        bracketedPasteDefaultRevision = bracketedPasteDefaultRevisionTarget
     }
 
     private func selectDefaultPaneIfNeeded(preferUsefulDefault: Bool = false) {
