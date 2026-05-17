@@ -544,7 +544,7 @@ function normalizeAgent(value) {
     return "claude";
   }
 
-  if (candidate !== "claude") {
+  if (candidate !== "claude" && candidate !== "codex") {
     throw createRegistryError(MMSCHAT_ERROR_CODES.invalidParams, `Unsupported MMSChat agent: ${candidate}`);
   }
 

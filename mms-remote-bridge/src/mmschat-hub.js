@@ -5,6 +5,11 @@
 // Depends on: fs, ./mmschat-launcher, ./mmschat-live-actions, ./mmschat-registry, ./mmschat-profile, ./mmschat-protocol, ./mmschat-transcript
 
 const fs = require("fs");
+const {
+  discoverCodexRolloutSessions,
+  isCodexRolloutSession,
+  readCodexRolloutTranscriptSnapshot,
+} = require("./mmschat-codex-rollout");
 const { seedMMSChatDemoFixtures } = require("./mmschat-demo-fixtures");
 const { createMMSChatLauncher } = require("./mmschat-launcher");
 const {
@@ -51,6 +56,8 @@ function createMMSChatHub(options = {}) {
   const readTranscriptSnapshot = options.readTranscriptSnapshot || readNativeClaudeTranscriptSnapshot;
   const writeTranscriptCache = options.writeTranscriptCache || writeMMSChatTranscriptCache;
   const seedDemoFixtures = options.seedDemoFixtures || seedMMSChatDemoFixtures;
+  const discoverCodexRollouts = options.discoverCodexRolloutSessions || discoverCodexRolloutSessions;
+  const readCodexRolloutSnapshot = options.readCodexRolloutTranscriptSnapshot || readCodexRolloutTranscriptSnapshot;
 
   return {
     launcher,
@@ -65,11 +72,13 @@ function createMMSChatHub(options = {}) {
       switch (method) {
         case MMSCHAT_METHODS.list: {
           const nativeDiscovery = syncDiscoveredNativeSessions({ discoverNativeSessions, registry, transcriptOptions }, validated.value);
+          const codexDiscovery = syncDiscoveredCodexRolloutSessions({ discoverCodexRollouts, registry, transcriptOptions }, validated.value);
           return {
             sessions: registry.list(validated.value),
             liveActions: buildLiveActionsState(env),
+            codexDiscovery,
             nativeDiscovery,
-            source: nativeDiscovery.registered > 0 ? "registry+native-claude" : "registry",
+            source: buildListSource({ codexDiscovery, nativeDiscovery }),
             sortedBy: "lastActivityAt",
           };
         }
@@ -78,6 +87,7 @@ function createMMSChatHub(options = {}) {
             env,
             readTranscriptCache,
             readTranscriptSnapshot,
+            readCodexRolloutSnapshot,
             registry,
             transcriptOptions,
             writeTranscriptCache,
@@ -118,6 +128,14 @@ function createMMSChatHub(options = {}) {
 
 function readSessionDetail(deps, params) {
   const session = getSessionOrThrow(deps.registry, params.mmschatId);
+  if (isCodexRolloutSession(session)) {
+    const transcript = deps.readCodexRolloutSnapshot({
+      ...deps.transcriptOptions,
+      session,
+    });
+    return buildDetailResult(syncSessionTranscriptState(deps.registry, session, transcript), transcript, deps.env);
+  }
+
   const cachedTranscript = deps.readTranscriptCache(buildTranscriptCacheOptions(session, deps.transcriptOptions))?.transcript || null;
   if (cachedTranscript) {
     return buildDetailResult(syncSessionTranscriptState(deps.registry, session, cachedTranscript), cachedTranscript, deps.env);
@@ -188,6 +206,41 @@ function syncDiscoveredNativeSessions(deps, params) {
   }
 
   return { discovered: discovered.length, registered };
+}
+
+function syncDiscoveredCodexRolloutSessions(deps, params) {
+  if (params.discoverNative === false) {
+    return { discovered: 0, registered: 0 };
+  }
+
+  let discovered = [];
+  try {
+    discovered = deps.discoverCodexRollouts({
+      ...deps.transcriptOptions,
+      maxFiles: params.nativeLimit || params.limit,
+    });
+  } catch {
+    return { discovered: 0, registered: 0 };
+  }
+
+  let registered = 0;
+  for (const session of discovered) {
+    deps.registry.register(session);
+    registered += 1;
+  }
+
+  return { discovered: discovered.length, registered };
+}
+
+function buildListSource({ codexDiscovery, nativeDiscovery }) {
+  const sources = ["registry"];
+  if (nativeDiscovery.registered > 0) {
+    sources.push("native-claude");
+  }
+  if (codexDiscovery.registered > 0) {
+    sources.push("codex-rollout");
+  }
+  return sources.join("+");
 }
 
 async function sendSession(deps, params) {

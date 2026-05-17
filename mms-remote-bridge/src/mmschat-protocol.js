@@ -108,7 +108,7 @@ const MMSCHAT_SESSION_SCHEMA = Object.freeze({
     title: "string|null",
     cwd: "string",
     project: "string|null",
-    agent: "claude",
+    agent: "claude|codex",
     provider: "string|null",
     model: "string|null",
     launchProfileName: "string|null",

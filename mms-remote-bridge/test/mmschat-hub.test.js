@@ -143,6 +143,35 @@ test("mmschat hub discovers recent native Claude sessions without leaking transc
   });
 });
 
+test("mmschat hub lists Codex rollout sessions and reads normalized detail", async () => {
+  await withHubFixture(async ({ codexHome, hub }) => {
+    writeSyntheticCodexRollout({
+      codexHome,
+      threadId: "thread-codex-hub",
+      userText: "secret Codex prompt must stay out of list",
+      commandOutput: "secret command output must stay out of list",
+    });
+
+    const listed = await hub.handleMethod(MMSCHAT_METHODS.list, { nativeLimit: 10 });
+    const discovered = listed.sessions.find((session) => session.provider === "codex");
+
+    assert.equal(listed.source, "registry+codex-rollout");
+    assert.equal(discovered.agent, "codex");
+    assert.equal(discovered.metadata.source, "codex-rollout");
+    assert.equal(JSON.stringify(listed).includes("secret Codex prompt"), false);
+    assert.equal(JSON.stringify(listed).includes("secret command output"), false);
+
+    const detail = await hub.handleMethod(MMSCHAT_METHODS.detail, {
+      mmschatId: discovered.mmschatId,
+    });
+    assert.equal(detail.transcript.source, "codex-rollout");
+    assert.equal(detail.transcript.messages[0].role, "user");
+    assert.equal(detail.transcript.messages.at(-1).role, "assistant");
+    assert.equal(detail.transcript.messages.some((message) => message.role === "reasoning"), true);
+    assert.equal(detail.transcript.messages.some((message) => message.content.some((item) => item.kind === "tool_result")), true);
+  });
+});
+
 test("mmschat hub cache clear removes only derived cache and preserves native transcript", async () => {
   await withHubFixture(async ({ claudeHome, env, hub, registry }) => {
     const cwd = "/tmp/cache-clear-project";
@@ -312,6 +341,7 @@ function withHubFixture(run, hubOptions = {}) {
   return withTempRoot(async (rootDir) => {
     const stateDir = path.join(rootDir, "state");
     const claudeHome = path.join(rootDir, ".claude");
+    const codexHome = path.join(rootDir, ".codex");
     const env = {
       ...process.env,
       MMS_REMOTE_DEVICE_STATE_DIR: stateDir,
@@ -346,11 +376,12 @@ function withHubFixture(run, hubOptions = {}) {
       registry,
       transcriptOptions: {
         claudeHome,
+        codexHome,
         env,
       },
     });
 
-    return run({ claudeHome, env, hub, launcher, registry, rootDir, stateDir });
+    return run({ claudeHome, codexHome, env, hub, launcher, registry, rootDir, stateDir });
   });
 }
 
@@ -389,6 +420,71 @@ function writeSyntheticNativeTranscript({ claudeHome, cwd, nativeClaudeSessionId
   fs.mkdirSync(path.dirname(nativePath), { recursive: true });
   fs.writeFileSync(nativePath, `${records.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
   return nativePath;
+}
+
+function writeSyntheticCodexRollout({ codexHome, threadId, userText, commandOutput }) {
+  const rolloutDir = path.join(codexHome, "sessions", "2026", "05", "17");
+  const rolloutPath = path.join(rolloutDir, `rollout-2026-05-17T10-15-00-${threadId}.jsonl`);
+  const records = [
+    {
+      timestamp: "2026-05-17T10:15:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: threadId,
+        cwd: "/tmp/codex-hub-project",
+        model: "gpt-5.5",
+        originator: "codex_cli_rs",
+        source: "cli",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:15:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: userText,
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:15:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "reasoning",
+        summary: [{ text: "inspecting rollout records" }],
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:15:03.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call",
+        call_id: "call-hub-1",
+        name: "exec_command",
+        arguments: JSON.stringify({ cmd: "node --check mmschat-hub.js", cwd: "/tmp/codex-hub-project" }),
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:15:04.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call_output",
+        call_id: "call-hub-1",
+        output: commandOutput,
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:15:05.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: "Codex detail ready",
+      },
+    },
+  ];
+
+  fs.mkdirSync(rolloutDir, { recursive: true });
+  fs.writeFileSync(rolloutPath, `${records.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
+  return rolloutPath;
 }
 
 function withTempRoot(run) {

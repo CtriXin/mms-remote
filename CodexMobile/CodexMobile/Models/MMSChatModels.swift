@@ -30,6 +30,7 @@ enum MMSChatTranscriptCacheState: String, Codable, Hashable, Sendable {
 
 enum MMSChatTranscriptSource: String, Codable, Hashable, Sendable {
     case nativeJSONL = "native-jsonl"
+    case codexRollout = "codex-rollout"
     case rawTmuxPreview = "raw-tmux-preview"
     case unavailable
 }
