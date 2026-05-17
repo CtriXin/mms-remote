@@ -163,10 +163,10 @@ enum Strings {
 
             // Tabs
             "tab.chats": "Codex",
-            "tab.conversations": "会话",
             "tab.terminal": "终端",
             "tab.swift": "Swift",
             "tab.settings": "设置",
+            "sessions.accessibility.open": "打开会话",
 
             // Terminal
             "terminal.new_terminal": "新建终端",
@@ -931,10 +931,10 @@ enum Strings {
 
             // Tabs
             "tab.chats": "Codex",
-            "tab.conversations": "Chats",
             "tab.terminal": "Terminal",
             "tab.swift": "Swift",
             "tab.settings": "Settings",
+            "sessions.accessibility.open": "Open sessions",
 
             // Terminal
             "terminal.new_terminal": "New Terminal",

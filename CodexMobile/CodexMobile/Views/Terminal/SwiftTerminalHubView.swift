@@ -127,6 +127,52 @@ struct SwiftTerminalHubView: View {
                 terminalRefreshButton
             }
         }
+        .overlay(alignment: .top) {
+            if isShowingTerminalPaneSheet {
+                TopSessionsDrawerChrome(
+                    accent: theme.terminalAccent,
+                    onClose: { isShowingTerminalPaneSheet = false }
+                ) {
+                    SwiftTerminalPanePickerSheet(
+                        panes: displayedPanes,
+                        selectedPaneTarget: selectedPaneTarget,
+                        isConnected: codex.isConnected,
+                        isRefreshing: isRefreshing || isStartingStream,
+                        isCreatingTerminal: isCreatingTerminal,
+                        theme: theme,
+                        onDismiss: { isShowingTerminalPaneSheet = false },
+                        onSelectPane: { pane in
+                            selectedPaneTarget = pane.requestTarget
+                            isShowingTerminalPaneSheet = false
+                        },
+                        onCreate: {
+                            isShowingTerminalPaneSheet = false
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 140_000_000)
+                                openCreateTerminalSheet()
+                            }
+                        },
+                        onRefresh: {
+                            isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
+                        },
+                        onCopyJoin: copyJoinCommand(for:),
+                        onCopyAddress: { pane in
+                            UIPasteboard.general.string = pane.paneAddress
+                        },
+                        onClosePane: { pane in
+                            isShowingTerminalPaneSheet = false
+                            pendingCloseRequest = .pane(pane)
+                        },
+                        onCloseSession: { pane in
+                            isShowingTerminalPaneSheet = false
+                            pendingCloseRequest = .session(pane)
+                        }
+                    )
+                }
+                .zIndex(20)
+            }
+        }
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isShowingTerminalPaneSheet)
         .task {
             enforceStableRendererDefaultIfNeeded()
             await primeTerminalOnEntry()
@@ -210,42 +256,6 @@ struct SwiftTerminalHubView: View {
         }
         .sheet(isPresented: $showsPinnedShortcutPicker) {
             pinnedShortcutPickerSheet
-        }
-        .sheet(isPresented: $isShowingTerminalPaneSheet) {
-            SwiftTerminalPanePickerSheet(
-                panes: displayedPanes,
-                selectedPaneTarget: selectedPaneTarget,
-                isConnected: codex.isConnected,
-                isRefreshing: isRefreshing || isStartingStream,
-                isCreatingTerminal: isCreatingTerminal,
-                theme: theme,
-                onSelectPane: { pane in
-                    selectedPaneTarget = pane.requestTarget
-                    isShowingTerminalPaneSheet = false
-                },
-                onCreate: {
-                    isShowingTerminalPaneSheet = false
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 140_000_000)
-                        openCreateTerminalSheet()
-                    }
-                },
-                onRefresh: {
-                    isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
-                },
-                onCopyJoin: copyJoinCommand(for:),
-                onCopyAddress: { pane in
-                    UIPasteboard.general.string = pane.paneAddress
-                },
-                onClosePane: { pane in
-                    isShowingTerminalPaneSheet = false
-                    pendingCloseRequest = .pane(pane)
-                },
-                onCloseSession: { pane in
-                    isShowingTerminalPaneSheet = false
-                    pendingCloseRequest = .session(pane)
-                }
-            )
         }
         .sheet(isPresented: $isShowingCreateTerminalSheet) {
             SwiftTerminalCreateSheet(
@@ -335,6 +345,7 @@ struct SwiftTerminalHubView: View {
             terminalToolbarIcon("rectangle.stack")
         }
         .disabled(displayedPanes.isEmpty)
+        .accessibilityLabel(LocalizationManager.shared.localized("sessions.accessibility.open"))
     }
 
     private var terminalRendererMenu: some View {
@@ -1688,6 +1699,7 @@ private struct SwiftTerminalPanePickerSheet: View {
     let isRefreshing: Bool
     let isCreatingTerminal: Bool
     let theme: SwiftTerminalTheme
+    let onDismiss: () -> Void
     let onSelectPane: (ManagedTerminalPane) -> Void
     let onCreate: () -> Void
     let onRefresh: () -> Void
@@ -1695,8 +1707,6 @@ private struct SwiftTerminalPanePickerSheet: View {
     let onCopyAddress: (ManagedTerminalPane) -> Void
     let onClosePane: (ManagedTerminalPane) -> Void
     let onCloseSession: (ManagedTerminalPane) -> Void
-
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1707,8 +1717,6 @@ private struct SwiftTerminalPanePickerSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(.ultraThinMaterial)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
     private var header: some View {
@@ -1732,7 +1740,7 @@ private struct SwiftTerminalPanePickerSheet: View {
             Spacer(minLength: 0)
 
             Button {
-                dismiss()
+                onDismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .bold))

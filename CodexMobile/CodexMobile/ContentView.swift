@@ -23,7 +23,6 @@ private enum RootSheetRoute: Identifiable, Equatable {
 
 private enum MainAppTab: Hashable {
     case chats
-    case conversations
     case terminal
     case settings
 }
@@ -37,7 +36,7 @@ struct ContentView: View {
 
     @State private var viewModel = ContentViewModel()
     @State private var isSidebarOpen = false
-    @State private var isChatSidebarSheetPresented = false
+    @State private var isChatSessionsDrawerPresented = false
     @State private var sidebarDragOffset: CGFloat = 0
     @State private var isSidebarPrewarmed = false
     @State private var selectedThread: CodexThread?
@@ -124,8 +123,8 @@ struct ContentView: View {
                     handleSidebarBecameVisible()
                 }
             }
-            .onChange(of: isChatSidebarSheetPresented) { wasPresented, isPresented in
-                debugSidebarLog("sheet-sidebar changed wasPresented=\(wasPresented) isPresented=\(isPresented)")
+            .onChange(of: isChatSessionsDrawerPresented) { wasPresented, isPresented in
+                debugSidebarLog("sessions drawer changed wasPresented=\(wasPresented) isPresented=\(isPresented)")
                 if !wasPresented, isPresented {
                     handleSidebarBecameVisible()
                 } else if wasPresented, !isPresented {
@@ -134,7 +133,7 @@ struct ContentView: View {
             }
             .onChange(of: navigationPath) { _, _ in
                 debugSidebarLog("navigation path changed count=\(navigationPath.count) sidebarOpen=\(isSidebarOpen)")
-                if isSidebarOpen || isChatSidebarSheetPresented {
+                if isSidebarOpen || isChatSessionsDrawerPresented {
                     closeSidebar()
                 }
             }
@@ -351,7 +350,7 @@ struct ContentView: View {
         horizontalSizeClass == .compact || isSearchActive
     }
 
-    private var shouldUseSheetSidebar: Bool {
+    private var shouldUseTopSessionsDrawer: Bool {
         horizontalSizeClass == .compact
     }
 
@@ -366,12 +365,6 @@ struct ContentView: View {
                     Label(LocalizationManager.shared.localized("tab.chats"), systemImage: "bubble.left.and.bubble.right")
                 }
                 .tag(MainAppTab.chats)
-
-            Color.clear
-                .tabItem {
-                    Label(LocalizationManager.shared.localized("tab.conversations"), systemImage: "list.bullet.rectangle")
-                }
-                .tag(MainAppTab.conversations)
 
             terminalTabBody
                 .tabItem {
@@ -389,19 +382,6 @@ struct ContentView: View {
         .toolbarBackground(Color(.systemBackground), for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .onChange(of: selectedAppTab) { previousTab, tab in
-            if tab == .conversations {
-                if previousTab == .terminal {
-                    Task {
-                        await codex.stopAllTerminalStreams()
-                    }
-                }
-                selectedAppTab = .chats
-                Task { @MainActor in
-                    await Task.yield()
-                    setSidebar(open: true)
-                }
-                return
-            }
             if previousTab == .terminal, tab != .terminal {
                 Task {
                     await codex.stopAllTerminalStreams()
@@ -469,18 +449,27 @@ struct ContentView: View {
             }
         }
         .simultaneousGesture(edgeDragGesture)
-        .sheet(isPresented: $isChatSidebarSheetPresented) {
-            chatSidebarSheet
+        .overlay(alignment: .top) {
+            if isChatSessionsDrawerPresented {
+                TopSessionsDrawerChrome(
+                    accent: .primary,
+                    onClose: { closeSidebar() }
+                ) {
+                    chatSessionsDrawer
+                }
+                .zIndex(20)
+            }
         }
+        .animation(Self.sidebarSpring, value: isChatSessionsDrawerPresented)
     }
 
-    private var chatSidebarSheet: some View {
+    private var chatSessionsDrawer: some View {
         SidebarView(
             selectedThread: $selectedThread,
             showSettings: $showSettings,
             isSearchActive: $isSearchActive,
             showsInlineCloseButton: true,
-            isVisible: isChatSidebarSheetPresented,
+            isVisible: isChatSessionsDrawerPresented,
             usesSheetChrome: true,
             onClose: { closeSidebar() },
             onNewChatCreationStateChange: { isCreating in
@@ -490,8 +479,6 @@ struct ContentView: View {
                 openThreadFromSidebar(thread)
             }
         )
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
     private var terminalAppBody: some View {
@@ -537,6 +524,11 @@ struct ContentView: View {
         NavigationStack(path: $navigationPath) {
             mainContent
                 .adaptiveNavigationBar()
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        sessionsButton
+                    }
+                }
                 .navigationDestination(for: String.self) { destination in
                     if destination == "settings" {
                         SettingsView()
@@ -551,11 +543,6 @@ struct ContentView: View {
     private var mainContent: some View {
         if isOpeningNewChatFromSidebar {
             NewChatOpeningStateView()
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        hamburgerButton
-                    }
-                }
         } else if let thread = selectedThread {
             TurnView(
                 thread: thread,
@@ -606,27 +593,24 @@ struct ContentView: View {
                     reconnectFooterAction
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    hamburgerButton
-                }
-            }
         }
     }
 
-    private var hamburgerButton: some View {
+    private var sessionsButton: some View {
         Button {
             HapticFeedback.shared.triggerImpactFeedback(style: .light)
             toggleSidebar()
         } label: {
-            TwoLineHamburgerIcon()
+            Image(systemName: "rectangle.stack")
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                .frame(width: 20, height: 20)
                 .padding(8)
                 .contentShape(Circle())
                 .adaptiveToolbarItem(in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Menu")
+        .accessibilityLabel(LocalizationManager.shared.localized("sessions.accessibility.open"))
     }
 
     private var manualPairingErrorAlertIsPresented: Binding<Bool> {
@@ -868,7 +852,7 @@ struct ContentView: View {
         dismissActiveKeyboard()
         withAnimation(Self.sidebarSpring) {
             isSidebarOpen = false
-            isChatSidebarSheetPresented = false
+            isChatSessionsDrawerPresented = false
             sidebarDragOffset = 0
         }
         sidebarGestureAutoCommitted = false
@@ -887,7 +871,7 @@ struct ContentView: View {
         }
 
         isOpeningNewChatFromSidebar = false
-        if isSidebarOpen || isChatSidebarSheetPresented || sidebarDragOffset > 0 {
+        if isSidebarOpen || isChatSessionsDrawerPresented || sidebarDragOffset > 0 {
             closeSidebar()
         }
 
@@ -1007,19 +991,19 @@ struct ContentView: View {
             isSearchActive = false
         }
         dismissActiveKeyboard()
-        if shouldUseSheetSidebar {
+        if shouldUseTopSessionsDrawer {
             withAnimation(Self.sidebarSpring) {
                 isSidebarOpen = false
                 sidebarDragOffset = 0
             }
-            isChatSidebarSheetPresented = open
+            isChatSessionsDrawerPresented = open
             sidebarGestureAutoCommitted = false
             resetSidebarGestureDebug()
             return
         }
         withAnimation(Self.sidebarSpring) {
             isSidebarOpen = open
-            isChatSidebarSheetPresented = false
+            isChatSessionsDrawerPresented = false
             sidebarDragOffset = 0
         }
         sidebarGestureAutoCommitted = false
@@ -1611,6 +1595,93 @@ private struct NewChatOpeningStateView: View {
         .background(Color(.systemBackground))
         .navigationTitle(LocalizationManager.shared.localized("common.new_chat"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct TopSessionsDrawerChrome<Content: View>: View {
+    let accent: Color
+    let onClose: () -> Void
+    let content: Content
+
+    @State private var isExpanded = false
+    @State private var dragHeightDelta: CGFloat = 0
+
+    init(
+        accent: Color = .accentColor,
+        onClose: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.accent = accent
+        self.onClose = onClose
+        self.content = content()
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let maxDrawerHeight = max(320, proxy.size.height - proxy.safeAreaInsets.top - 14)
+            let compactHeight = min(max(proxy.size.height * 0.52, 360), maxDrawerHeight * 0.72)
+            let expandedHeight = min(max(compactHeight, proxy.size.height * 0.86), maxDrawerHeight)
+            let baseHeight = isExpanded ? expandedHeight : compactHeight
+            let drawerHeight = min(expandedHeight, max(300, baseHeight + dragHeightDelta))
+            let drawerWidth = min(proxy.size.width - 16, 620)
+
+            ZStack(alignment: .top) {
+                Color.black
+                    .opacity(0.18)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)
+
+                VStack(spacing: 0) {
+                    content
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .clipped()
+
+                    drawerGrabber
+                }
+                .frame(width: drawerWidth, height: drawerHeight, alignment: .top)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.22), radius: 28, x: 0, y: 16)
+                .padding(.top, proxy.safeAreaInsets.top + 6)
+                .animation(.spring(response: 0.34, dampingFraction: 0.86), value: isExpanded)
+                .animation(.spring(response: 0.34, dampingFraction: 0.86), value: dragHeightDelta == 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .ignoresSafeArea(edges: .top)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private var drawerGrabber: some View {
+        Capsule()
+            .fill(accent.opacity(0.35))
+            .frame(width: 46, height: 5)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
+            .contentShape(Rectangle())
+            .gesture(drawerResizeGesture)
+            .accessibilityHidden(true)
+    }
+
+    private var drawerResizeGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                dragHeightDelta = value.translation.height
+            }
+            .onEnded { value in
+                defer { dragHeightDelta = 0 }
+                if value.translation.height > 56 {
+                    isExpanded = true
+                } else if value.translation.height < -120, !isExpanded {
+                    onClose()
+                } else if value.translation.height < -56 {
+                    isExpanded = false
+                }
+            }
     }
 }
 
