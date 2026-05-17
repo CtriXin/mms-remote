@@ -93,6 +93,7 @@ struct SidebarView: View {
                             endPoint: .bottomTrailing
                         )
                     }
+                    .ignoresSafeArea(.container, edges: .bottom)
                 } else {
                     Color(.systemBackground)
                 }
@@ -196,10 +197,14 @@ struct SidebarView: View {
     }
 
     private var sidebarSearchField: some View {
-        SidebarSearchField(text: $searchText, isActive: $isSearchActive)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
+        SidebarSearchField(
+            text: $searchText,
+            isActive: $isSearchActive,
+            style: usesSheetChrome ? .sheet : .standard
+        )
+        .padding(.horizontal, usesSheetChrome ? 18 : 16)
+        .padding(.top, usesSheetChrome ? 12 : 8)
+        .padding(.bottom, usesSheetChrome ? 8 : 6)
     }
 
     private var sidebarNewChatButton: some View {
@@ -229,6 +234,7 @@ struct SidebarView: View {
                 .font(AppFont.caption(weight: .semibold))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
+                .frame(height: 34)
             }
             .disabled(!canCreateThread || isCreatingThread)
 
@@ -241,6 +247,7 @@ struct SidebarView: View {
                     .font(AppFont.caption(weight: .semibold))
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 34)
                 }
             }
         }

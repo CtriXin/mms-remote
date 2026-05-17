@@ -14,6 +14,7 @@ struct SwiftTerminalHubView: View {
 
     var paneSheetRequestID = 0
     var showsPaneToolbarButton = true
+    var onOpenSettings: (() -> Void)? = nil
 
     @AppStorage("swiftTerminal.fontSize") private var fontSize = 12.0
     @AppStorage("swiftTerminal.bracketedPaste") private var bracketedPaste = true
@@ -253,6 +254,15 @@ struct SwiftTerminalHubView: View {
                 onCloseSession: { pane in
                     isShowingTerminalPaneSheet = false
                     pendingCloseRequest = .session(pane)
+                },
+                onOpenSettings: onOpenSettings.map { openSettings in
+                    {
+                        isShowingTerminalPaneSheet = false
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 140_000_000)
+                            openSettings()
+                        }
+                    }
                 }
             )
         }
@@ -1709,8 +1719,10 @@ private struct SwiftTerminalPanePickerSheet: View {
     let onCopyAddress: (ManagedTerminalPane) -> Void
     let onClosePane: (ManagedTerminalPane) -> Void
     let onCloseSession: (ManagedTerminalPane) -> Void
+    let onOpenSettings: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
 
     var body: some View {
@@ -1720,6 +1732,7 @@ private struct SwiftTerminalPanePickerSheet: View {
             searchField
             actionRow
             paneList
+            footer
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
@@ -1734,6 +1747,7 @@ private struct SwiftTerminalPanePickerSheet: View {
                     endPoint: .bottomTrailing
                 )
             }
+            .ignoresSafeArea(.container, edges: .bottom)
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -1746,7 +1760,7 @@ private struct SwiftTerminalPanePickerSheet: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "rectangle.stack")
+            Image(systemName: "terminal.fill")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(terminalSheetAccent)
                 .frame(width: 38, height: 38)
@@ -1816,6 +1830,7 @@ private struct SwiftTerminalPanePickerSheet: View {
                     .font(AppFont.caption(weight: .semibold))
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 34)
             }
             .disabled(!isConnected || isCreatingTerminal)
 
@@ -1824,11 +1839,13 @@ private struct SwiftTerminalPanePickerSheet: View {
                     ProgressView()
                         .controlSize(.small)
                         .frame(maxWidth: .infinity)
+                        .frame(height: 34)
                 } else {
                     Label(LocalizationManager.shared.localized("terminal.accessibility.refresh"), systemImage: "arrow.clockwise")
                         .font(AppFont.caption(weight: .semibold))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
+                        .frame(height: 34)
                 }
             }
             .disabled(!isConnected || isRefreshing)
@@ -1844,39 +1861,70 @@ private struct SwiftTerminalPanePickerSheet: View {
         if filteredPanes.isEmpty {
             emptyState
         } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    ForEach(groupedPanes) { group in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(group.title)
-                                .font(AppFont.caption2(weight: .semibold))
-                                .foregroundStyle(theme.secondaryText)
-                                .textCase(.uppercase)
-                                .padding(.horizontal, 4)
-
-                            ForEach(group.panes) { pane in
-                                SwiftTerminalPanePickerRow(
-                                    pane: pane,
-                                    isSelected: pane.matches(target: selectedPaneTarget),
-                                    theme: theme,
-                                    accent: terminalSheetAccent,
-                                    joinCommand: joinCommand(for: pane),
-                                    path: displayPath(for: pane),
-                                    onSelect: { onSelectPane(pane) },
-                                    onCopyJoin: { onCopyJoin(pane) },
-                                    onCopyAddress: { onCopyAddress(pane) },
-                                    onClosePane: { onClosePane(pane) },
-                                    onCloseSession: { onCloseSession(pane) }
-                                )
+            List {
+                ForEach(groupedPanes) { group in
+                    Section {
+                        ForEach(group.panes) { pane in
+                            SwiftTerminalPanePickerRow(
+                                pane: pane,
+                                isSelected: pane.matches(target: selectedPaneTarget),
+                                theme: theme,
+                                accent: terminalSheetAccent,
+                                joinCommand: joinCommand(for: pane),
+                                path: displayPath(for: pane),
+                                onSelect: { onSelectPane(pane) },
+                                onCopyJoin: { onCopyJoin(pane) },
+                                onCopyAddress: { onCopyAddress(pane) },
+                                onClosePane: { onClosePane(pane) },
+                                onCloseSession: { onCloseSession(pane) }
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 10, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    onCopyJoin(pane)
+                                } label: {
+                                    Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "doc.on.doc")
+                                }
+                                .tint(terminalSheetAccent)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    onClosePane(pane)
+                                } label: {
+                                    Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "trash")
+                                }
                             }
                         }
+                    } header: {
+                        Text(group.title)
+                            .font(AppFont.caption2(weight: .semibold))
+                            .foregroundStyle(theme.secondaryText)
+                            .textCase(.uppercase)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
             }
-            .scrollIndicators(.hidden)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .environment(\.defaultMinListRowHeight, 0)
         }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 10) {
+            if let onOpenSettings {
+                SidebarFloatingSettingsButton(colorScheme: colorScheme, action: onOpenSettings)
+            }
+            Spacer(minLength: 0)
+            Text(LocalizationManager.shared.localized(isConnected ? "connection.connected" : "connection.offline"))
+                .font(AppFont.mono(.subheadline))
+                .foregroundStyle(theme.secondaryText)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 18)
     }
 
     private var emptyState: some View {

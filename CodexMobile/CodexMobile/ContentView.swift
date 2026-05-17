@@ -430,7 +430,7 @@ struct ContentView: View {
                         .font(AppFont.caption2(weight: .semibold))
                 }
                 .foregroundStyle(sessionsButtonIsEnabled ? Color.accentColor : Color.secondary)
-                .frame(width: 64, height: 58)
+                .frame(width: 74, height: 58)
                 .contentShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -582,7 +582,10 @@ struct ContentView: View {
             } else {
                 SwiftTerminalHubView(
                     paneSheetRequestID: terminalPaneSheetRequestID,
-                    showsPaneToolbarButton: false
+                    showsPaneToolbarButton: false,
+                    onOpenSettings: {
+                        selectedAppTab = .settings
+                    }
                 )
                     .adaptiveNavigationBar()
             }
