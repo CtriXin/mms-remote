@@ -57,6 +57,8 @@ struct SwiftTerminalHubView: View {
     @State private var pageUpRequestID = 0
     @State private var pageDownRequestID = 0
     @State private var blurRequestID = 0
+    @State private var keyboardDismissGeneration = 0
+    @State private var terminalFocusSuppressedUntil: TimeInterval = 0
     @State private var stableScrollTopRequestID = 0
     @State private var stableScrollBottomRequestID = 0
     @State private var latestSize: (cols: Int, rows: Int)?
@@ -460,6 +462,10 @@ struct SwiftTerminalHubView: View {
                 .onTapGesture {
                     guard !showsChordComposer else {
                         suppressKeyboardForChordComposer()
+                        return
+                    }
+                    guard !isTerminalFocusSuppressed else {
+                        resignKeyboardResponders()
                         return
                     }
                     keyBarExpanded = false
@@ -1519,6 +1525,8 @@ struct SwiftTerminalHubView: View {
             return
         }
         keyBarExpanded = false
+        terminalFocusSuppressedUntil = 0
+        keyboardDismissGeneration += 1
         if isSwiftTermRendererActive {
             focusRequestID += 1
         } else {
@@ -1527,17 +1535,33 @@ struct SwiftTerminalHubView: View {
     }
 
     private func hideTerminalKeyboard() {
+        let generation = beginKeyboardDismissal()
         isCommandFieldFocused = false
         if isSwiftTermRendererActive {
             blurRequestID += 1
         }
-        dismissActiveKeyboard()
+        dismissActiveKeyboard(generation: generation)
     }
 
-    private func dismissActiveKeyboard() {
+    private var isTerminalFocusSuppressed: Bool {
+        ProcessInfo.processInfo.systemUptime < terminalFocusSuppressedUntil
+    }
+
+    private func beginKeyboardDismissal() -> Int {
+        keyboardDismissGeneration += 1
+        terminalFocusSuppressedUntil = ProcessInfo.processInfo.systemUptime + 0.75
+        return keyboardDismissGeneration
+    }
+
+    private func dismissActiveKeyboard(generation: Int? = nil) {
+        let activeGeneration = generation ?? keyboardDismissGeneration
         resignKeyboardResponders()
-        DispatchQueue.main.async {
-            resignKeyboardResponders()
+        Task { @MainActor in
+            for delay in [50_000_000, 150_000_000, 320_000_000] as [UInt64] {
+                try? await Task.sleep(nanoseconds: delay)
+                guard activeGeneration == keyboardDismissGeneration, isTerminalFocusSuppressed else { return }
+                resignKeyboardResponders()
+            }
         }
     }
 
