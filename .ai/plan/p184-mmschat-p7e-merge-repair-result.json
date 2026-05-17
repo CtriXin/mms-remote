@@ -1,0 +1,124 @@
+{
+  "schema": "moebius.p184.p7e_merge_repair_result.v1",
+  "timestamp": "2026-05-17T06:33:13Z",
+  "owner": "sisyphus-omo-p-agent",
+  "cli": "opencode",
+  "model": "gpt-5.5",
+  "task_id": "p184-mmschat-p7e-merge-repair",
+  "run_id": "p184-mmschat-20260516",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "active_p": "P184",
+  "verdict": "PASS_MERGE_REPAIR_LOCAL_GATE_READY",
+  "decision": "Advance P184 local confidence from 96% to 98%; final 98% to 100% remains live/HumanGate only.",
+  "progress_percent": {
+    "before": 96,
+    "after": 98,
+    "live_humangate_target": 100
+  },
+  "worktree": {
+    "path": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p7e-merge-repair",
+    "branch": "p184/mmschat-p7e-merge-repair",
+    "base_head": "68486be6ae92b7bc52e776615072bedb39db9eb9",
+    "source_checkpoint": "abad7cb49784960b07d63db58df4412f6a5d8250",
+    "merge_commit": "538d45a38d235e1bf0746b66d67c27f5adc0d473"
+  },
+  "merge_repair": {
+    "command": "git merge --no-ff abad7cb49784960b07d63db58df4412f6a5d8250",
+    "status": "RESOLVED_AND_COMMITTED",
+    "conflict_files": [
+      "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift"
+    ],
+    "changed_in_both_inspected": [
+      "CodexMobile/CodexMobile/Views/Terminal/TerminalHubView.swift",
+      "mms-remote-bridge/src/bridge.js"
+    ],
+    "resolution_summary": [
+      "Preserved target-main SwiftTerminal stream lifecycle state, including pendingStreamStartSignature and activeStreamSignature.",
+      "Preserved P184 TerminalSubTab segmented Terminal/Sessions picker and MMSChatListView integration.",
+      "Kept Terminal behavior under the Terminal tab and MMSChat under the Sessions tab.",
+      "Verified bridge auto-merge retained MMSChat, MMS metadata, terminal routing, multi-relay, and secure transport behavior."
+    ]
+  },
+  "validation": [
+    {
+      "command": "rg -n '<<<<<<<|=======|>>>>>>>' CodexMobile/CodexMobile/Views/Terminal mms-remote-bridge/src || true",
+      "status": "PASS",
+      "evidence": "0 matches"
+    },
+    {
+      "command": "node --check mms-remote-bridge/src/mmschat-hub.js",
+      "status": "PASS"
+    },
+    {
+      "command": "node --check mms-remote-bridge/src/mmschat-demo-fixtures.js",
+      "status": "PASS"
+    },
+    {
+      "command": "node --check mms-remote-bridge/src/mmschat-protocol.js",
+      "status": "PASS"
+    },
+    {
+      "command": "node --check mms-remote-bridge/src/mms-metadata-hub.js",
+      "status": "PASS"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/mmschat-hub.test.js",
+      "status": "PASS",
+      "evidence": "5 tests, 5 pass, 0 fail"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/mmschat-demo-fixtures.test.js",
+      "status": "PASS",
+      "evidence": "2 tests, 2 pass, 0 fail"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/mms-metadata-hub.test.js",
+      "status": "PASS",
+      "evidence": "8 tests, 8 pass, 0 fail"
+    },
+    {
+      "command": "node --test mms-remote-bridge/test/bridge.test.js",
+      "status": "PASS",
+      "evidence": "39 tests, 39 pass, 0 fail"
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p7e-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "status": "PASS",
+      "evidence": "BUILD SUCCEEDED"
+    },
+    {
+      "command": "git merge-base --is-ancestor 68486be6ae92b7bc52e776615072bedb39db9eb9 HEAD",
+      "status": "PASS"
+    },
+    {
+      "command": "git merge-base --is-ancestor abad7cb49784960b07d63db58df4412f6a5d8250 HEAD",
+      "status": "PASS"
+    },
+    {
+      "command": "git diff --check --cached",
+      "status": "PASS"
+    }
+  ],
+  "humangate": {
+    "required_for_local_merge_repair": false,
+    "still_required_for": [
+      "live launch/send/resume/kill",
+      "real mms/claude/provider/model calls",
+      "tmux send-keys",
+      "deploy",
+      "push",
+      "global config mutation",
+      "dependency add",
+      "destructive cleanup",
+      "native Claude history deletion"
+    ]
+  },
+  "result_artifacts": [
+    ".ai/plan/p184-mmschat-p7e-merge-repair-result.json",
+    ".ai/plan/p184-mmschat-p7e-merge-repair-result.md",
+    ".ai/plan/progress/mmschat-p7e-merge-repair.md"
+  ],
+  "open_risks": [
+    "Final 98% to 100% remains live/HumanGate only."
+  ]
+}
