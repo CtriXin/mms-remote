@@ -5,6 +5,7 @@
 // Depends on: fs, ./mmschat-launcher, ./mmschat-registry, ./mmschat-profile, ./mmschat-protocol, ./mmschat-transcript
 
 const fs = require("fs");
+const { seedMMSChatDemoFixtures } = require("./mmschat-demo-fixtures");
 const { createMMSChatLauncher } = require("./mmschat-launcher");
 const { createMMSChatRegistry } = require("./mmschat-registry");
 const {
@@ -38,6 +39,7 @@ function createMMSChatHub(options = {}) {
   const readTranscriptCache = options.readTranscriptCache || readMMSChatTranscriptCache;
   const readTranscriptSnapshot = options.readTranscriptSnapshot || readNativeClaudeTranscriptSnapshot;
   const writeTranscriptCache = options.writeTranscriptCache || writeMMSChatTranscriptCache;
+  const seedDemoFixtures = options.seedDemoFixtures || seedMMSChatDemoFixtures;
 
   return {
     launcher,
@@ -75,6 +77,8 @@ function createMMSChatHub(options = {}) {
           };
         case MMSCHAT_METHODS.clearCache:
           return clearSessionCache({ fsImpl, registry, transcriptOptions }, validated.value);
+        case MMSCHAT_METHODS.demoSeed:
+          return seedDemoFixtures({ registry, transcriptOptions, writeTranscriptCache }, validated.value);
         case MMSCHAT_METHODS.send:
           return buildSendDisabledResult();
         case MMSCHAT_METHODS.resume:

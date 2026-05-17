@@ -14,6 +14,7 @@ const MMSCHAT_METHODS = Object.freeze({
   kill: "mmschat/kill",
   hide: "mmschat/hide",
   clearCache: "mmschat/cache/clear",
+  demoSeed: "mmschat/demo/seed",
 });
 
 const MMSCHAT_STATUS = Object.freeze({
@@ -177,6 +178,8 @@ function validateMMSChatParams(method, params = {}) {
       return validateHideParams(params);
     case MMSCHAT_METHODS.clearCache:
       return requireMMSChatId(params);
+    case MMSCHAT_METHODS.demoSeed:
+      return validateDemoSeedParams(params);
     default:
       return invalidParams("Unsupported MMSChat method.");
   }
@@ -273,6 +276,16 @@ function requireMMSChatId(params) {
   }
 
   return validParams({ mmschatId });
+}
+
+function validateDemoSeedParams(params) {
+  if (containsSecretLikeValue(params)) {
+    return invalidParams("mmschat/demo/seed params must not contain raw secrets.", MMSCHAT_ERROR_CODES.secretRejected);
+  }
+
+  return validParams({
+    cwd: readString(params.cwd),
+  });
 }
 
 function validParams(value) {

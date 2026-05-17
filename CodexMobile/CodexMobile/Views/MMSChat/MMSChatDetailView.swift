@@ -9,10 +9,21 @@ struct MMSChatDetailView: View {
     @Environment(CodexService.self) private var codex
 
     let session: MMSChatSession
+    let onHidden: (MMSChatSession) -> Void
 
     @State private var detailResponse: MMSChatDetailResponse?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showHideConfirmation = false
+    @State private var showCacheClearConfirmation = false
+    @State private var cacheClearResultMessage: String?
+    @State private var showCacheClearResult = false
+    @Environment(\.dismiss) private var dismiss
+
+    init(session: MMSChatSession, onHidden: @escaping (MMSChatSession) -> Void = { _ in }) {
+        self.session = session
+        self.onHidden = onHidden
+    }
 
     var body: some View {
         ScrollView {
@@ -27,6 +38,23 @@ struct MMSChatDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showHideConfirmation = true
+                    } label: {
+                        Label(LocalizationManager.shared.localized("mmschat.detail.hide"), systemImage: "archivebox")
+                    }
+
+                    Button {
+                        showCacheClearConfirmation = true
+                    } label: {
+                        Label(LocalizationManager.shared.localized("mmschat.detail.cache_clear"), systemImage: "xmark.bin")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .disabled(!codex.isConnected || isLoading)
+
                 Button {
                     Task { await openVisible() }
                 } label: {
@@ -61,6 +89,36 @@ struct MMSChatDetailView: View {
             }
         } message: {
             Text(errorMessage ?? "")
+        }
+        .alert(
+            LocalizationManager.shared.localized("mmschat.row.hide_confirm_title"),
+            isPresented: $showHideConfirmation
+        ) {
+            Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
+            Button(LocalizationManager.shared.localized("mmschat.row.hide"), role: .destructive) {
+                Task { await hideSession() }
+            }
+        } message: {
+            Text(LocalizationManager.shared.localized("mmschat.row.hide_confirm_message"))
+        }
+        .alert(
+            LocalizationManager.shared.localized("mmschat.detail.cache_clear_confirm_title"),
+            isPresented: $showCacheClearConfirmation
+        ) {
+            Button(LocalizationManager.shared.localized("common.cancel"), role: .cancel) {}
+            Button(LocalizationManager.shared.localized("mmschat.detail.cache_clear"), role: .destructive) {
+                Task { await clearCache() }
+            }
+        } message: {
+            Text(LocalizationManager.shared.localized("mmschat.detail.cache_clear_confirm_message"))
+        }
+        .alert(
+            LocalizationManager.shared.localized("mmschat.detail.cache_clear"),
+            isPresented: $showCacheClearResult
+        ) {
+            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {}
+        } message: {
+            Text(cacheClearResultMessage ?? "")
         }
     }
 
@@ -270,5 +328,33 @@ struct MMSChatDetailView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func hideSession() async {
+        guard codex.isConnected else { return }
+        do {
+            let response = try await codex.mmschatHide(mmschatId: session.mmschatId, hidden: true)
+            onHidden(response.session)
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func clearCache() async {
+        guard codex.isConnected else { return }
+        isLoading = true
+        do {
+            let response = try await codex.mmschatCacheClear(mmschatId: session.mmschatId)
+            cacheClearResultMessage = response.cacheCleared
+                ? LocalizationManager.shared.localized("mmschat.detail.cache_clear_success")
+                : LocalizationManager.shared.localized("mmschat.detail.cache_clear_error")
+            showCacheClearResult = true
+            await loadDetail()
+        } catch {
+            cacheClearResultMessage = error.localizedDescription
+            showCacheClearResult = true
+        }
+        isLoading = false
     }
 }

@@ -13,6 +13,7 @@ struct MMSChatListView: View {
     @State private var errorMessage: String?
     @State private var selectedSessionId: String?
     @State private var isShowingLaunchPlanSheet = false
+    @State private var isSeedingDemo = false
 
     var body: some View {
         Group {
@@ -62,7 +63,10 @@ struct MMSChatListView: View {
             get: { selectedSessionId.flatMap { id in sessions.first { $0.mmschatId == id } } },
             set: { selectedSessionId = $0?.mmschatId }
         )) { session in
-            MMSChatDetailView(session: session)
+            MMSChatDetailView(session: session) { hiddenSession in
+                sessions.removeAll { $0.mmschatId == hiddenSession.mmschatId }
+                selectedSessionId = nil
+            }
         }
     }
 
@@ -88,11 +92,40 @@ struct MMSChatListView: View {
         } description: {
             Text(LocalizationManager.shared.localized("mmschat.empty_description"))
         } actions: {
-            Button(LocalizationManager.shared.localized("mmschat.model_picker.open")) {
-                isShowingLaunchPlanSheet = true
+            VStack(spacing: 8) {
+                Button {
+                    Task { await refresh() }
+                } label: {
+                    Label(LocalizationManager.shared.localized("mmschat.empty_action_refresh"), systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!codex.isConnected)
+
+                Button {
+                    isShowingLaunchPlanSheet = true
+                } label: {
+                    Label(LocalizationManager.shared.localized("mmschat.model_picker.open"), systemImage: "slider.horizontal.3")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!codex.isConnected)
+
+                Button {
+                    Task { await seedDemo() }
+                } label: {
+                    if isSeedingDemo {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Label(LocalizationManager.shared.localized("mmschat.empty_action_demo"), systemImage: "wand.and.stars")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!codex.isConnected || isSeedingDemo)
+
+                Text(LocalizationManager.shared.localized("mmschat.empty_demo_hint"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(!codex.isConnected)
         }
     }
 
@@ -119,9 +152,11 @@ struct MMSChatListView: View {
             ForEach(groupedSessions, id: \.key) { group in
                 Section {
                     ForEach(group.sessions) { session in
-                        MMSChatSessionRowView(session: session) {
-                            selectedSessionId = session.mmschatId
-                        }
+                        MMSChatSessionRowView(
+                            session: session,
+                            onTap: { selectedSessionId = session.mmschatId },
+                            onHide: { Task { await hideSession(session) } }
+                        )
                     }
                 } header: {
                     Text(group.key)
@@ -176,5 +211,31 @@ struct MMSChatListView: View {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func seedDemo() async {
+        guard codex.isConnected else {
+            errorMessage = LocalizationManager.shared.localized("mmschat.error_disconnected")
+            return
+        }
+        isSeedingDemo = true
+        errorMessage = nil
+        do {
+            let response = try await codex.mmschatDemoSeed()
+            sessions = response.sessions.filter { !$0.hidden }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isSeedingDemo = false
+    }
+
+    private func hideSession(_ session: MMSChatSession) async {
+        guard codex.isConnected else { return }
+        do {
+            _ = try await codex.mmschatHide(mmschatId: session.mmschatId, hidden: true)
+            sessions.removeAll { $0.mmschatId == session.mmschatId }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

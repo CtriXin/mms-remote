@@ -8,6 +8,7 @@ import SwiftUI
 struct MMSChatSessionRowView: View {
     let session: MMSChatSession
     let onTap: () -> Void
+    let onHide: () -> Void
 
     var body: some View {
         Button(action: onTap) {
@@ -68,6 +69,12 @@ struct MMSChatSessionRowView: View {
             .padding(.horizontal, 14)
         }
         .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive, action: onHide) {
+                Label(LocalizationManager.shared.localized("mmschat.row.hide"), systemImage: "archivebox")
+            }
+            .tint(.orange)
+        }
     }
 
     // MARK: - Components

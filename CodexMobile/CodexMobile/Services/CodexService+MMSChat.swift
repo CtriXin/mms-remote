@@ -132,6 +132,19 @@ extension MMSChatClearCacheResponse {
     }
 }
 
+extension MMSChatDemoSeedResponse {
+    init(json: JSONValue) throws {
+        guard let obj = json.objectValue else {
+            throw MMSChatDecodeError.invalidShape("MMSChatDemoSeedResponse")
+        }
+        self.demo = obj["demo"]?.boolValue ?? false
+        self.seeded = obj["seeded"]?.boolValue ?? false
+        self.source = obj["source"]?.stringValue ?? "unknown"
+        let rawSessions = obj["sessions"]?.arrayValue ?? []
+        self.sessions = try rawSessions.map { try MMSChatSession(json: $0) }
+    }
+}
+
 extension MMSChatOpenVisibleResponse {
     init(json: JSONValue) throws {
         guard let obj = json.objectValue else {
@@ -341,6 +354,16 @@ extension CodexService {
             timeoutMessage: "MMSChat cache clear timed out."
         )
         return try MMSChatClearCacheResponse(json: response.result ?? .null)
+    }
+
+    func mmschatDemoSeed() async throws -> MMSChatDemoSeedResponse {
+        let response = try await sendRequest(
+            method: MMSChatMethod.demoSeed.rawValue,
+            params: .object([:]),
+            timeoutNanoseconds: 8_000_000_000,
+            timeoutMessage: "MMSChat demo seed timed out while contacting the Mac bridge."
+        )
+        return try MMSChatDemoSeedResponse(json: response.result ?? .null)
     }
 
     func mmschatOpenVisible(mmschatId: String, visibleApp: String? = nil) async throws -> MMSChatOpenVisibleResponse {

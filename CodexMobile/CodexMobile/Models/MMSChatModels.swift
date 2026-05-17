@@ -63,6 +63,7 @@ enum MMSChatMethod: String, Codable, CaseIterable, Hashable, Sendable {
     case kill = "mmschat/kill"
     case hide = "mmschat/hide"
     case clearCache = "mmschat/cache/clear"
+    case demoSeed = "mmschat/demo/seed"
 }
 
 struct MMSChatSession: Identifiable, Codable, Hashable, Sendable {
@@ -210,6 +211,13 @@ struct MMSChatClearCacheParams: Codable, Hashable, Sendable {
 struct MMSChatClearCacheResponse: Codable, Hashable, Sendable {
     let session: MMSChatSession
     let cacheCleared: Bool
+}
+
+struct MMSChatDemoSeedResponse: Codable, Hashable, Sendable {
+    let demo: Bool
+    let seeded: Bool
+    let source: String
+    let sessions: [MMSChatSession]
 }
 
 extension MMSChatStatus {

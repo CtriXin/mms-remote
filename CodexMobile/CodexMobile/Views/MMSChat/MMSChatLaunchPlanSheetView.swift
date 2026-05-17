@@ -90,6 +90,11 @@ struct MMSChatLaunchPlanSheetView: View {
             if isLoadingMetadata {
                 ProgressView(LocalizationManager.shared.localized("mmschat.model_picker.loading"))
             }
+            if !configFound && !isLoadingMetadata {
+                Text(LocalizationManager.shared.localized("mmschat.model_picker.no_config_description"))
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
         } footer: {
             Text(LocalizationManager.shared.localized("mmschat.model_picker.dry_run_notice"))
         }
@@ -144,15 +149,22 @@ struct MMSChatLaunchPlanSheetView: View {
             .disabled(!selectedPresetId.isEmpty || modelsForSelectedProvider.isEmpty)
 
             if providers.isEmpty && !isLoadingMetadata {
-                Text(LocalizationManager.shared.localized("mmschat.model_picker.no_providers"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(LocalizationManager.shared.localized("mmschat.model_picker.no_providers_title"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(LocalizationManager.shared.localized("mmschat.model_picker.no_providers_description"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
             }
         } header: {
             Text(LocalizationManager.shared.localized("mmschat.model_picker.provider_model"))
         } footer: {
             if !selectedPresetId.isEmpty {
                 Text(LocalizationManager.shared.localized("mmschat.model_picker.preset_overrides"))
+            } else if !canPreview {
+                Text(LocalizationManager.shared.localized("mmschat.model_picker.preview_disabled_reason"))
             }
         }
     }
@@ -181,9 +193,20 @@ struct MMSChatLaunchPlanSheetView: View {
                 Button(LocalizationManager.shared.localized("mmschat.model_picker.launch_disabled")) {}
                     .disabled(true)
             } else {
-                Text(LocalizationManager.shared.localized("mmschat.model_picker.preview_empty"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(LocalizationManager.shared.localized("mmschat.model_picker.preview_empty"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    if !configFound {
+                        Text(LocalizationManager.shared.localized("mmschat.model_picker.no_config_description"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    } else if providers.isEmpty {
+                        Text(LocalizationManager.shared.localized("mmschat.model_picker.no_providers_description"))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
         } header: {
             Text(LocalizationManager.shared.localized("mmschat.model_picker.plan_preview"))
