@@ -361,21 +361,21 @@ struct ContentView: View {
     }
 
     private var mainAppBody: some View {
-        selectedMainTabBody
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(.systemBackground))
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                mainAppBottomBar
-            }
-            .onChange(of: selectedAppTab) { previousTab, tab in
-                if previousTab == .terminal, tab != .terminal {
-                    Task {
-                        await codex.stopAllTerminalStreams()
-                    }
+        VStack(spacing: 0) {
+            selectedMainTabBody
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            mainAppBottomBar
+        }
+        .background(Color(.systemBackground))
+        .onChange(of: selectedAppTab) { previousTab, tab in
+            if previousTab == .terminal, tab != .terminal {
+                Task {
+                    await codex.stopAllTerminalStreams()
                 }
-                guard tab != .chats else { return }
-                dismissChatDrawerForTabSwitch()
             }
+            guard tab != .chats else { return }
+            dismissChatDrawerForTabSwitch()
+        }
     }
 
     @ViewBuilder
@@ -441,6 +441,7 @@ struct ContentView: View {
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 6)
+        .background(Color(.systemBackground).opacity(0.001))
     }
 
     private func bottomTabButton(
@@ -570,6 +571,7 @@ struct ContentView: View {
         )
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(Color(.secondarySystemGroupedBackground))
     }
 
     private var terminalAppBody: some View {

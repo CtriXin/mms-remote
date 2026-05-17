@@ -83,7 +83,7 @@ struct SidebarView: View {
             .background {
                 if usesSheetChrome {
                     ZStack {
-                        Rectangle().fill(.ultraThinMaterial)
+                        Rectangle().fill(Color(.secondarySystemGroupedBackground))
                         LinearGradient(
                             colors: [
                                 codexSheetAccent.opacity(colorScheme == .dark ? 0.14 : 0.10),
@@ -191,7 +191,7 @@ struct SidebarView: View {
             }
         }
         .padding(.horizontal, 18)
-        .padding(.top, 18)
+        .padding(.top, usesSheetChrome ? 30 : 18)
         .padding(.bottom, 14)
     }
 

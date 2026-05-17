@@ -1724,7 +1724,7 @@ private struct SwiftTerminalPanePickerSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
             ZStack {
-                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(Color(.secondarySystemGroupedBackground))
                 LinearGradient(
                     colors: [
                         terminalSheetAccent.opacity(theme.isDark ? 0.16 : 0.10),
@@ -1737,6 +1737,7 @@ private struct SwiftTerminalPanePickerSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(Color(.secondarySystemGroupedBackground))
     }
 
     private var terminalSheetAccent: Color {
@@ -1776,7 +1777,7 @@ private struct SwiftTerminalPanePickerSheet: View {
             .accessibilityLabel(LocalizationManager.shared.localized("sidebar.close_menu"))
         }
         .padding(.horizontal, 18)
-        .padding(.top, 18)
+        .padding(.top, 30)
         .padding(.bottom, 14)
     }
 
