@@ -1,0 +1,120 @@
+{
+  "schema": "executor.pack.v1",
+  "generated_at": "2026-05-16T09:12:58Z",
+  "generated_at_bjt": "2026-05-16 17:12:58 BJT",
+  "task_id": "s184-0-mmschat-phase0-s0-s3",
+  "commit": "1cc3ceab49a2b2e2c32802968073d25a26cb347e",
+  "title": "S184.0 MMSChat Phase0 S0/S3 evidence spike",
+  "objective": "Perform Phase0 only for MMSChat execution plan v2: passive Claude transcript-source research and agent-im reuse assessment. Write evidence artifacts only; do not modify product code.",
+  "task_kind": "research_evidence_spike",
+  "difficulty": "D2",
+  "status": "ready_for_executor",
+  "dispatch_enabled": false,
+  "moebius_trace": {
+    "trace_id": "trc-20260516T082907Z-f43b858883",
+    "summary": "/Users/xin/auto-skills/CtriXin-repo/moebius/.ai/trace/trc-20260516T082907Z-f43b858883/summary.json",
+    "required_in_result": true
+  },
+  "identity": {
+    "executor_id_order": [
+      "explicit executor=<id>",
+      "MMS_SESSION_PACKET_JSON model.primary",
+      "EXECUTOR_ID",
+      "MMS_MODEL_NAME"
+    ],
+    "wrapper_ids_forbidden_as_executor": [
+      "agent",
+      "claude-code",
+      "cli",
+      "codex",
+      "default",
+      "executor",
+      "local",
+      "mms",
+      "unknown"
+    ],
+    "case_sensitive": true
+  },
+  "paths": {
+    "pack_json": ".ai/exec/packs/s184-0-mmschat-phase0-s0-s3.json",
+    "pack_md": ".ai/exec/packs/s184-0-mmschat-phase0-s0-s3.md",
+    "result_glob": ".ai/exec/results/*/s184-0-mmschat-phase0-s0-s3-result-*.md",
+    "phase_result_json": ".ai/plan/p184-mmschat-phase0-result.json",
+    "phase_result_md": ".ai/plan/p184-mmschat-phase0-result.md"
+  },
+  "read_only_files": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".ai/plan/current.md",
+    ".ai/plan/handoff.md",
+    ".ai/plan/packet.json",
+    ".ai/plan/mmschat-execution-plan-v2.md",
+    ".ai/plan/mmschat-execution-plan.md",
+    ".ai/plan/executor.md"
+  ],
+  "external_read_only_refs": [
+    "/Users/xin/auto-skills/CtriXin-repo/agent-im/src/session-registry.ts",
+    "/Users/xin/auto-skills/CtriXin-repo/agent-im/src/store.ts",
+    "Claude CLI help output and local ~/.claude directory shape; summarize/redact only"
+  ],
+  "writable_files": [
+    ".ai/plan/progress/mmschat-s0-transcript-source.md",
+    ".ai/plan/progress/mmschat-s3-agent-im-reuse.md",
+    ".ai/plan/p184-mmschat-phase0-result.json",
+    ".ai/plan/p184-mmschat-phase0-result.md",
+    ".ai/exec/results/*/s184-0-mmschat-phase0-s0-s3-result-*.md"
+  ],
+  "forbidden_files": [
+    ".git",
+    ".omc",
+    "tmp",
+    "node_modules",
+    ".env",
+    ".env.local",
+    "CodexMobile",
+    "mms-remote-bridge/src",
+    "mms-remote-bridge/test",
+    "relay"
+  ],
+  "allowed_actions": [
+    "Read listed local docs and external read-only refs.",
+    "Run read-only commands such as git status, git rev-parse, claude --help, find/ls on ~/.claude.",
+    "Summarize Claude transcript/session storage structure with secrets and private content redacted.",
+    "Write only declared evidence/result artifacts."
+  ],
+  "stop_conditions": [
+    "Do not start a new paid/live Claude/model session.",
+    "Do not run provider/model resume matrix S1.",
+    "Do not send text into a live Claude/tmux pane S2.",
+    "Do not capture or paste full private transcript content.",
+    "Do not modify product code or project config.",
+    "If pack commit does not match current HEAD, stop and report BLOCKED."
+  ],
+  "success_criteria": [
+    "S0 document ranks transcript source options: native file, JSON stream, tmux capture, raw-only fallback, with evidence and confidence.",
+    "S0 document states safest nativeClaudeSessionId acquisition strategy and open gaps.",
+    "S3 document lists agent-im registry/store concepts to reuse vs not copy, preserving local-first/E2EE/auth-secret-ref constraints.",
+    "Result JSON verdict is PASS_READY_FOR_P0, PARTIAL_NEEDS_HUMANGATE, or BLOCKED and includes trace_id.",
+    "Dirty work preserved; no product code changed; no HumanGate boundary crossed."
+  ],
+  "validation_commands": [
+    "git rev-parse HEAD",
+    "git status --short",
+    "python3 -m json.tool .ai/plan/p184-mmschat-phase0-result.json",
+    "git diff --check -- .ai/plan/progress/mmschat-s0-transcript-source.md .ai/plan/progress/mmschat-s3-agent-im-reuse.md .ai/plan/p184-mmschat-phase0-result.json .ai/plan/p184-mmschat-phase0-result.md"
+  ],
+  "required_result_json_fields": [
+    "verdict",
+    "trace_id",
+    "commit",
+    "s0_transcript_source_priority",
+    "nativeClaudeSessionId_strategy",
+    "agent_im_reuse_decision",
+    "p0_p1_p3_blockers",
+    "humangate_needed",
+    "dirty_work_preserved",
+    "validation"
+  ],
+  "self_assessment_required": true,
+  "host_intake_owner": "Moebius Codex planner-handler"
+}

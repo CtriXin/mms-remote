@@ -1,38 +1,78 @@
 {
-  "task_id": "swift-terminal-polish-v2",
-  "goal": "Implement compact chord UI with letters/digits, fix Swift tab theme/style bleed, add bottom Settings tab, bump version/build.",
-  "status": "handoff-ready",
-  "owner": "Codex",
+  "task_id": "ios-swiftterm-ghost-multiagent-wait-20260516",
+  "goal": "Park unresolved SwiftTerm iOS visual ghost as a recorded multiagent investigation so v2 work can continue without blind patch loops.",
+  "status": "installed-usable-ghost-unresolved-multiagent-recorded",
+  "owner": "codex",
   "cli": "codex",
-  "model": "GPT-5",
-  "next_action": "New session read .ai/plan/swift-terminal-polish-handbook.md and implement the three requested UI polish tasks.",
-  "constraints": [
-    "Always respond Chinese-simplified; keep technical terms English",
-    "Do not run Xcode tests unless user explicitly asks",
-    "Preserve existing Terminal/CLI tab behavior",
-    "Every iOS code change must bump version/build",
-    "Do not log live pairing codes/session IDs"
+  "model": "gpt-5",
+  "timestamp": "2026-05-16T23:21:34-04:00",
+  "latest_ios_version": "1.7.53",
+  "latest_ios_build": "91",
+  "installed_device": "song的iPhone",
+  "swiftterm_revision": "9ad1b190b7b6f3dd072063c7d86535e2298f0aad",
+  "user_feedback": "User again confirmed SwiftTerm visual ghost/影子 remains; other regressions are fixed.",
+  "next_action": "Continue v2 work unless user requests another focused ghost pass. If returning to ghost, implement only evidence-backed SwiftTerm visible-rect/row clear diagnostic plus Bridge/iOS seq/hash trace.",
+  "multiagent": [
+    {
+      "agent": "Peirce",
+      "id": "019e33ec-f229-7f90-b8fa-766d3d859ac2",
+      "scope": "SwiftTerm iOS renderer/caret source analysis",
+      "status": "completed",
+      "conclusion": "Most likely SwiftTerm iOS renderer dirty-rect/background clear vs UIScrollView.contentOffset; source-level draw/caret invalidation recommended."
+    },
+    {
+      "agent": "Kierkegaard",
+      "id": "019e33ed-0b05-7fa0-97ff-feda2c0249aa",
+      "scope": "Bridge/tmux/feed race analysis",
+      "status": "completed",
+      "conclusion": "Replay/live/input ordering still needs trace; avoid final replay CRLF, add phase/generation, and queue per-pane input if evidence points there."
+    }
   ],
-  "refs": [
-    ".ai/plan/swift-terminal-polish-handbook.md",
-    "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift",
-    "CodexMobile/CodexMobile/ContentView.swift",
-    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
-    "mms-remote-bridge/src/tmux-adapter.js",
-    "mms-remote-bridge/test/terminal-hub.test.js"
+  "do_not_repeat": [
+    "Do not disable SwiftTerm",
+    "Do not use replay/full-screen refresh as final fix",
+    "Do not retry 1.7.49 RunLoop/default-mode stream drain",
+    "Do not reintroduce hidden input proxy + mobile cursor quarantine as the main fix",
+    "Do not start SwiftTerm with replay=false only; it caused blank startup",
+    "Do not upgrade SwiftTerm latest until Metal Toolchain dependency is handled"
   ],
   "changed_files_current_slice": [
-    ".ai/plan/swift-terminal-polish-handbook.md",
     ".ai/plan/current.md",
     ".ai/plan/handoff.md",
     ".ai/plan/packet.json",
-    ".ai/plan/packet.toon"
+    ".ai/plan/packet.toon",
+    ".ai/plan/progress/swiftterm-ghost-multiagent.md",
+    "Docs/swiftterm_ghost_analysis.md"
   ],
-  "expected_output": "1.7.5 build 41 installed; compact chord UI; readable theme; Settings bottom tab; tests/build/deploy recorded.",
-  "read_order": [
-    ".ai/plan/swift-terminal-polish-handbook.md",
-    ".ai/plan/current.md",
-    ".ai/plan/handoff.md"
+  "validation": [
+    "Peirce completed with SwiftTerm renderer/caret source analysis",
+    "Kierkegaard completed with Bridge/tmux/feed race analysis",
+    "docs-only update; no iOS code changed in this slice",
+    "Xcode tests not run"
   ],
-  "writeback_required": true
+  "constraints": [
+    "Chinese simplified",
+    "No Xcode tests unless user asks",
+    "iOS code change requires version/build bump",
+    "Install only to song的iPhone",
+    "Do not expose private relay endpoints",
+    "Do not revert unrelated dirty files"
+  ],
+  "refs": [
+    ".ai/plan/progress/swiftterm-ghost-multiagent.md",
+    ".ai/plan/swiftterm-ghost-multiagent-prompt.md",
+    "Docs/swiftterm_ghost_analysis.md",
+    "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift",
+    "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift",
+    "mms-remote-bridge/src/tmux-control-adapter.js",
+    "mms-remote-bridge/src/terminal-stream-hub.js",
+    ".build/DerivedData-device/SourcePackages/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSTerminalView.swift",
+    ".build/DerivedData-device/SourcePackages/checkouts/SwiftTerm/Sources/SwiftTerm/Apple/AppleTerminalView.swift",
+    ".build/DerivedData-device/SourcePackages/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSCaretView.swift"
+  ],
+  "writeback_required": true,
+  "multiagent_conclusions": [
+    "Peirce conclusion: most likely root is SwiftTerm iOS renderer dirty-rect/background clear vs UIScrollView.contentOffset coordinate mismatch; CaretView may amplify but wrapper-level quarantine is not sufficient. Suggested source-level draw visibleRect/row clear plus old/new caret invalidation; app wrapper should only preserve scroll when user manually scrolled.",
+    "Kierkegaard conclusion: still audit Bridge/replay/live/input ordering. Viewport replay is not raw terminal state; live-during-replay heuristic can leak duplicate tails; input sends are independent Tasks without per-pane queue. First diagnostic should trace stream seq/phase/hash and iOS feed order; patch directions include avoiding final replay CRLF, adding replayGeneration/phase, and per-pane input queue."
+  ]
 }

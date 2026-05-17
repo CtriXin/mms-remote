@@ -105,7 +105,7 @@ Before testing:
 tmux kill-session -t mms-remote-swiftterm-bridge 2>/dev/null || true
 lsof -tiTCP:9000 -sTCP:LISTEN | xargs -r kill 2>/dev/null || true
 tmux new-session -d -s mms-remote-swiftterm-bridge \
-  "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote && HOME=/Users/xin RELAY_URL='ws://Xin-MacBook-Pro-16.local:9000/relay' ./run-local-mms-remote.sh"
+  "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote && HOME=/Users/xin RELAY_URL='ws://<local-mac-host>:9000/relay' ./run-local-mms-remote.sh"
 tmux capture-pane -pt mms-remote-swiftterm-bridge:0 -S -90
 ```
 

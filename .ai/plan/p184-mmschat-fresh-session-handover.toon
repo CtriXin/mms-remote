@@ -1,0 +1,17 @@
+TOON:
+schema: mms_remote.p184_project_handover.v1
+timestamp: 2026-05-16T09:24:26Z
+timestamp_bjt: 2026-05-16 17:24:26 BJT
+task_id: p184-mmschat-project-handover
+status: phase0_executor_pack_ready
+moebius_run_id: p184-mmschat-20260516
+moebius_trace_id: trc-20260516T082907Z-f43b858883
+stable_commit: 1cc3ceab49a2b2e2c32802968073d25a26cb347e
+phase0_task: s184-0-mmschat-phase0-s0-s3
+phase0_pack: .ai/exec/packs/s184-0-mmschat-phase0-s0-s3.json
+current_project_progress: "Terminal/SwiftTerm stabilization; 1.7.24 build 60 installed, launch blocked by locked phone, smoke pending"
+mmschat_direction[5]: Claude native source of truth,session index/status/transcript cache,read-only MVP,send behind feature flag,Terminal/Sessions segmented entry
+allowed_phase0_writes[5]: .ai/plan/progress/mmschat-s0-transcript-source.md,.ai/plan/progress/mmschat-s3-agent-im-reuse.md,.ai/plan/p184-mmschat-phase0-result.json,.ai/plan/p184-mmschat-phase0-result.md,.ai/exec/results/<EXECUTOR_ID>/s184-0-mmschat-phase0-s0-s3-result-YYYYMMDD.md
+forbidden_phase0[6]: product code,paid/live Claude/model session,S1 resume matrix,S2 live send-keys,deploy/push/global config/destructive cleanup,private transcript dump
+future_order[8]: P0 protocol/model,P1 registry/store,P2 launcher,P3 transcript,P4 iOS UI,P5 actions,P6 provider profile,P7 integration
+executor_prompt: "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote\n/executor s184-0-mmschat-phase0-s0-s3 1cc3ceab49a2b2e2c32802968073d25a26cb347e executor=<model-id>"

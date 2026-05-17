@@ -1,0 +1,11 @@
+{
+  "claimed_at": "2026-05-16T23:29:04-04:00",
+  "task_id": "fresh-session-style-unify-merge-20260516",
+  "run_id": "",
+  "owner": "codex",
+  "cli": "codex",
+  "model": "gpt-5",
+  "status": "in_progress",
+  "next_action": "New session should read fresh prompt, inspect dirty main and terminal-style-unify worktree, then commit small validated slices",
+  "current_sha_at_claim": "c1ae33aeba8ae60738ded1eb5ee17a652bc6100545d2e2e3245d12d968fb63ed"
+}

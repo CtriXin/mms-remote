@@ -1,5 +1,253 @@
 # Handoff Log
 
+## 2026-05-16T23:29:04-04:00 | agent=codex | cli=codex | model=gpt-5 | task=fresh-session-style-unify-merge-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: New session should read fresh prompt, inspect dirty main and terminal-style-unify worktree, then commit small validated slices
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=c1ae33aeba8ae60738ded1eb5ee17a652bc6100545d2e2e3245d12d968fb63ed
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T23:28:55-04:00 | agent=codex | cli=codex | model=gpt-5 | task=fresh-session-style-unify-merge-20260516
+- TL;DR: Refreshed fresh-session prompt for a new compact session; next work is dirty-main cleanup plus safe import of `.claude/worktrees/terminal-style-unify` changes.
+- Next action: New session reads `.ai/plan/fresh-session-continue-prompt.md`, inspects main/worktree dirty diffs, commits small validated slices, then handles version/package sync.
+- Scope / boundary: Docs/handoff only; no iOS code change, no version/build bump, no install, no tests.
+- Changed files: `.ai/plan/fresh-session-continue-prompt.md`, `.ai/plan/next-agent-prompt.md`, `.ai/plan/current.md`, `.ai/plan/handoff.md`.
+- Validation: prompt written; final `git diff --check` pending.
+- Open risks: main is dirty; `feat/terminal-style-unify` branch has no new commit, only dirty worktree files; direct merge would miss changes.
+
+## 2026-05-16T23:21:34-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-swiftterm-ghost-multiagent-wait-20260516
+- TL;DR: Multiagent results received and recorded; ghost remains unresolved but no longer blocks the whole v2 track.
+- Next action: Continue v2 work unless user explicitly wants another dedicated ghost pass; if returning, start with SwiftTerm source-level visible-rect/row clear diagnostic and Bridge/iOS seq/hash tracing.
+- Scope / boundary: Docs/handoff only; no iOS code change, no version/build bump, no install, no Xcode tests.
+- Changed files: `.ai/plan/current.md`, `.ai/plan/handoff.md`, `.ai/plan/packet.json`, `.ai/plan/packet.toon`, `.ai/plan/progress/swiftterm-ghost-multiagent.md`, `Docs/swiftterm_ghost_analysis.md`.
+- Validation: Both subagents completed; docs updated; `mms-toon --auto` regenerated packet; final syntax/audit checks pending.
+- Open risks: SwiftTerm ghost root still needs a bounded evidence-backed patch; avoid replay/full-refresh, RunLoop/default-mode drain, hidden input proxy, SwiftTerm disable, and latest SwiftTerm upgrade without Metal Toolchain fix.
+
+## 2026-05-16T23:20:17-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-swiftterm-ghost-multiagent-wait-20260516
+- TL;DR: User confirms SwiftTerm ghost/影子 still remains, but other regressions are resolved; stop local trial-and-error and keep this as a multiagent/source-level investigation.
+- Next action: Wait for `Peirce` and `Kierkegaard` outputs or hand `.ai/plan/swiftterm-ghost-multiagent-prompt.md` to another agent; implement only an evidence-backed diagnostic/patch.
+- Scope / boundary: Docs/handoff only in this slice; no iOS code change, no version/build bump, no install, no Xcode tests.
+- Changed files: `.ai/plan/current.md`, `.ai/plan/handoff.md`, `.ai/plan/packet.json`, `.ai/plan/packet.toon`, `.ai/plan/progress/swiftterm-ghost-multiagent.md`.
+- Validation: `wait_agent` on `019e33ec-f229-7f90-b8fa-766d3d859ac2` and `019e33ed-0b05-7fa0-97ff-feda2c0249aa` timed out after 120s with no final output; docs-only validation pending.
+- Open risks: Ghost root remains unresolved; do not retry replay/full-refresh, RunLoop/default-mode drain, hidden input proxy, SwiftTerm disable, or latest SwiftTerm upgrade without Metal Toolchain fix.
+
+## 2026-05-16T23:19:16-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-swiftterm-ghost-multiagent-wait-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Record user-confirmed ghost remains; wait for multiagent outputs before any more patches
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=49bd9ed9b0db9b869c8191b8803dc43b3a210a424a3fc9d9b6a3ca49d222975f
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T23:13:23-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-swiftterm-ghost-escalation-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Stop local trial-and-error; hand off unresolved SwiftTerm visual ghost to multiagent investigation.
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=23ba3f9ff37e435d14716996a08333030a33ccb716e7467a4258397fedb1924a
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T22:39:10-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-terminal-live-only-20260516
+- TL;DR: User screenshot showed remaining `replay` garble; corrected direction. Restarted Bridge daemon so JS stream fixes are live, then installed `1.7.52 build 90` with SwiftTerm stream `replay: false` to stop feeding `tmux capture-pane -e` rendered snapshots into SwiftTerm emulator.
+- Next action: User force-close/reopen app, confirm `1.7.52/90`, and smoke SwiftTerm. Status should not show `replay`; test fresh `pwd`, `cd`, rapid typing.
+- Scope / boundary: iOS SwiftTerm live-only stream start + Bridge daemon restart; SwiftTerm enabled; legacy Terminal fallback preserved; no Xcode tests; private relay endpoints not exposed in docs.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, plus prior Bridge stream normalization files and handoff packet files.
+- Validation: `git diff --check` OK; generic iOS Debug build OK; signed device Debug build OK with `HOME=/Users/xin`; device install OK; Info.plist confirms `1.7.52/90`; launch blocked only by locked phone. Prior Node full tests `329/329` OK.
+- Open risks: If ghost remains without replay, collect screen recording/stream bytes and move to SwiftTerm source patch; do not retry RunLoop/default-mode drain or replay/full-screen flash.
+
+## 2026-05-16T22:39:18-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-terminal-live-only-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.52/90 SwiftTerm live-only; status should not show replay
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=df35825a10e5227fcb6a292b203041205c7f736f765f26657c8026aa6f869069
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T22:32:10-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-terminal-crlf-font-stabilize-20260516
+- TL;DR: Installed `1.7.51 build 89` with Terminal stream newline normalization moved to Bridge once for both replay/live, duplicate adjacent CR collapsed, iOS SwiftTerm raw-feeding bytes, and SwiftTerm font reset avoided on every update.
+- Next action: User smoke `1.7.51/89`; verify `pwd`, `cd`, rapid typing, and whether original visual ghost remains.
+- Scope / boundary: Bridge Terminal stream normalization + iOS SwiftTerm feed/font stabilization only; SwiftTerm enabled; legacy Terminal fallback preserved; no Xcode tests; private relay endpoints not exposed.
+- Changed files: `mms-remote-bridge/src/tmux-control-adapter.js`, `mms-remote-bridge/src/terminal-stream-hub.js`, `mms-remote-bridge/test/tmux-control-adapter.test.js`, `mms-remote-bridge/test/terminal-stream-hub.test.js`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: local tmux replay/live probe shows no bare LF/CRCRLF; Node full tests `329/329` OK; generic iOS Debug build OK; signed device build OK with `HOME=/Users/xin`; device install OK; app launch blocked only by locked phone.
+- Open risks: If ghost remains after stream correctness fix, collect screen recording/stream bytes before further SwiftTerm renderer changes; do not retry RunLoop/default-mode drain.
+
+## 2026-05-16T22:32:05-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-terminal-crlf-font-stabilize-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.51/89 cd/pwd and SwiftTerm ghost after Bridge CRLF normalization
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=8dfc3b1aa341fe3b3fc72a4d8da878d50989bac53717117dbb11388ce5d2507b
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T22:12:03-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-terminal-runloop-redraw-20260516
+- TL;DR: User showed `1.7.49/87` was worse (`cd`/`pwd` echo/order broken). Reverted RunLoop stream drain + row-level redraw and installed `1.7.50 build 88` with direct `feedPreservingScroll` restored.
+- Next action: User smoke `1.7.50/88`; confirm `1.7.49` regression gone. If ghost remains, switch to telemetry/local SwiftTerm patch, not wrapper timing hacks.
+- Scope / boundary: iOS SwiftTerm rollback/restore only; SwiftTerm enabled; legacy Terminal fallback preserved; no Xcode tests; private relay endpoints not exposed.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: `git diff --check` OK; generic iOS Debug build OK; signed device Debug build OK; device install OK; Info.plist confirms `1.7.50/88`.
+- Open risks: Original ghost likely still needs SwiftTerm-level patch or targeted telemetry; do not retry RunLoop/default-mode drain.
+
+## 2026-05-16T22:03:39-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-runloop-redraw-20260516
+- TL;DR: Installed `1.7.49 build 87`; remaining SwiftTerm iOS ghost now addressed via RunLoop/default-mode stream drain + previous/current cursor-row invalidation, not replay/full-screen flash.
+- Next action: User smoke `1.7.49/87`; verify rapid typing/scroll-output no longer leaves persistent visual ghost and no obvious input latency.
+- Scope / boundary: iOS SwiftTerm renderer mitigation only; SwiftTerm enabled; legacy Terminal fallback preserved; private relay endpoints not exposed; no Xcode tests.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: `git diff --check` OK; generic iOS Debug build OK after removing non-open `draw(_:)` override; signed device Debug build OK; device install OK.
+- Open risks: If ghost persists, consider local SwiftTerm backport of #498/#526 without Metal or add targeted telemetry for `contentOffset`/cursor row/stream batch timing.
+
+## 2026-05-16T22:00:12-04:00 | agent=codex | cli=codex | model=gpt-5 | task=ios-terminal-runloop-redraw-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Implement RunLoop stream drain and row-level cursor redraw for SwiftTerm ghost
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=82433aace0b94cc1fa18951b3f168c6459ebca2bebd882fe92cadebbccc31f83
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T21:44:30-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-swiftterm-upstream-ghost-fix-20260516
+- TL;DR: User reported ghost still persisted; web/upstream research found SwiftTerm PR #488 matching exact iOS ghost mechanism. Installed `1.7.48 build 86` pinned to SwiftTerm commit `9ad1b19` containing the fix.
+- Next action: User smoke `1.7.48/86`; verify SwiftTerm typing no longer leaves visual ghost, especially after scroll/output updates.
+- Scope / boundary: SwiftTerm dependency pin + no-flash renderer fix path; SwiftTerm enabled; legacy fallback preserved; no Xcode tests; no private relay endpoint exposure.
+- Changed files: `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, `CodexMobile/CodexMobile.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, handoff packet files.
+- Validation: `git diff --check` OK; targeted Node stream suite 6/6 OK; package resolve to SwiftTerm `9ad1b19` OK; iOS generic Debug build OK; signed device build OK; device install OK.
+- Open risks: `v1.13.0` includes same fix but requires MetalToolchain in current Xcode; pinned exact commit avoids that. If ghost remains, collect recording/evidence before more patches.
+
+
+## 2026-05-16T21:40:01-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-atomic-redraw-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.48/86 SwiftTerm visual ghost after atomic viewport redraw
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=9a9ed2284e6c05e6e88208a6a891c474e1f388a828a5717702e9c851c99b88c7
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T21:29:18-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-cursor-cell-invalidate-20260516
+- TL;DR: User reported `1.7.45/83` still had ghost; installed `1.7.46 build 84` with previous/current full cursor-cell invalidation, not just cursor-bar redraw.
+- Next action: User smoke `1.7.46/84`; if ghost remains, capture duplicate `terminal/input`/output evidence before more visual patches.
+- Scope / boundary: SwiftTerm low-flash redraw fix only; SwiftTerm enabled; legacy Terminal fallback preserved; no Xcode tests; no private relay endpoint exposure.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: `git diff --check` OK; targeted Node stream suite 6/6 OK; iOS generic Debug build OK; signed device build OK; device install OK.
+- Open risks: If ghost persists, likely not native caret alone; next path is duplicate input/output diagnostics or SwiftTerm draw internals.
+
+## 2026-05-16T21:29:18-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-cursor-cell-invalidate-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.46/84 precise cursor-cell invalidation
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=e64f96257f1f59e8e77bdc87796d26262b43c027fbac7ca7a87365b21135ae5c
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T21:15:31-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-caretview-ghost-20260516
+- TL;DR: Read `Docs/swiftterm_ghost_analysis.md`; agreed root likely SwiftTerm native `CaretView` re-add race. Installed `1.7.45 build 83` with `addSubview` interception so native `CaretView` never enters hierarchy.
+- Next action: User opens app manually and smokes `1.7.45/83`: verify SwiftTerm input has no ghost and no replay/full-refresh flash.
+- Scope / boundary: SwiftTerm ghost root fix only; SwiftTerm stays enabled; legacy Terminal fallback preserved; no Xcode tests; no private relay endpoint exposure.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: `git diff --check` OK; targeted Node stream suite 6/6 OK; generic iOS build initially failed because `draw(_:)` override is non-open, then passed after removal; signed device build OK; device install OK after tunnel retry; launch blocked by CoreDevice tunnel disconnect.
+- Open risks: If ghost persists, inspect duplicate `terminal/input`; if input single, consider local SwiftTerm patch for dirty-rect/caret internals.
+
+## 2026-05-16T21:15:31-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-caretview-ghost-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.45/83 SwiftTerm ghost after CaretView addSubview block
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=4b064658b302c2e6cbd5bb1ff2e611480e459329d1a768c3f1d23f195696f0bd
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T21:02:43-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-no-flash-root-20260516
+- TL;DR: Installed `1.7.44 build 82`; removed the visible post-input refresh path by keeping replay disabled and dropping immediate/full redraws from normal SwiftTerm echo handling.
+- Next action: User unlocks/opens app and smokes `1.7.44/82`: verify SwiftTerm input has no persistent double-character and no per-key flash.
+- Scope / boundary: iOS SwiftTerm render/input mitigation only; SwiftTerm remains enabled; legacy Terminal fallback preserved; no Xcode tests; private relay endpoints not documented.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: `git diff --check` OK; targeted Node stream suite 6/6 OK; iOS generic Debug build OK; signed device build OK; `devicectl` install OK after retry; `devicectl` launch blocked because phone was locked. Xcode tests not run by rule.
+- Open risks: If ghost returns without flash, inspect duplicate `terminal/input` vs SwiftTerm/UIKit cell invalidation; do not disable SwiftTerm or reintroduce replay-only masking as final fix.
+
+## 2026-05-16T21:02:35-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-no-flash-root-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.44/82 SwiftTerm input; if phone is unlocked, launch com.mms.remote or user opens app manually
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=97e6c117956845a4d29bd4174672688232ca061609f691d0834a36cbb548f486
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T12:33:57-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-double-char-root-20260516
+- TL;DR: Installed `1.7.42 build 80`; `1.7.41/79` replay cleanup worked, then `1.7.42/80` added duplicate SwiftTerm stream-start guard so Terminal entry opens one stream instead of two.
+- Next action: User smoke `1.7.42/80`: verify SwiftTerm input has no persistent double-character/ghost; if it remains, inspect duplicate input/resize logs.
+- Scope / boundary: iOS SwiftTerm lifecycle/input mitigation + Bridge stream replay dedupe already loaded by local Bridge restart; no Xcode tests; legacy Terminal fallback preserved; private relay endpoints not documented.
+- Changed files: `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `mms-remote-bridge/src/terminal-stream-hub.js`, `mms-remote-bridge/test/terminal-stream-hub.test.js`, `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, handoff packet files.
+- Validation: `git diff --check` OK; targeted Node stream suite 6/6 OK; iOS generic Debug build OK; signed device build OK; `devicectl` install OK; `devicectl` launch OK. Xcode tests not run by rule.
+- Open risks: `terminal/resize`/`terminal/input` still show duplicate log lines; if visual issue persists, debug that path, not SwiftTerm disable.
+
+## 2026-05-16T12:33:13-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-double-char-root-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.42/80 SwiftTerm input; if ghost remains, inspect duplicate input path
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=dbb31cce0a9d17216ae116998746fb2164853a18fe216d37f358b2f5b373e44d
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T12:15:58-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-caret-stream-dedupe-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.40/78 SwiftTerm input ghost/double-char
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=dbb31cce0a9d17216ae116998746fb2164853a18fe216d37f358b2f5b373e44d
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T12:04:51-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-caret-overlay-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: User smoke 1.7.38 build 76 for SwiftTerm caret overlay ghost fix
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=dbb31cce0a9d17216ae116998746fb2164853a18fe216d37f358b2f5b373e44d
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T11:35:45-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-hidden-input-proxy-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Implement hidden input proxy for SwiftTerm, bump to 1.7.35/73, build/install on song iPhone, update handoff.
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=dbb31cce0a9d17216ae116998746fb2164853a18fe216d37f358b2f5b373e44d
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T11:30:07-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-swiftterm-restore-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Smoke 1.7.34 build 72: SwiftTerm restored, double-character shadow, create sheet
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=dbb31cce0a9d17216ae116998746fb2164853a18fe216d37f358b2f5b373e44d
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T11:28:56-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-swiftterm-restore-20260516
+- TL;DR: Corrected the wrong mitigation: SwiftTerm is enabled again in `1.7.34 build 72`; removed the local post-input reset hack and replaced it with debounced authoritative stream replay after SwiftTerm input.
+- Next action: User smoke on phone: confirm `1.7.34/72`, SwiftTerm is active/available, double-character shadow self-cleans without tab switch, and Terminal `+` create sheet still works.
+- Scope / boundary: SwiftTerm restore + input-shadow mitigation + build bump; no Xcode tests; no Bridge management; Stable renderer and legacy Terminal fallback preserved.
+- Changed files: `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift`, plus handoff packet files.
+- Validation: `git diff --check` OK; iOS generic Debug build OK; signed device build OK; `devicectl` install OK; `devicectl` launch OK. Xcode tests not run by rule.
+- Open risks: If shadow remains, fix root cause next (SwiftTerm input subclass or tmux stream dedupe); do not disable SwiftTerm again as a fake fix.
+
+## 2026-05-16T11:22:44-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-stable-create-relay-guard-20260516
+- TL;DR: Installed `1.7.33 build 71` with Terminal Stable renderer forced by default, SwiftTerm live renderer disabled due to double-character/shadow repro, Stable dark text readability patched, and Terminal create flow changed to a sheet with Mac folder picker + per-create visible-terminal options.
+- Next action: User smoke on phone: confirm version/build, no double characters in Terminal, dark text visible, `+` opens create sheet, folder browser fills cwd, and per-create Mac visible terminal toggle/app work.
+- Scope / boundary: iOS Terminal UX/renderer mitigation + V2/public relay guard docs; no Xcode tests; no Bridge management; legacy Terminal fallback preserved; private relay domains not written to public docs/code.
+- Changed files: `CodexMobile/CodexMobile.xcodeproj/project.pbxproj`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift`, `CodexMobile/CodexMobile/Views/Terminal/StableTerminalSnapshotTextView.swift`, `CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift`, `.ai/plan/v2-roadmap.md`, `.ai/plan/current.md`, `.ai/plan/handoff.md`, `.ai/plan/packet.json`, `.ai/plan/packet.toon`, `.ai/plan/next-agent-prompt.md`, `.ai/plan/fresh-session-continue-prompt.md`.
+- Validation: `git diff --check` OK before docs refresh; iOS generic Debug build OK; signed device build OK; `devicectl` install OK; `devicectl` launch OK. Xcode tests not run by rule.
+- Open risks: SwiftTerm live renderer is disabled, not fixed; if user still sees double characters, verify installed `1.7.33/71` and whether they are on Stable vs legacy Terminal; relay public-release guard must be enforced in release/review packaging.
+
+## 2026-05-16T11:22:33-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=ios-terminal-stable-create-relay-guard-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Smoke 1.7.33 build 71 on song iPhone; verify Stable Terminal no double characters and + opens create sheet
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=a70dcaed7c08a4e16523b9bc65bc823794cb9efc927c8f715d2f215f9e2c4ff4
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T05:51:00-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=mms-remote-handoff-20260516
+- TL;DR: Refreshed project-level handoff after latest stable `1.7.26 build 62`, documenting completed Terminal/Codex/sidebar iterations, current baseline, risks, validation, and future roadmap.
+- Next action: Fresh session read `.ai/plan/mms-remote-project-handoff-20260516.md`, then continue user smoke feedback or low-risk `Docs/terminal_health_check.md` tasks.
+- Scope / boundary: Docs/handoff only; no product code, no Bridge management, no Xcode tests, no device install.
+- Changed files: `.ai/plan/mms-remote-project-handoff-20260516.md`, `.ai/plan/current.md`, `.ai/plan/handoff.md`, `.ai/plan/packet.json`, `.ai/plan/packet.toon`, `.ai/plan/fresh-session-continue-prompt.md`, `.ai/plan/next-agent-prompt.md`, `.ai/plan/current-owner.json`, `.ai/plan/current-audit.jsonl`.
+- Validation: `packet.json` parsed; `packet.toon` generated with `mms-toon --auto`; `handover_current.py --root . audit` OK; `git diff --check` OK.
+- Open risks: latest `1.7.26 build 62` still needs user smoke confirmation; unrelated `.ai/exec/`, `p184-*`, `.omc/`, and `tmp/` artifacts remain out of scope.
+
+## 2026-05-16T05:45:11-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=mms-remote-handoff-20260516
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Fresh session read .ai/plan/mms-remote-project-handoff-20260516.md, then continue post-1.7.26 validation and next Terminal/Codex iteration.
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=0ae653ac26856efbd21c74c63d9bcb4a95f3b12446d85f947eafee9826cc79d5
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-16T09:24:26Z | agent=Codex | cli=codex | model=gpt-5.5 | task=P184 MMSChat fresh handover
+- TL;DR: Added MMSChat fresh-session handover and executor pack context. Current main Terminal/SwiftTerm work remains preserved.
+- Next action: Run `/executor s184-0-mmschat-phase0-s0-s3 1cc3ceab49a2b2e2c32802968073d25a26cb347e executor=<model-id>` only for Phase0 S0/S3 evidence.
+- Scope / boundary: No product code, no worktree, no live Claude/provider/send-keys probes, no deploy/push/global/destructive.
+- Changed files: `.ai/plan/p184-mmschat-fresh-session-handover.md`, `.ai/plan/p184-mmschat-fresh-session-handover.json`, `.ai/plan/p184-mmschat-continue-prompt.md`, `.ai/plan/progress/mmschat-p184-status.md`.
+- Validation: JSON parse, TOON generation, `git diff --check`.
+
+
 ## 2026-05-15T21:20:00-04:00 | agent=Codex | cli=codex | model=GPT-5 | task=swift-terminal-polish-v2
 - TL;DR: Created executable handbook for next session: compact chord UI, Swift tab theme/style fixes, and bottom Settings tab.
 - Next action: Read `.ai/plan/swift-terminal-polish-handbook.md`, implement, bump to `1.7.5 build 41`, validate Node/iOS/device deploy.
@@ -453,7 +701,7 @@ tmux kill-server || true
 tmux new-session -d -s mms-clean -c /Users/xin/auto-skills/CtriXin-repo/mms-remote
 
 # start intended bridge only
-MMS_REMOTE_RELAY=wss://remote.clawopen.online/relay HOME=/Users/xin MMS_REMOTE_DEVICE_STATE_DIR=/Users/xin/.mms-remote node ./mms-remote-bridge/bin/mms-remote.js restart --json
+MMS_REMOTE_RELAY=wss://<private-relay>/relay HOME=/Users/xin MMS_REMOTE_DEVICE_STATE_DIR=/Users/xin/.mms-remote node ./mms-remote-bridge/bin/mms-remote.js restart --json
 HOME=/Users/xin MMS_REMOTE_DEVICE_STATE_DIR=/Users/xin/.mms-remote node ./mms-remote-bridge/bin/mms-remote.js status --json
 ```
 
