@@ -56,6 +56,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
     private var primaryControls: some View {
         HStack(spacing: 8) {
             fixedLeadingControl
+            fixedSeparator
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     if isSwiftTermRendererActive {
@@ -70,30 +71,33 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                 }
                 .buttonStyle(SwiftTerminalKeyButtonStyle(theme: theme))
             }
+            fixedSeparator
             fixedTrailingControls
         }
     }
 
     private var fixedLeadingControl: some View {
-        Group {
-            if isKeyboardPresented {
-                fixedIconButton(
-                    "keyboard.chevron.compact.down",
-                    accessibilityLabel: LocalizationManager.shared.localized("swift_terminal.hide_keyboard"),
-                    action: onHideTerminalKeyboard
-                )
-            } else {
-                fixedTextButton(
-                    LocalizationManager.shared.localized("swift_terminal.focus"),
-                    accessibilityLabel: LocalizationManager.shared.localized("swift_terminal.focus"),
-                    action: onFocusTerminalInput
-                )
+        Button(action: isKeyboardPresented ? onHideTerminalKeyboard : onFocusTerminalInput) {
+            ZStack {
+                Text(LocalizationManager.shared.localized("swift_terminal.focus"))
+                    .opacity(isKeyboardPresented ? 0 : 1)
+                Image(systemName: "keyboard.chevron.compact.down")
+                    .opacity(isKeyboardPresented ? 1 : 0)
             }
+            .font(AppFont.caption(weight: .semibold))
+            .foregroundStyle(theme.buttonText)
+            .frame(width: fixedButtonWidth, height: 32)
+            .background(theme.buttonBackground, in: Capsule())
+            .overlay(fixedButtonStroke)
+            .contentShape(Capsule())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(LocalizationManager.shared.localized(isKeyboardPresented ? "swift_terminal.hide_keyboard" : "swift_terminal.focus"))
         .transaction { transaction in
             transaction.animation = nil
             transaction.disablesAnimations = true
         }
+        .animation(nil, value: isKeyboardPresented)
     }
 
     private var fixedTrailingControls: some View {
@@ -110,6 +114,19 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         }
     }
 
+    private var fixedButtonWidth: CGFloat { 62 }
+
+    private var fixedSeparator: some View {
+        Capsule()
+            .fill(theme.border.opacity(0.75))
+            .frame(width: 1, height: 24)
+    }
+
+    private var fixedButtonStroke: some View {
+        Capsule()
+            .stroke(theme.accent.opacity(0.28), lineWidth: 1)
+    }
+
     private func fixedTextButton(
         _ title: String,
         accessibilityLabel: String,
@@ -119,9 +136,9 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
             Text(title)
                 .font(AppFont.caption(weight: .semibold))
                 .foregroundStyle(theme.buttonText)
-                .frame(minWidth: 44, minHeight: 32)
-                .padding(.horizontal, 8)
+                .frame(width: fixedButtonWidth, height: 32)
                 .background(theme.buttonBackground, in: Capsule())
+                .overlay(fixedButtonStroke)
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -137,9 +154,9 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
             Image(systemName: systemName)
                 .font(AppFont.caption(weight: .semibold))
                 .foregroundStyle(theme.buttonText)
-                .frame(minWidth: 44, minHeight: 32)
-                .padding(.horizontal, 8)
+                .frame(width: fixedButtonWidth, height: 32)
                 .background(theme.buttonBackground, in: Capsule())
+                .overlay(fixedButtonStroke)
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
