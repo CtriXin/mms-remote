@@ -145,24 +145,6 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    private func fixedIconButton(
-        _ systemName: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(AppFont.caption(weight: .semibold))
-                .foregroundStyle(theme.buttonText)
-                .frame(width: fixedButtonWidth, height: 32)
-                .background(theme.buttonBackground, in: Capsule())
-                .overlay(fixedButtonStroke)
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
     private var expandedControls: some View {
         VStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
