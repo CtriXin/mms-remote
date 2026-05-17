@@ -50,14 +50,20 @@ final class ContentViewModel {
     func connectToRelay(pairingPayload: CodexPairingQRPayload, codex: CodexService) async {
         await stopAutoReconnectForManualScan(codex: codex)
         // Avoid logging live pairing metadata; the relay URL path includes a bearer-like session id.
-        let fullURL = "\(pairingPayload.relay)/\(pairingPayload.sessionId)"
+        let relayCandidates = CodexRelayURLCandidates.normalized(from: pairingPayload)
+        var relayCandidateIndex = 0
         codex.rememberRelayPairing(pairingPayload)
 
         do {
             try await connectWithAutoRecovery(
                 codex: codex,
                 performAutoRetry: true,
-                serverURLProvider: { fullURL }
+                serverURLProvider: {
+                    guard !relayCandidates.isEmpty else { return nil }
+                    let relayURL = relayCandidates[relayCandidateIndex % relayCandidates.count]
+                    relayCandidateIndex += 1
+                    return "\(relayURL)/\(pairingPayload.sessionId)"
+                }
             )
         } catch {
             if codex.lastErrorMessage?.isEmpty ?? true {

@@ -190,6 +190,7 @@ extension CodexService {
                 deviceId: macDeviceId,
                 publicKey: serverHello.macIdentityPublicKey,
                 relayURL: normalizedRelayURL,
+                relayURLs: normalizedRelayURLs,
                 displayName: trustedMac?.displayName
             )
         }
@@ -258,14 +259,18 @@ extension CodexService {
 
     // Saves the QR-derived bridge metadata used for secure reconnects.
     func rememberRelayPairing(_ payload: CodexPairingQRPayload) {
+        let relayCandidates = CodexRelayURLCandidates.normalized(from: payload)
+        let primaryRelayURL = relayCandidates.first ?? payload.relay
         SecureStore.writeString(payload.sessionId, for: CodexSecureKeys.relaySessionId)
-        SecureStore.writeString(payload.relay, for: CodexSecureKeys.relayUrl)
+        SecureStore.writeString(primaryRelayURL, for: CodexSecureKeys.relayUrl)
+        SecureStore.writeCodable(relayCandidates, for: CodexSecureKeys.relayUrls)
         SecureStore.writeString(payload.macDeviceId, for: CodexSecureKeys.relayMacDeviceId)
         SecureStore.writeString(payload.macIdentityPublicKey, for: CodexSecureKeys.relayMacIdentityPublicKey)
         SecureStore.writeString(String(codexSecureProtocolVersion), for: CodexSecureKeys.relayProtocolVersion)
         SecureStore.writeString("0", for: CodexSecureKeys.relayLastAppliedBridgeOutboundSeq)
         relaySessionId = payload.sessionId
-        relayUrl = payload.relay
+        relayUrl = primaryRelayURL
+        relayUrls = relayCandidates
         relayMacDeviceId = payload.macDeviceId
         relayMacIdentityPublicKey = payload.macIdentityPublicKey
         relayProtocolVersion = codexSecureProtocolVersion
@@ -380,13 +385,38 @@ extension CodexService {
             throw CodexSecureTransportError.invalidQR("Enter a valid pairing code.")
         }
 
-        guard let relayURL = preferredPairingCodeRelayURL,
-              let resolveURL = pairingCodeResolveURL(from: relayURL) else {
+        let relayCandidates = preferredPairingCodeRelayURLs
+        guard !relayCandidates.isEmpty else {
             throw CodexSecureTransportError.invalidQR(
                 "This iPhone does not know which relay to ask for that pairing code yet. Scan the QR code instead."
             )
         }
 
+        var lastError: Error?
+        for relayURL in relayCandidates {
+            guard let resolveURL = pairingCodeResolveURL(from: relayURL) else {
+                continue
+            }
+
+            do {
+                return try await resolvePairingCode(normalizedCode, relayURL: relayURL, relayCandidates: relayCandidates, resolveURL: resolveURL)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+                continue
+            }
+        }
+
+        throw lastError ?? CodexSecureTransportError.invalidQR("Could not reach the relay for this pairing code. Try again or scan the QR code.")
+    }
+
+    private func resolvePairingCode(
+        _ normalizedCode: String,
+        relayURL: String,
+        relayCandidates: [String],
+        resolveURL: URL
+    ) async throws -> CodexPairingQRPayload {
         var request = URLRequest(url: resolveURL)
         request.httpMethod = "POST"
         request.timeoutInterval = 8
@@ -416,6 +446,7 @@ extension CodexService {
             return CodexPairingQRPayload(
                 v: resolved.v,
                 relay: relayURL,
+                relays: relayCandidates,
                 sessionId: resolved.sessionId,
                 macDeviceId: resolved.macDeviceId,
                 macIdentityPublicKey: resolved.macIdentityPublicKey,
@@ -644,13 +675,24 @@ private extension CodexService {
         }
     }
 
-    func trustMac(deviceId: String, publicKey: String, relayURL: String?, displayName: String?) {
+    func trustMac(
+        deviceId: String,
+        publicKey: String,
+        relayURL: String?,
+        relayURLs: [String]? = nil,
+        displayName: String?
+    ) {
         let existing = trustedMacRegistry.records[deviceId]
+        let relayCandidates = CodexRelayURLCandidates.normalized(
+            primary: relayURL ?? existing?.relayURL,
+            extras: (relayURLs ?? []) + (existing?.relayURLs ?? [])
+        )
         trustedMacRegistry.records[deviceId] = CodexTrustedMacRecord(
             macDeviceId: deviceId,
             macIdentityPublicKey: publicKey,
             lastPairedAt: Date(),
-            relayURL: relayURL ?? existing?.relayURL,
+            relayURL: relayCandidates.first ?? relayURL ?? existing?.relayURL,
+            relayURLs: relayCandidates,
             displayName: displayName ?? existing?.displayName,
             lastResolvedSessionId: existing?.lastResolvedSessionId,
             lastResolvedAt: existing?.lastResolvedAt,
@@ -666,30 +708,34 @@ private extension CodexService {
         guard let trustedMac = preferredTrustedMacRecord else {
             throw CodexTrustedSessionResolveError.noTrustedMac
         }
-        guard let relayURL = trustedMac.relayURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !relayURL.isEmpty else {
+        let relayCandidates = trustedMac.relayCandidates
+        guard !relayCandidates.isEmpty else {
             throw CodexTrustedSessionResolveError.noTrustedMac
-        }
-        let resolveURLs = CodexTrustedSessionResolveURLBuilder.candidates(from: relayURL)
-        guard !resolveURLs.isEmpty else {
-            throw CodexTrustedSessionResolveError.invalidResponse("The trusted computer relay URL is invalid.")
         }
 
         var lastRetriableResolveError: CodexTrustedSessionResolveError?
-        for (index, resolveURL) in resolveURLs.enumerated() {
-            do {
-                return try await sendTrustedSessionResolveRequest(
-                    makeTrustedSessionResolveRequestBody(for: trustedMac),
-                    resolveURL: resolveURL,
-                    relayURL: relayURL
-                )
-            } catch let error as CodexTrustedSessionResolveError {
-                guard shouldTryNextTrustedResolveCandidate(after: error),
-                      index < resolveURLs.count - 1 else {
-                    throw error
-                }
-                lastRetriableResolveError = error
+        for (relayIndex, relayURL) in relayCandidates.enumerated() {
+            let resolveURLs = CodexTrustedSessionResolveURLBuilder.candidates(from: relayURL)
+            guard !resolveURLs.isEmpty else {
+                lastRetriableResolveError = .invalidResponse("The trusted computer relay URL is invalid.")
                 continue
+            }
+
+            for (resolveIndex, resolveURL) in resolveURLs.enumerated() {
+                do {
+                    return try await sendTrustedSessionResolveRequest(
+                        makeTrustedSessionResolveRequestBody(for: trustedMac),
+                        resolveURL: resolveURL,
+                        relayURL: relayURL
+                    )
+                } catch let error as CodexTrustedSessionResolveError {
+                    let hasMoreCandidates = relayIndex < relayCandidates.count - 1 || resolveIndex < resolveURLs.count - 1
+                    guard shouldTryNextTrustedResolveCandidate(after: error), hasMoreCandidates else {
+                        throw error
+                    }
+                    lastRetriableResolveError = error
+                    continue
+                }
             }
         }
 
@@ -725,9 +771,9 @@ private extension CodexService {
 
     private func shouldTryNextTrustedResolveCandidate(after error: CodexTrustedSessionResolveError) -> Bool {
         switch error {
-        case .unsupportedRelay, .invalidResponse, .network:
+        case .unsupportedRelay, .invalidResponse, .network, .macOffline:
             return true
-        case .macOffline, .rePairRequired, .noTrustedMac:
+        case .rePairRequired, .noTrustedMac:
             return false
         }
     }
@@ -800,13 +846,17 @@ private extension CodexService {
     }
 
     private func rememberResolvedTrustedSession(_ resolved: CodexTrustedSessionResolveResponse, relayURL: String) {
+        let existingTrustedRelayCandidates = trustedMacRegistry.records[resolved.macDeviceId]?.relayCandidates ?? []
+        let relayCandidates = CodexRelayURLCandidates.normalized(primary: relayURL, extras: existingTrustedRelayCandidates + relayUrls)
         SecureStore.writeString(resolved.sessionId, for: CodexSecureKeys.relaySessionId)
         SecureStore.writeString(relayURL, for: CodexSecureKeys.relayUrl)
+        SecureStore.writeCodable(relayCandidates, for: CodexSecureKeys.relayUrls)
         SecureStore.writeString(resolved.macDeviceId, for: CodexSecureKeys.relayMacDeviceId)
         SecureStore.writeString(resolved.macIdentityPublicKey, for: CodexSecureKeys.relayMacIdentityPublicKey)
         SecureStore.writeString(String(codexSecureProtocolVersion), for: CodexSecureKeys.relayProtocolVersion)
         relaySessionId = resolved.sessionId
         relayUrl = relayURL
+        relayUrls = relayCandidates
         relayMacDeviceId = resolved.macDeviceId
         relayMacIdentityPublicKey = resolved.macIdentityPublicKey
         relayProtocolVersion = codexSecureProtocolVersion
@@ -819,6 +869,7 @@ private extension CodexService {
 
         if var trustedMac = trustedMacRegistry.records[resolved.macDeviceId] {
             trustedMac.relayURL = relayURL
+            trustedMac.relayURLs = relayCandidates
             trustedMac.displayName = resolved.displayName ?? trustedMac.displayName
             trustedMac.lastResolvedSessionId = resolved.sessionId
             trustedMac.lastResolvedAt = Date()
@@ -828,16 +879,14 @@ private extension CodexService {
         }
     }
 
-    private var preferredPairingCodeRelayURL: String? {
-        if let normalizedRelayURL {
-            return normalizedRelayURL
-        }
-        if let trustedRelayURL = preferredTrustedMacRecord?.relayURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !trustedRelayURL.isEmpty {
-            return trustedRelayURL
-        }
+    private var preferredPairingCodeRelayURLs: [String] {
         let defaultRelayURL = AppEnvironment.relayBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        return defaultRelayURL.isEmpty ? nil : defaultRelayURL
+        return CodexRelayURLCandidates.normalized(
+            primary: normalizedRelayURL,
+            extras: normalizedRelayURLs
+                + (preferredTrustedMacRecord?.relayCandidates ?? [])
+                + [defaultRelayURL]
+        )
     }
 
     private func pairingCodeResolveURL(from relayURL: String) -> URL? {

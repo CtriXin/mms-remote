@@ -434,11 +434,14 @@ final class CodexService {
     var terminalLastErrorMessage: String?
     var terminalStreamMessagesByStreamId: [String: [TerminalStreamMessage]] = [:]
     var terminalStreamStatusByStreamId: [String: TerminalStreamRuntimeStatus] = [:]
+    var terminalStoppedStreamIds: Set<String> = []
+    var terminalStoppedStreamIdOrder: [String] = []
     var terminalStreamRevision = 0
 
     // Relay session persistence
     var relaySessionId: String?
     var relayUrl: String?
+    var relayUrls: [String] = []
     var relayMacDeviceId: String?
     var relayMacIdentityPublicKey: String?
     var relayProtocolVersion: Int = codexSecureProtocolVersion
@@ -879,6 +882,7 @@ final class CodexService {
         // Restore relay session from Keychain
         self.relaySessionId = SecureStore.readString(for: CodexSecureKeys.relaySessionId)
         self.relayUrl = SecureStore.readString(for: CodexSecureKeys.relayUrl)
+        self.relayUrls = SecureStore.readCodable([String].self, for: CodexSecureKeys.relayUrls) ?? []
         self.relayMacDeviceId = SecureStore.readString(for: CodexSecureKeys.relayMacDeviceId)
         self.relayMacIdentityPublicKey = SecureStore.readString(for: CodexSecureKeys.relayMacIdentityPublicKey)
         if let rawProtocolVersion = SecureStore.readString(for: CodexSecureKeys.relayProtocolVersion),
@@ -920,7 +924,7 @@ final class CodexService {
 
     // Remembers whether we can offer reconnect without forcing a fresh QR scan.
     var hasSavedRelaySession: Bool {
-        normalizedRelaySessionId != nil && normalizedRelayURL != nil
+        normalizedRelaySessionId != nil && !normalizedRelayURLs.isEmpty
     }
 
     // Normalizes the persisted relay session id before reuse in reconnect flows.
@@ -932,9 +936,11 @@ final class CodexService {
 
     // Normalizes the persisted relay base URL before reuse in reconnect flows.
     var normalizedRelayURL: String? {
-        relayUrl?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
+        normalizedRelayURLs.first
+    }
+
+    var normalizedRelayURLs: [String] {
+        CodexRelayURLCandidates.normalized(primary: relayUrl, extras: relayUrls)
     }
 
     var normalizedRelayMacDeviceId: String? {
@@ -977,7 +983,7 @@ final class CodexService {
     }
 
     var hasTrustedMacReconnectCandidate: Bool {
-        preferredTrustedMacRecord?.relayURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        preferredTrustedMacRecord?.relayCandidates.isEmpty == false
     }
 
     var hasReconnectCandidate: Bool {

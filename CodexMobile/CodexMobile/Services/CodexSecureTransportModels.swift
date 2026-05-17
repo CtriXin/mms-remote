@@ -34,10 +34,29 @@ enum CodexSecureConnectionState: Equatable, Sendable {
 struct CodexPairingQRPayload: Codable, Sendable {
     let v: Int
     let relay: String
+    let relays: [String]?
     let sessionId: String
     let macDeviceId: String
     let macIdentityPublicKey: String
     let expiresAt: Int64
+
+    init(
+        v: Int,
+        relay: String,
+        relays: [String]? = nil,
+        sessionId: String,
+        macDeviceId: String,
+        macIdentityPublicKey: String,
+        expiresAt: Int64
+    ) {
+        self.v = v
+        self.relay = relay
+        self.relays = relays
+        self.sessionId = sessionId
+        self.macDeviceId = macDeviceId
+        self.macIdentityPublicKey = macIdentityPublicKey
+        self.expiresAt = expiresAt
+    }
 }
 
 struct CodexPhoneIdentityState: Codable, Sendable {
@@ -51,10 +70,38 @@ struct CodexTrustedMacRecord: Codable, Sendable {
     let macIdentityPublicKey: String
     let lastPairedAt: Date
     var relayURL: String? = nil
+    var relayURLs: [String]? = nil
     var displayName: String? = nil
     var lastResolvedSessionId: String? = nil
     var lastResolvedAt: Date? = nil
     var lastUsedAt: Date? = nil
+}
+
+enum CodexRelayURLCandidates {
+    nonisolated static func normalized(primary: String?, extras: [String] = []) -> [String] {
+        var seen = Set<String>()
+        return ([primary].compactMap { $0 } + extras)
+            .compactMap(normalize)
+            .filter { seen.insert($0).inserted }
+    }
+
+    nonisolated static func normalized(from payload: CodexPairingQRPayload) -> [String] {
+        normalized(primary: payload.relay, extras: payload.relays ?? [])
+    }
+
+    nonisolated private static func normalize(_ url: String) -> String? {
+        var trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.count > 1, trimmed.hasSuffix("/") {
+            trimmed.removeLast()
+        }
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+extension CodexTrustedMacRecord {
+    nonisolated var relayCandidates: [String] {
+        CodexRelayURLCandidates.normalized(primary: relayURL, extras: relayURLs ?? [])
+    }
 }
 
 struct CodexTrustedMacRegistry: Codable, Sendable {

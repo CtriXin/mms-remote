@@ -7,6 +7,7 @@
 import Foundation
 
 private let terminalStreamMessageLimit = 1_500
+private let terminalStoppedStreamTombstoneLimit = 256
 
 extension CodexService {
     var selectedTerminalPane: ManagedTerminalPane? {
@@ -266,6 +267,7 @@ extension CodexService {
             timeoutMessage: "Terminal stream timed out while attaching to the pane."
         )
         let stream = try TerminalStreamStartResponse(json: response.result)
+        forgetStoppedTerminalStreamId(stream.streamId)
         if terminalStreamMessagesByStreamId[stream.streamId] == nil {
             terminalStreamMessagesByStreamId[stream.streamId] = []
         }
@@ -286,12 +288,20 @@ extension CodexService {
         var params: RPCObject = [:]
         if let streamId, !streamId.isEmpty { params["streamId"] = .string(streamId) }
         if let paneId, !paneId.isEmpty { params["paneId"] = .string(paneId) }
-        _ = try await sendRequest(
+        var stoppedStreamId: String?
+        defer {
+            let cleanupStreamId = stoppedStreamId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? stoppedStreamId
+                : streamId
+            clearTerminalStreamState(streamId: cleanupStreamId, paneId: paneId)
+        }
+        let response = try await sendRequest(
             method: "terminal/stream/stop",
             params: .object(params),
             timeoutNanoseconds: 5_000_000_000,
             timeoutMessage: "Terminal stream stop timed out."
         )
+        stoppedStreamId = response.result?.objectValue?["streamId"]?.stringValue
     }
 
     func replayTerminalStream(streamId: String) async throws {
@@ -312,16 +322,21 @@ extension CodexService {
     }
 
     func clearTerminalStreamState() {
-        guard !terminalStreamMessagesByStreamId.isEmpty || !terminalStreamStatusByStreamId.isEmpty else {
+        guard !terminalStreamMessagesByStreamId.isEmpty || !terminalStreamStatusByStreamId.isEmpty || !terminalStoppedStreamIds.isEmpty else {
             return
         }
         terminalStreamMessagesByStreamId.removeAll()
         terminalStreamStatusByStreamId.removeAll()
+        terminalStoppedStreamIds.removeAll()
+        terminalStoppedStreamIdOrder.removeAll()
         terminalStreamRevision += 1
     }
 
     func handleTerminalStreamEvent(_ paramsObject: IncomingParamsObject?) {
         guard let message = TerminalStreamMessage(json: paramsObject) else {
+            return
+        }
+        guard !terminalStoppedStreamIds.contains(message.streamId) else {
             return
         }
         let previousStatus = terminalStreamStatusByStreamId[message.streamId]
@@ -344,6 +359,64 @@ extension CodexService {
             lastMessage: message.message ?? message.reason ?? message.status
         )
         terminalStreamRevision += 1
+    }
+
+    private func clearTerminalStreamState(streamId: String?, paneId: String?) {
+        let streamIds = terminalStreamIdsForCleanup(streamId: streamId, paneId: paneId)
+        guard !streamIds.isEmpty else { return }
+        var didChange = false
+        for streamId in streamIds {
+            if rememberStoppedTerminalStreamId(streamId) {
+                didChange = true
+            }
+            if terminalStreamMessagesByStreamId.removeValue(forKey: streamId) != nil {
+                didChange = true
+            }
+            if terminalStreamStatusByStreamId.removeValue(forKey: streamId) != nil {
+                didChange = true
+            }
+        }
+        if didChange {
+            terminalStreamRevision += 1
+        }
+    }
+
+    private func terminalStreamIdsForCleanup(streamId: String?, paneId: String?) -> [String] {
+        if let streamId, !streamId.isEmpty {
+            return [streamId]
+        }
+        guard let paneId, !paneId.isEmpty else { return [] }
+        return terminalStreamStatusByStreamId.compactMap { id, status in
+            status.paneId == paneId ? id : nil
+        }
+    }
+
+    @discardableResult
+    private func rememberStoppedTerminalStreamId(_ streamId: String) -> Bool {
+        let normalized = streamId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return false }
+        let inserted = terminalStoppedStreamIds.insert(normalized).inserted
+        if inserted {
+            terminalStoppedStreamIdOrder.append(normalized)
+            pruneStoppedTerminalStreamIdsIfNeeded()
+        }
+        return inserted
+    }
+
+    private func forgetStoppedTerminalStreamId(_ streamId: String) {
+        let normalized = streamId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard terminalStoppedStreamIds.remove(normalized) != nil else { return }
+        terminalStoppedStreamIdOrder.removeAll { $0 == normalized }
+    }
+
+    private func pruneStoppedTerminalStreamIdsIfNeeded() {
+        let overflow = terminalStoppedStreamIdOrder.count - terminalStoppedStreamTombstoneLimit
+        guard overflow > 0 else { return }
+        let expired = Array(terminalStoppedStreamIdOrder.prefix(overflow))
+        terminalStoppedStreamIdOrder.removeSubrange(0..<overflow)
+        for streamId in expired {
+            terminalStoppedStreamIds.remove(streamId)
+        }
     }
 
     private func sendTerminalInput(_ input: JSONValue, paneId: String?) async throws {
