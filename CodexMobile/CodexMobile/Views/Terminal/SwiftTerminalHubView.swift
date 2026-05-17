@@ -109,32 +109,105 @@ struct SwiftTerminalHubView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !codex.isConnected {
-                offlineBanner
+            Group {
+                if !codex.isConnected {
+                    offlineBanner
+                }
+                terminalCanvas
+                if showsChordComposer {
+                    Divider().overlay(swiftTerminalBorder)
+                    chordComposerPanel
+                }
             }
-            header
-            Divider().overlay(swiftTerminalBorder)
-            terminalCanvas
-            if showsChordComposer {
-                Divider().overlay(swiftTerminalBorder)
-                chordComposerPanel
-            }
+            .background(theme.shellBackground)
             Divider().overlay(swiftTerminalBorder)
             keyBar
         }
-        .background(theme.shellBackground)
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(paneTitleForHeader)
+                        .font(AppFont.headline())
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(statusText)
+                        .font(AppFont.mono(.caption))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    ForEach(displayedPanes) { pane in
+                        Button {
+                            selectedPaneTarget = pane.requestTarget
+                        } label: {
+                            Label(pane.displayTitle, systemImage: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
+                        }
+                    }
+                    if let selectedPane {
+                        Divider()
+                        Button(role: .destructive) {
+                            pendingCloseRequest = .pane(selectedPane)
+                        } label: {
+                            Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
+                        }
+                        if !selectedPane.sessionName.isEmpty {
+                            Button(role: .destructive) {
+                                pendingCloseRequest = .session(selectedPane)
+                            } label: {
+                                Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "rectangle.stack")
+                }
+                .disabled(displayedPanes.isEmpty)
+
+                Button {
+                    isShowingTmuxCheatsheet = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.tmux_help"))
+
+                Menu {
+                    Button {
+                        rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
+                    } label: {
+                        Label(SwiftTerminalRendererMode.stable.localizedTitle, systemImage: rendererMode == .stable ? "checkmark" : "doc.text")
+                    }
+                    Button {
+                        rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
+                    } label: {
+                        Label(SwiftTerminalRendererMode.swiftTerm.localizedTitle, systemImage: rendererMode == .swiftTerm ? "checkmark" : "bolt.horizontal")
+                    }
+                    .disabled(!allowsSwiftTermRenderer)
+                } label: {
+                    Image(systemName: isSwiftTermRendererActive ? "bolt.horizontal.circle" : "shield.lefthalf.filled")
+                }
+
                 Button { openCreateTerminalSheet() } label: {
                     Image(systemName: "plus")
                 }
                 .disabled(!codex.isConnected || isCreatingTerminal)
-                Button { refreshTerminals() } label: {
-                    if isRefreshing { ProgressView() } else { Image(systemName: "arrow.clockwise") }
+
+                Button {
+                    isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
+                } label: {
+                    if isStartingStream || isRefreshing {
+                        ProgressView()
+                    } else {
+                        Image(systemName: isSwiftTermRendererActive ? "bolt.horizontal.circle" : "arrow.clockwise")
+                    }
                 }
-                .disabled(!codex.isConnected || isRefreshing)
+                .disabled(!codex.isConnected || selectedPaneTarget == nil || isStartingStream || isRefreshing)
             }
         }
         .task {
@@ -259,89 +332,6 @@ struct SwiftTerminalHubView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyBarExpanded = false
         }
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(paneTitleForHeader)
-                    .font(AppFont.subheadline(weight: .semibold))
-                    .foregroundStyle(theme.primaryText)
-                    .lineLimit(1)
-                Text(statusText)
-                    .font(AppFont.mono(.caption2))
-                    .foregroundStyle(theme.secondaryText)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 10)
-            Menu {
-                ForEach(displayedPanes) { pane in
-                    Button {
-                        selectedPaneTarget = pane.requestTarget
-                    } label: {
-                        Label(pane.displayTitle, systemImage: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
-                    }
-                }
-                if let selectedPane {
-                    Divider()
-                    Button(role: .destructive) {
-                        pendingCloseRequest = .pane(selectedPane)
-                    } label: {
-                        Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
-                    }
-                    if !selectedPane.sessionName.isEmpty {
-                        Button(role: .destructive) {
-                            pendingCloseRequest = .session(selectedPane)
-                        } label: {
-                            Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
-                        }
-                    }
-                }
-            } label: {
-                headerIcon("rectangle.stack")
-            }
-            .disabled(displayedPanes.isEmpty)
-
-            Button {
-                isShowingTmuxCheatsheet = true
-            } label: {
-                headerIcon("questionmark.circle")
-            }
-            .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.tmux_help"))
-
-            Menu {
-                Button {
-                    rendererModeRaw = SwiftTerminalRendererMode.stable.rawValue
-                } label: {
-                    Label(SwiftTerminalRendererMode.stable.localizedTitle, systemImage: rendererMode == .stable ? "checkmark" : "doc.text")
-                }
-                Button {
-                    rendererModeRaw = SwiftTerminalRendererMode.swiftTerm.rawValue
-                } label: {
-                    Label(SwiftTerminalRendererMode.swiftTerm.localizedTitle, systemImage: rendererMode == .swiftTerm ? "checkmark" : "bolt.horizontal")
-                }
-                .disabled(!allowsSwiftTermRenderer)
-            } label: {
-                headerIcon(isSwiftTermRendererActive ? "bolt.horizontal.circle" : "shield.lefthalf.filled")
-            }
-
-            Button {
-                isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
-            } label: {
-                if isStartingStream || isRefreshing {
-                    ProgressView()
-                } else {
-                    Image(systemName: isSwiftTermRendererActive ? "bolt.horizontal.circle" : "arrow.clockwise")
-                }
-            }
-            .frame(width: 38, height: 34)
-            .background(theme.buttonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .foregroundStyle(theme.buttonText)
-            .disabled(!codex.isConnected || selectedPaneTarget == nil || isStartingStream || isRefreshing)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(swiftTerminalPanel)
     }
 
     private var terminalCanvas: some View {
@@ -782,20 +772,8 @@ struct SwiftTerminalHubView: View {
         theme.terminalSurface
     }
 
-    private var swiftTerminalPanel: Color {
-        theme.panelBackground
-    }
-
     private var swiftTerminalBorder: Color {
         theme.border
-    }
-
-    private func headerIcon(_ systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 15, weight: .semibold))
-            .frame(width: 38, height: 34)
-            .background(theme.buttonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .foregroundStyle(theme.buttonText)
     }
 
     private func promptChip(_ text: String, color: Color) -> some View {

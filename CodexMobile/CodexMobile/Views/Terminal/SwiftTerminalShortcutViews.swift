@@ -52,7 +52,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, keyBarExpanded ? 10 : 8)
-        .background(theme.panelBackground)
+        .background(.regularMaterial)
     }
 
     private var expandedControls: some View {
