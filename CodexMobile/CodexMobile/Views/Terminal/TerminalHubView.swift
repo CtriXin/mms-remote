@@ -26,7 +26,6 @@ struct TerminalHubView: View {
     @State private var isOpeningVisibleTerminal = false
     @State private var isClosingTerminal = false
     @State private var isShowingCreateTerminalSheet = false
-    @State private var isShowingTmuxCheatsheet = false
     @State private var panePendingClose: ManagedTerminalPane?
     @State private var localErrorMessage: String?
     @State private var visibleTerminalPanes: [ManagedTerminalPane] = []
@@ -62,13 +61,6 @@ struct TerminalHubView: View {
                 }
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    isShowingTmuxCheatsheet = true
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                }
-                .accessibilityLabel(LocalizationManager.shared.localized("terminal.accessibility.tmux_help"))
-
                 Button {
                     openCreateTerminalSheet()
                 } label: {
@@ -164,21 +156,6 @@ struct TerminalHubView: View {
                 }
             }
             .presentationDetents([.medium, .large])
-        }
-        .sheet(isPresented: $isShowingTmuxCheatsheet) {
-            NavigationStack {
-                TmuxCheatsheetView(sessionName: selectedVisiblePane?.sessionName)
-                    .navigationTitle(LocalizationManager.shared.localized("terminal.cheatsheet.title"))
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button(LocalizationManager.shared.localized("settings.close")) {
-                                isShowingTmuxCheatsheet = false
-                            }
-                        }
-                    }
-            }
-            .presentationDetents([.large])
         }
     }
 
