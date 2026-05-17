@@ -215,9 +215,23 @@ struct SwiftTerminalHubView: View {
             SwiftTerminalPanePickerSheet(
                 panes: displayedPanes,
                 selectedPaneTarget: selectedPaneTarget,
+                isConnected: codex.isConnected,
+                isRefreshing: isRefreshing || isStartingStream,
+                isCreatingTerminal: isCreatingTerminal,
+                theme: theme,
                 onSelectPane: { pane in
                     selectedPaneTarget = pane.requestTarget
                     isShowingTerminalPaneSheet = false
+                },
+                onCreate: {
+                    isShowingTerminalPaneSheet = false
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 140_000_000)
+                        openCreateTerminalSheet()
+                    }
+                },
+                onRefresh: {
+                    isSwiftTermRendererActive ? startStream(force: true) : refreshTerminals()
                 },
                 onCopyJoin: copyJoinCommand(for:),
                 onCopyAddress: { pane in
@@ -1670,7 +1684,13 @@ struct SwiftTerminalHubView: View {
 private struct SwiftTerminalPanePickerSheet: View {
     let panes: [ManagedTerminalPane]
     let selectedPaneTarget: String?
+    let isConnected: Bool
+    let isRefreshing: Bool
+    let isCreatingTerminal: Bool
+    let theme: SwiftTerminalTheme
     let onSelectPane: (ManagedTerminalPane) -> Void
+    let onCreate: () -> Void
+    let onRefresh: () -> Void
     let onCopyJoin: (ManagedTerminalPane) -> Void
     let onCopyAddress: (ManagedTerminalPane) -> Void
     let onClosePane: (ManagedTerminalPane) -> Void
@@ -1679,74 +1699,313 @@ private struct SwiftTerminalPanePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(panes) { pane in
-                    Button {
-                        onSelectPane(pane)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: pane.matches(target: selectedPaneTarget) ? "checkmark.circle.fill" : "terminal")
-                                .foregroundStyle(pane.matches(target: selectedPaneTarget) ? Color.accentColor : Color.secondary)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(pane.displayTitle)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Text(paneDetailText(for: pane))
-                                    .font(AppFont.mono(.caption2))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button {
-                            onCopyJoin(pane)
-                        } label: {
-                            Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "terminal")
-                        }
-                        Button {
-                            onCopyAddress(pane)
-                        } label: {
-                            Label(LocalizationManager.shared.localized("terminal.context.copy_address"), systemImage: "number")
-                        }
-                        Button(role: .destructive) {
-                            onClosePane(pane)
-                        } label: {
-                            Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
-                        }
-                        if !pane.sessionName.isEmpty {
-                            Button(role: .destructive) {
-                                onCloseSession(pane)
-                            } label: {
-                                Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(LocalizationManager.shared.localized("common.cancel")) {
-                        dismiss()
-                    }
-                }
-            }
+        VStack(spacing: 0) {
+            header
+            Divider().overlay(theme.border)
+            actionRow
+            paneList
         }
-        .presentationDetents([.medium, .large])
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(.ultraThinMaterial)
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 
-    private func paneDetailText(for pane: ManagedTerminalPane) -> String {
-        let cwd = pane.cwd.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !cwd.isEmpty {
-            return cwd
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(theme.terminalAccent)
+                .frame(width: 38, height: 38)
+                .background(theme.terminalAccent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(LocalizationManager.shared.localized("swift_terminal.sidebar.title"))
+                    .font(AppFont.title3(weight: .semibold))
+                    .foregroundStyle(theme.primaryText)
+                    .lineLimit(1)
+                Text(String(format: LocalizationManager.shared.localized("swift_terminal.sidebar.count"), panes.count))
+                    .font(AppFont.caption())
+                    .foregroundStyle(theme.secondaryText)
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(theme.secondaryText)
+                    .frame(width: 32, height: 32)
+                    .background(theme.buttonBackground, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(LocalizationManager.shared.localized("sidebar.close_menu"))
         }
-        return pane.paneAddress
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 14)
+    }
+
+    private var actionRow: some View {
+        HStack(spacing: 10) {
+            Button(action: onCreate) {
+                Label(LocalizationManager.shared.localized("swift_terminal.create"), systemImage: "plus")
+                    .font(AppFont.caption(weight: .semibold))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+            }
+            .disabled(!isConnected || isCreatingTerminal)
+
+            Button(action: onRefresh) {
+                if isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Label(LocalizationManager.shared.localized("terminal.accessibility.refresh"), systemImage: "arrow.clockwise")
+                        .font(AppFont.caption(weight: .semibold))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .disabled(!isConnected || isRefreshing)
+        }
+        .buttonStyle(.bordered)
+        .tint(theme.terminalAccent)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private var paneList: some View {
+        if panes.isEmpty {
+            emptyState
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ForEach(groupedPanes) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(group.title)
+                                .font(AppFont.caption2(weight: .semibold))
+                                .foregroundStyle(theme.secondaryText)
+                                .textCase(.uppercase)
+                                .padding(.horizontal, 4)
+
+                            ForEach(group.panes) { pane in
+                                SwiftTerminalPanePickerRow(
+                                    pane: pane,
+                                    isSelected: pane.matches(target: selectedPaneTarget),
+                                    theme: theme,
+                                    joinCommand: joinCommand(for: pane),
+                                    path: displayPath(for: pane),
+                                    onSelect: { onSelectPane(pane) },
+                                    onCopyJoin: { onCopyJoin(pane) },
+                                    onCopyAddress: { onCopyAddress(pane) },
+                                    onClosePane: { onClosePane(pane) },
+                                    onCloseSession: { onCloseSession(pane) }
+                                )
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "terminal")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(theme.terminalAccent)
+            Text(LocalizationManager.shared.localized("swift_terminal.no_pane"))
+                .font(AppFont.callout(weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+            Text(LocalizationManager.shared.localized("swift_terminal.sidebar.empty_hint"))
+                .font(AppFont.caption())
+                .foregroundStyle(theme.secondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+
+    private var groupedPanes: [SwiftTerminalPanePickerGroup] {
+        var orderedSessions: [String] = []
+        var buckets: [String: [ManagedTerminalPane]] = [:]
+        for pane in panes {
+            let title = sessionTitle(for: pane)
+            if buckets[title] == nil {
+                orderedSessions.append(title)
+                buckets[title] = []
+            }
+            buckets[title]?.append(pane)
+        }
+
+        return orderedSessions.map { title in
+            SwiftTerminalPanePickerGroup(
+                title: title,
+                panes: (buckets[title] ?? []).sorted { lhs, rhs in
+                    if lhs.windowIndex != rhs.windowIndex {
+                        return lhs.windowIndex < rhs.windowIndex
+                    }
+                    return lhs.paneIndex < rhs.paneIndex
+                }
+            )
+        }
+    }
+
+    private func sessionTitle(for pane: ManagedTerminalPane) -> String {
+        let session = pane.sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return session.isEmpty ? LocalizationManager.shared.localized("tab.terminal") : session
+    }
+
+    private func joinCommand(for pane: ManagedTerminalPane) -> String {
+        "mmr join \(joinTarget(for: pane))"
+    }
+
+    private func joinTarget(for pane: ManagedTerminalPane) -> String {
+        let address = pane.paneAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !address.isEmpty, address != "unknown" {
+            return address
+        }
+
+        let target = pane.requestTarget.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !target.isEmpty {
+            return target
+        }
+
+        return pane.sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func displayPath(for pane: ManagedTerminalPane) -> String {
+        let cwd = pane.cwd.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cwd.isEmpty else { return pane.paneAddress }
+        let home = NSHomeDirectory()
+        if cwd == home {
+            return "~"
+        }
+        if cwd.hasPrefix(home + "/") {
+            return "~/" + cwd.dropFirst(home.count + 1)
+        }
+        return cwd
+    }
+}
+
+private struct SwiftTerminalPanePickerGroup: Identifiable {
+    let title: String
+    let panes: [ManagedTerminalPane]
+
+    var id: String { title }
+}
+
+private struct SwiftTerminalPanePickerRow: View {
+    let pane: ManagedTerminalPane
+    let isSelected: Bool
+    let theme: SwiftTerminalTheme
+    let joinCommand: String
+    let path: String
+    let onSelect: () -> Void
+    let onCopyJoin: () -> Void
+    let onCopyAddress: () -> Void
+    let onClosePane: () -> Void
+    let onCloseSession: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(alignment: .top, spacing: 11) {
+                statusIcon
+                VStack(alignment: .leading, spacing: 6) {
+                    titleLine
+                    metadataLine
+                    joinLine
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(rowBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isSelected ? theme.terminalAccent.opacity(0.55) : theme.border, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(action: onCopyJoin) {
+                Label(LocalizationManager.shared.localized("terminal.context.copy_join"), systemImage: "terminal")
+            }
+            Button(action: onCopyAddress) {
+                Label(LocalizationManager.shared.localized("terminal.context.copy_address"), systemImage: "number")
+            }
+            Divider()
+            Button(role: .destructive, action: onClosePane) {
+                Label(LocalizationManager.shared.localized("terminal.context.close"), systemImage: "xmark.circle")
+            }
+            if !pane.sessionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(role: .destructive, action: onCloseSession) {
+                    Label(LocalizationManager.shared.localized("terminal.context.close_session"), systemImage: "rectangle.stack.badge.minus")
+                }
+            }
+        }
+    }
+
+    private var statusIcon: some View {
+        ZStack {
+            Circle()
+                .fill(isSelected ? theme.terminalAccent : theme.buttonBackground)
+            Image(systemName: pane.active ? "play.fill" : "terminal")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(isSelected ? theme.selectedChipText : theme.secondaryText)
+        }
+        .frame(width: 28, height: 28)
+    }
+
+    private var titleLine: some View {
+        HStack(spacing: 6) {
+            Text(pane.displayTitle)
+                .font(AppFont.callout(weight: .semibold))
+                .foregroundStyle(theme.primaryText)
+                .lineLimit(1)
+            if isSelected {
+                Text(LocalizationManager.shared.localized("swift_terminal.sidebar.current"))
+                    .font(AppFont.caption2(weight: .bold))
+                    .foregroundStyle(theme.selectedChipText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(theme.terminalAccent, in: Capsule())
+            }
+        }
+    }
+
+    private var metadataLine: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "folder")
+            Text(path)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .font(AppFont.caption2())
+        .foregroundStyle(theme.secondaryText)
+    }
+
+    private var joinLine: some View {
+        Text(joinCommand)
+            .font(AppFont.mono(.caption2))
+            .foregroundStyle(theme.terminalAccent.opacity(0.9))
+            .lineLimit(2)
+            .textSelection(.enabled)
+            .truncationMode(.middle)
+    }
+
+    private var rowBackground: Color {
+        isSelected
+            ? theme.terminalAccent.opacity(theme.isDark ? 0.18 : 0.13)
+            : theme.buttonBackground.opacity(theme.isDark ? 0.55 : 0.72)
     }
 }
 
