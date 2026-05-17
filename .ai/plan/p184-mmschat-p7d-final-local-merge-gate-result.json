@@ -1,0 +1,160 @@
+{
+  "schema": "moebius.p184.p7d_final_local_merge_gate_result.v1",
+  "timestamp": "2026-05-17T05:20:54Z",
+  "owner": "sisyphus-omo-p-agent",
+  "cli": "opencode",
+  "model": "gpt-5.5",
+  "task_id": "p184-mmschat-p7d-final-local-merge-gate",
+  "run_id": "p184-mmschat-20260516",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "active_p": "P184",
+  "verdict": "REPAIR_REQUIRED",
+  "expected_pass_verdict": "PASS_FINAL_LOCAL_MERGE_GATE_READY",
+  "decision": "Do not advance P184 confidence from 96% to 98% because the read-only merge-tree assessment found a merge conflict against current target-main HEAD.",
+  "progress_percent": {
+    "before": 96,
+    "after": 96,
+    "target_if_pass": 98,
+    "live_humangate_target": 100
+  },
+  "worktree": {
+    "path": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p7d-final-local-merge-gate",
+    "branch": "p184/mmschat-p7d-final-local-merge-gate",
+    "head": "e9650017735a3511b8a514e79df8c492389558d6",
+    "expected_head": "e9650017735a3511b8a514e79df8c492389558d6",
+    "status_short_before_result_artifacts": [],
+    "clean_before_result_artifacts": true
+  },
+  "target_main_read_only": {
+    "path": "/Users/xin/auto-skills/CtriXin-repo/mms-remote",
+    "commands": [
+      "git -C /Users/xin/auto-skills/CtriXin-repo/mms-remote rev-parse HEAD",
+      "git -C /Users/xin/auto-skills/CtriXin-repo/mms-remote status --short"
+    ],
+    "head": "68486be6ae92b7bc52e776615072bedb39db9eb9",
+    "status_short": [
+      " M .ai/plan/progress/swiftterm-ghost-external-review-gpt-5.md",
+      " M .ai/plan/progress/swiftterm-ghost-external-review.md",
+      " M Docs/swiftterm_ghost_agent_review_summary.md",
+      " M Docs/swiftterm_ghost_analysis.md",
+      "?? .codegraph/",
+      "?? .omc/",
+      "?? mms-remote-bridge/.omc/",
+      "?? tmp/"
+    ],
+    "modified_by_this_task": false,
+    "note": "Captured read-only as required; no cleanup or mutation was performed in target-main."
+  },
+  "merge_assessment": {
+    "status": "CONFLICT",
+    "merge_base": "f676d48f7a9ef9b7869bc37f36d585d744773cfe",
+    "candidate_head": "e9650017735a3511b8a514e79df8c492389558d6",
+    "target_main_head": "68486be6ae92b7bc52e776615072bedb39db9eb9",
+    "command": "BASE=$(git merge-base 68486be6ae92b7bc52e776615072bedb39db9eb9 e9650017735a3511b8a514e79df8c492389558d6) && git merge-tree \"$BASE\" 68486be6ae92b7bc52e776615072bedb39db9eb9 e9650017735a3511b8a514e79df8c492389558d6",
+    "output_capture": "/Users/xin/.local/share/opencode/tool-output/tool_e345e3fe1001HCYOvnPoQcBEIO",
+    "conflict_files": [
+      "CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift"
+    ],
+    "conflict_marker_lines": [
+      4159,
+      4162,
+      4164,
+      4172,
+      4177,
+      4188,
+      4194,
+      4199,
+      4204,
+      4212,
+      4213,
+      4304
+    ],
+    "changed_in_both_without_conflict_markers": [
+      "CodexMobile/CodexMobile/Views/Terminal/TerminalHubView.swift",
+      "mms-remote-bridge/src/bridge.js"
+    ],
+    "repair_required": true
+  },
+  "local_validation": [
+    {
+      "check": "node --check mms-remote-bridge/src/mmschat-hub.js",
+      "status": "PASS",
+      "evidence": "Exited 0 with no syntax output."
+    },
+    {
+      "check": "node --check mms-remote-bridge/src/mmschat-demo-fixtures.js",
+      "status": "PASS",
+      "evidence": "Exited 0 with no syntax output."
+    },
+    {
+      "check": "node --check mms-remote-bridge/src/mmschat-protocol.js",
+      "status": "PASS",
+      "evidence": "Exited 0 with no syntax output."
+    },
+    {
+      "check": "node --check mms-remote-bridge/src/mms-metadata-hub.js",
+      "status": "PASS",
+      "evidence": "Exited 0 with no syntax output."
+    },
+    {
+      "check": "node --test mms-remote-bridge/test/mmschat-hub.test.js",
+      "status": "PASS",
+      "evidence": "5 tests, 5 pass, 0 fail."
+    },
+    {
+      "check": "node --test mms-remote-bridge/test/mmschat-demo-fixtures.test.js",
+      "status": "PASS",
+      "evidence": "2 tests, 2 pass, 0 fail."
+    },
+    {
+      "check": "node --test mms-remote-bridge/test/mms-metadata-hub.test.js",
+      "status": "PASS",
+      "evidence": "8 tests, 8 pass, 0 fail."
+    },
+    {
+      "check": "node --test mms-remote-bridge/test/bridge.test.js",
+      "status": "PASS",
+      "evidence": "39 tests, 39 pass, 0 fail; summary captured in /tmp/p184-p7d-bridge-test.log."
+    },
+    {
+      "check": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/p184-p7d-derived-data CODE_SIGNING_ALLOWED=NO build",
+      "status": "PASS",
+      "evidence": "** BUILD SUCCEEDED ** at /tmp/p184-p7d-xcodebuild.log:4300; existing actor-isolation/deprecation warnings remain."
+    }
+  ],
+  "demo_seed_classification": {
+    "classification": "ACCEPT_OFFLINE_LOCAL_DEMO_FEATURE",
+    "dev_only_risk": "LOW_FOR_LOCAL_DEMO",
+    "basis": [
+      "mmschat/demo/seed calls seedMMSChatDemoFixtures through the MMSChat hub after secret-like parameter validation.",
+      "seedMMSChatDemoFixtures registers two explicit demo sessions and writes transcript cache snapshots under the bridge state directory.",
+      "The fixture code imports protocol constants and writeMMSChatTranscriptCache only; it does not import child_process, agent launchers, provider clients, model clients, or native Claude readers.",
+      "The test creates a native Claude JSONL sentinel and verifies the sentinel content is unchanged after demo seed.",
+      "The test verifies result serialization omits secret-like fields and that apiKey params are rejected with secret_rejected."
+    ],
+    "does_not_scan_native_claude_files": true,
+    "does_not_spawn_processes": true,
+    "does_not_call_providers_or_models": true,
+    "does_not_expose_secrets": true
+  },
+  "humangate": {
+    "triggered": false,
+    "stopped_before": [
+      "merge into main",
+      "push",
+      "deploy",
+      "live mms/claude or provider/model calls",
+      "tmux send-keys",
+      "dependency add",
+      "global config mutation",
+      "destructive cleanup",
+      "native Claude history deletion"
+    ]
+  },
+  "changed_files": [
+    ".ai/plan/p184-mmschat-p7d-final-local-merge-gate-result.json",
+    ".ai/plan/p184-mmschat-p7d-final-local-merge-gate-result.md",
+    ".ai/plan/progress/mmschat-p7d-final-local-merge-gate.md"
+  ],
+  "next_action": "Run a repair slice for the SwiftTerminalHubView.swift merge conflict against current target-main HEAD, then rerun P7D merge-tree and validation."
+}
