@@ -431,10 +431,7 @@ struct SwiftTerminalHubView: View {
             onFocusTerminalInput: { focusTerminalInput() },
             onHideTerminalKeyboard: { hideTerminalKeyboard() },
             onSendTab: { sendKeyValue(ManagedTerminalKey.tab.rawValue) },
-            onSendLeftArrow: { sendKeyValue(ManagedTerminalKey.left.rawValue) },
-            onSendUpArrow: { sendKeyValue(ManagedTerminalKey.up.rawValue) },
-            onSendDownArrow: { sendKeyValue(ManagedTerminalKey.down.rawValue) },
-            onSendRightArrow: { sendKeyValue(ManagedTerminalKey.right.rawValue) },
+            onSendDirectionalKey: { direction in sendKeyValue(direction.keyValue, duplicateInterval: 0.05) },
             onSendEscape: { sendKeyValue(ManagedTerminalKey.escape.rawValue) },
             onSendInterrupt: { sendKeyValue(ManagedTerminalKey.ctrlC.rawValue) },
             onToggleKeyBarExpanded: { toggleKeyBarExpanded() },
@@ -1312,7 +1309,7 @@ struct SwiftTerminalHubView: View {
         }
     }
 
-    private func sendKeyValue(_ keyValue: String) {
+    private func sendKeyValue(_ keyValue: String, duplicateInterval: TimeInterval? = nil) {
         guard let normalizedKey = ManagedTerminalKey.swiftTerminalKeyValue(from: keyValue) else {
             localErrorMessage = String(format: LocalizationManager.shared.localized("swift_terminal.shortcuts_bad_key"), keyValue)
             return
@@ -1328,7 +1325,8 @@ struct SwiftTerminalHubView: View {
             }
         }
         guard let target = selectedPaneTarget else { return }
-        guard !shouldSuppressInput(signature: "key:\(target):\(normalizedKey)", interval: normalizedKey == ManagedTerminalKey.enter.rawValue ? 0.35 : 0.18) else { return }
+        let interval = duplicateInterval ?? (normalizedKey == ManagedTerminalKey.enter.rawValue ? 0.35 : 0.18)
+        guard !shouldSuppressInput(signature: "key:\(target):\(normalizedKey)", interval: interval) else { return }
         let streamIdAtSend = streamId
         clearLatchedTerminalModifiers()
         Task {

@@ -18,10 +18,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
     let onFocusTerminalInput: () -> Void
     let onHideTerminalKeyboard: () -> Void
     let onSendTab: () -> Void
-    let onSendLeftArrow: () -> Void
-    let onSendUpArrow: () -> Void
-    let onSendDownArrow: () -> Void
-    let onSendRightArrow: () -> Void
+    let onSendDirectionalKey: (SwiftTerminalDirectionalKey) -> Void
     let onSendEscape: () -> Void
     let onSendInterrupt: () -> Void
     let onToggleKeyBarExpanded: () -> Void
@@ -52,7 +49,7 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
                             modifierButton(LocalizationManager.shared.localized("terminal.button.alt"), isActive: isMetaModifierLatched, action: onMetaModifier)
                         }
                         Button("Tab", action: onSendTab)
-                        arrowPad
+                        SwiftTerminalDirectionPadButton(theme: theme, onSend: onSendDirectionalKey)
                         Button("ESC", action: onSendEscape)
                         Button("⌃C", action: onSendInterrupt)
                         Button(LocalizationManager.shared.localized("terminal.button.paste"), action: onPasteClipboard)
@@ -122,18 +119,6 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         .buttonStyle(SwiftTerminalModifierButtonStyle(theme: theme, isActive: isActive))
     }
 
-    private var arrowPad: some View {
-        HStack(spacing: 2) {
-            Button("←", action: onSendLeftArrow)
-            Button("↑", action: onSendUpArrow)
-            Button("↓", action: onSendDownArrow)
-            Button("→", action: onSendRightArrow)
-        }
-        .buttonStyle(SwiftTerminalMiniKeyButtonStyle(theme: theme))
-        .padding(2)
-        .background(theme.buttonBackground.opacity(0.72), in: Capsule())
-    }
-
     private var shortcutProfileMenu: some View {
         Menu {
             ForEach(SwiftTerminalShortcutProfile.allCases) { profile in
@@ -151,6 +136,94 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         } label: {
             Text(shortcutProfile.localizedShortTitle)
         }
+    }
+}
+
+struct SwiftTerminalDirectionPadButton: View {
+    let theme: SwiftTerminalTheme
+    let onSend: (SwiftTerminalDirectionalKey) -> Void
+
+    @State private var activeDirection: SwiftTerminalDirectionalKey?
+    @State private var didSendDuringGesture = false
+    @State private var isPressed = false
+    @State private var repeatTask: Task<Void, Never>?
+
+    var body: some View {
+        ZStack {
+            Capsule()
+                .fill(isPressed ? theme.buttonPressedBackground : theme.buttonBackground)
+            directionLabels
+            Text(activeDirection?.glyph ?? SwiftTerminalDirectionalKey.defaultTap.glyph)
+                .font(AppFont.caption(weight: .bold))
+                .foregroundStyle(activeDirection == nil ? theme.buttonText : theme.accent)
+        }
+        .frame(width: 52, height: 32)
+        .overlay(
+            Capsule()
+                .stroke(activeDirection == nil ? theme.border : theme.accent.opacity(0.88), lineWidth: activeDirection == nil ? 1 : 2)
+        )
+        .contentShape(Capsule())
+        .highPriorityGesture(directionGesture)
+        .accessibilityLabel(LocalizationManager.shared.localized("swift_terminal.direction_pad"))
+        .accessibilityHint(LocalizationManager.shared.localized("swift_terminal.direction_pad_hint"))
+        .onDisappear(perform: stopRepeating)
+        .animation(.easeOut(duration: 0.12), value: activeDirection)
+        .animation(.easeOut(duration: 0.12), value: isPressed)
+    }
+
+    private var directionLabels: some View {
+        ZStack {
+            Text("↑").offset(y: -9)
+            Text("↓").offset(y: 9)
+            Text("←").offset(x: -15)
+            Text("→").offset(x: 15)
+        }
+        .font(AppFont.caption2(weight: .semibold))
+        .foregroundStyle(theme.secondaryText.opacity(activeDirection == nil ? 0.48 : 0.2))
+    }
+
+    private var directionGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .local)
+            .onChanged { value in
+                isPressed = true
+                guard let direction = SwiftTerminalDirectionalKey.direction(for: value.translation) else { return }
+                guard activeDirection != direction else { return }
+                activeDirection = direction
+                didSendDuringGesture = true
+                onSend(direction)
+                startRepeating(direction)
+            }
+            .onEnded { value in
+                defer { resetGestureState() }
+                guard !didSendDuringGesture else { return }
+                let direction = SwiftTerminalDirectionalKey.direction(for: value.translation) ?? .defaultTap
+                onSend(direction)
+            }
+    }
+
+    private func startRepeating(_ direction: SwiftTerminalDirectionalKey) {
+        stopRepeating()
+        repeatTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 320_000_000)
+            guard !Task.isCancelled else { return }
+            while !Task.isCancelled {
+                onSend(direction)
+                try? await Task.sleep(nanoseconds: 85_000_000)
+                guard !Task.isCancelled else { return }
+            }
+        }
+    }
+
+    private func resetGestureState() {
+        stopRepeating()
+        activeDirection = nil
+        didSendDuringGesture = false
+        isPressed = false
+    }
+
+    private func stopRepeating() {
+        repeatTask?.cancel()
+        repeatTask = nil
     }
 }
 

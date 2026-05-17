@@ -190,6 +190,43 @@ enum SwiftTerminalShortcutAction: String, CaseIterable {
     }
 }
 
+enum SwiftTerminalDirectionalKey: CaseIterable, Identifiable {
+    case left
+    case up
+    case down
+    case right
+
+    var id: String { keyValue }
+
+    var glyph: String {
+        switch self {
+        case .left: return "←"
+        case .up: return "↑"
+        case .down: return "↓"
+        case .right: return "→"
+        }
+    }
+
+    var keyValue: String {
+        switch self {
+        case .left: return ManagedTerminalKey.left.rawValue
+        case .up: return ManagedTerminalKey.up.rawValue
+        case .down: return ManagedTerminalKey.down.rawValue
+        case .right: return ManagedTerminalKey.right.rawValue
+        }
+    }
+
+    static let defaultTap = SwiftTerminalDirectionalKey.right
+
+    static func direction(for translation: CGSize, threshold: CGFloat = 13) -> SwiftTerminalDirectionalKey? {
+        guard max(abs(translation.width), abs(translation.height)) >= threshold else { return nil }
+        if abs(translation.width) >= abs(translation.height) {
+            return translation.width < 0 ? .left : .right
+        }
+        return translation.height < 0 ? .up : .down
+    }
+}
+
 enum SwiftTerminalChordModifier: String, CaseIterable, Identifiable, Hashable {
     case command
     case control
@@ -465,19 +502,6 @@ struct SwiftTerminalModifierButtonStyle: ButtonStyle {
                 Capsule()
                     .stroke(isActive ? theme.accent.opacity(0.95) : Color.clear, lineWidth: 2)
             )
-    }
-}
-
-struct SwiftTerminalMiniKeyButtonStyle: ButtonStyle {
-    let theme: SwiftTerminalTheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(AppFont.caption(weight: .bold))
-            .foregroundStyle(theme.buttonText.opacity(configuration.isPressed ? 0.62 : 1.0))
-            .lineLimit(1)
-            .frame(width: 31, height: 30)
-            .background(configuration.isPressed ? theme.buttonPressedBackground : theme.buttonBackground, in: Circle())
     }
 }
 
