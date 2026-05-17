@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "start": "node ./scripts/start-local.js",
+    "restart": "node ./scripts/start-local.js",
     "test": "node --test ./test/*.test.js",
     "postinstall": "node ./src/bootstrap-codex-cli.js",
     "prepack": "node ./scripts/prepare-private-defaults.js",

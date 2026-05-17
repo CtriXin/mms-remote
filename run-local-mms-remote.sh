@@ -237,12 +237,13 @@ configure_relay_url() {
 
   local normalized_extra_urls=()
   local extra_url
-  for extra_url in "${RELAY_EXTRA_URLS[@]}"; do
+  # macOS ships Bash 3.2, where nounset treats empty arrays as unbound.
+  for extra_url in ${RELAY_EXTRA_URLS[@]+"${RELAY_EXTRA_URLS[@]}"}; do
     local normalized_extra_url
     normalized_extra_url="$(normalize_relay_url "${extra_url}")" || die "Invalid --extra-relay-url '${extra_url}'. Pass ws(s)://.../relay, or paste an http(s) tunnel URL."
     normalized_extra_urls+=("${normalized_extra_url}")
   done
-  RELAY_EXTRA_URLS=("${normalized_extra_urls[@]}")
+  RELAY_EXTRA_URLS=(${normalized_extra_urls[@]+"${normalized_extra_urls[@]}"})
 }
 
 # Validates the advertised host before boot so the QR cannot point at another machine by mistake.
@@ -370,7 +371,7 @@ NODE
 
 print_summary() {
   local extra_relays
-  extra_relays="$(join_relay_urls "${RELAY_EXTRA_URLS[@]}")"
+  extra_relays="$(join_relay_urls ${RELAY_EXTRA_URLS[@]+"${RELAY_EXTRA_URLS[@]}"})"
   cat <<EOF
 [run-local-mms-remote] Configuration
   Relay bind host : ${RELAY_BIND_HOST}
@@ -402,7 +403,7 @@ start_bridge() {
   # Use the foreground bridge path instead of the macOS launchd wrapper so QR
   # rendering does not depend on daemon state being written back first.
   MMS_REMOTE_RELAY="${RELAY_URL}" \
-  MMS_REMOTE_RELAYS="$(join_relay_urls "${RELAY_URL}" "${RELAY_EXTRA_URLS[@]}")" \
+  MMS_REMOTE_RELAYS="$(join_relay_urls "${RELAY_URL}" ${RELAY_EXTRA_URLS[@]+"${RELAY_EXTRA_URLS[@]}"})" \
   node ./bin/mms-remote.js run &
   BRIDGE_PID=$!
 }
