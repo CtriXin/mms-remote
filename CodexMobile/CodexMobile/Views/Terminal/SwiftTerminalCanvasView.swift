@@ -32,6 +32,7 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
+            usesDarkTheme: usesDarkTheme,
             onSendData: onSendData,
             onResize: onResize,
             onTitle: onTitle,
@@ -56,6 +57,7 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         context.coordinator.onResize = onResize
         context.coordinator.onTitle = onTitle
         context.coordinator.onStatus = onStatus
+        context.coordinator.usesDarkTheme = usesDarkTheme
         configure(terminalView)
         let nextFont = AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
         if let streamView = terminalView as? MMSStreamTerminalView {
@@ -120,6 +122,7 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
 
 extension SwiftTerminalCanvasView {
     final class Coordinator: NSObject, TerminalViewDelegate {
+        var usesDarkTheme: Bool
         var onSendData: (Data) -> Void
         var onResize: (Int, Int) -> Void
         var onTitle: (String) -> Void
@@ -141,6 +144,10 @@ extension SwiftTerminalCanvasView {
         private var lastBlurRequestID = 0
         private var lastOutputByteWasCR = false
         private var escapeFilterState = TerminalEscapeFilterState.none
+        private var contrastParserState = TerminalContrastParserState.none
+        private var contrastDarkBackgroundActive = false
+        private var contrastForegroundState = TerminalContrastForegroundState.defaultColor
+        private var contrastForcedReadableForegroundActive = false
 #if DEBUG
         private var lastOutputTraceKey = ""
         private var lastInputTraceKey = ""
@@ -150,11 +157,13 @@ extension SwiftTerminalCanvasView {
         private var pendingKeyboardPaste: KeyboardPasteBatch?
 
         init(
+            usesDarkTheme: Bool,
             onSendData: @escaping (Data) -> Void,
             onResize: @escaping (Int, Int) -> Void,
             onTitle: @escaping (String) -> Void,
             onStatus: @escaping (String) -> Void
         ) {
+            self.usesDarkTheme = usesDarkTheme
             self.onSendData = onSendData
             self.onResize = onResize
             self.onTitle = onTitle
@@ -316,19 +325,175 @@ extension SwiftTerminalCanvasView {
             flushPendingKeyboardPaste()
             lastOutputByteWasCR = false
             escapeFilterState = .none
+            contrastParserState = .none
+            contrastDarkBackgroundActive = false
+            contrastForegroundState = .defaultColor
+            contrastForcedReadableForegroundActive = false
             terminalView.getTerminal().resetToInitialState()
             terminalView.setContentOffset(.zero, animated: false)
         }
 
         private func normalizedOutputBytes(from data: Data) -> [UInt8] {
-            var output: [UInt8] = []
-            output.reserveCapacity(data.count + min(data.count, 128))
+            var filtered: [UInt8] = []
+            filtered.reserveCapacity(data.count + min(data.count, 128))
 
             for byte in data {
-                filterTerminalEscapeByte(byte, into: &output)
+                filterTerminalEscapeByte(byte, into: &filtered)
             }
 
+            guard !usesDarkTheme else { return filtered }
+            return lightTerminalContrastAdjustedBytes(from: filtered)
+        }
+
+        private func lightTerminalContrastAdjustedBytes(from bytes: [UInt8]) -> [UInt8] {
+            var output: [UInt8] = []
+            output.reserveCapacity(bytes.count + min(bytes.count, 64))
+            for byte in bytes {
+                filterLightTerminalContrastByte(byte, into: &output)
+            }
             return output
+        }
+
+        private func filterLightTerminalContrastByte(_ byte: UInt8, into output: inout [UInt8]) {
+            switch contrastParserState {
+            case .none:
+                if byte == TerminalByte.escape {
+                    contrastParserState = .escape([byte])
+                } else {
+                    output.append(byte)
+                }
+            case .escape(var buffer):
+                buffer.append(byte)
+                if byte == TerminalByte.csiMarker {
+                    contrastParserState = .csi(buffer)
+                } else {
+                    output.append(contentsOf: buffer)
+                    contrastParserState = .none
+                }
+            case .csi(var buffer):
+                buffer.append(byte)
+                if TerminalByte.isCSIFinalByte(byte) {
+                    output.append(contentsOf: buffer)
+                    if byte == TerminalByte.sgrFinal {
+                        applySGRContrastState(from: buffer)
+                        if contrastForcedReadableForegroundActive && !contrastDarkBackgroundActive {
+                            output.append(contentsOf: TerminalByte.defaultForegroundSequence)
+                            contrastForegroundState = .defaultColor
+                            contrastForcedReadableForegroundActive = false
+                        }
+                        if shouldForceReadableForegroundOnDarkBackground {
+                            output.append(contentsOf: TerminalByte.brightWhiteForegroundSequence)
+                            contrastForegroundState = .light
+                            contrastForcedReadableForegroundActive = true
+                        }
+                    }
+                    contrastParserState = .none
+                } else if buffer.count > 128 {
+                    output.append(contentsOf: buffer)
+                    contrastParserState = .none
+                } else {
+                    contrastParserState = .csi(buffer)
+                }
+            }
+        }
+
+        private var shouldForceReadableForegroundOnDarkBackground: Bool {
+            contrastDarkBackgroundActive
+                && (contrastForegroundState == .defaultColor || contrastForegroundState == .dark)
+        }
+
+        private func applySGRContrastState(from sequence: [UInt8]) {
+            guard sequence.count >= 3 else { return }
+            let parameterBytes = sequence.dropFirst(2).dropLast()
+            let parameterText = String(bytes: parameterBytes, encoding: .ascii) ?? ""
+            let normalizedText = parameterText.replacingOccurrences(of: ":", with: ";")
+            let parameters = normalizedText.split(separator: ";", omittingEmptySubsequences: false)
+                .map { Int($0) ?? 0 }
+            applySGRContrastParameters(parameters.isEmpty ? [0] : parameters)
+        }
+
+        private func applySGRContrastParameters(_ parameters: [Int]) {
+            var index = 0
+            while index < parameters.count {
+                let value = parameters[index]
+                switch value {
+                case 0:
+                    contrastDarkBackgroundActive = false
+                    contrastForegroundState = .defaultColor
+                    contrastForcedReadableForegroundActive = false
+                case 1, 2, 3, 4, 5, 9, 22, 23, 24, 25, 29:
+                    break
+                case 30, 90:
+                    contrastForegroundState = .dark
+                    contrastForcedReadableForegroundActive = false
+                case 31...36, 91...96:
+                    contrastForegroundState = .other
+                    contrastForcedReadableForegroundActive = false
+                case 37, 97:
+                    contrastForegroundState = .light
+                    contrastForcedReadableForegroundActive = false
+                case 39:
+                    contrastForegroundState = .defaultColor
+                    contrastForcedReadableForegroundActive = false
+                case 40, 100:
+                    contrastDarkBackgroundActive = true
+                case 41...47, 101...107:
+                    contrastDarkBackgroundActive = false
+                case 49:
+                    contrastDarkBackgroundActive = false
+                case 38:
+                    let result = readExtendedColorState(parameters, start: index)
+                    if let foregroundState = result.foregroundState {
+                        contrastForegroundState = foregroundState
+                        contrastForcedReadableForegroundActive = false
+                    }
+                    index = result.nextIndex
+                case 48:
+                    let result = readExtendedColorState(parameters, start: index)
+                    if let isDarkBackground = result.isDarkBackground {
+                        contrastDarkBackgroundActive = isDarkBackground
+                    }
+                    index = result.nextIndex
+                default:
+                    break
+                }
+                index += 1
+            }
+        }
+
+        private func readExtendedColorState(
+            _ parameters: [Int],
+            start: Int
+        ) -> (foregroundState: TerminalContrastForegroundState?, isDarkBackground: Bool?, nextIndex: Int) {
+            guard start + 1 < parameters.count else {
+                return (nil, nil, start)
+            }
+            let mode = parameters[start + 1]
+            if mode == 5, start + 2 < parameters.count {
+                let colorIndex = parameters[start + 2]
+                let isDark = isDarkANSIColorIndex(colorIndex)
+                return (isDark ? .dark : .other, isDark, start + 2)
+            }
+            if mode == 2, start + 4 < parameters.count {
+                let red = parameters[start + 2]
+                let green = parameters[start + 3]
+                let blue = parameters[start + 4]
+                let isDark = isDarkTrueColor(red: red, green: green, blue: blue)
+                return (isDark ? .dark : .other, isDark, start + 4)
+            }
+            return (nil, nil, start + 1)
+        }
+
+        private func isDarkANSIColorIndex(_ index: Int) -> Bool {
+            index == 0 || index == 8 || (232...237).contains(index)
+        }
+
+        private func isDarkTrueColor(red: Int, green: Int, blue: Int) -> Bool {
+            let r = max(0, min(255, red))
+            let g = max(0, min(255, green))
+            let b = max(0, min(255, blue))
+            let luminance = (0.2126 * Double(r) + 0.7152 * Double(g) + 0.0722 * Double(b)) / 255.0
+            return luminance < 0.24
         }
 
         private func filterTerminalEscapeByte(_ byte: UInt8, into output: inout [UInt8]) {
@@ -611,13 +776,34 @@ private enum TerminalEscapeFilterState {
     case inScreenTitleSawEscape
 }
 
+private enum TerminalContrastParserState {
+    case none
+    case escape([UInt8])
+    case csi([UInt8])
+}
+
+private enum TerminalContrastForegroundState {
+    case defaultColor
+    case dark
+    case light
+    case other
+}
+
 private enum TerminalByte {
     static let bell: UInt8 = 0x07
     static let escape: UInt8 = 0x1B
     static let lineFeed: UInt8 = 0x0A
     static let carriageReturn: UInt8 = 0x0D
+    static let csiMarker: UInt8 = 0x5B
+    static let sgrFinal: UInt8 = 0x6D
     static let screenTitleMarker: UInt8 = 0x6B
     static let stringTerminator: UInt8 = 0x5C
+    static let brightWhiteForegroundSequence: [UInt8] = [0x1B, 0x5B, 0x39, 0x37, 0x6D]
+    static let defaultForegroundSequence: [UInt8] = [0x1B, 0x5B, 0x33, 0x39, 0x6D]
+
+    static func isCSIFinalByte(_ byte: UInt8) -> Bool {
+        (0x40...0x7E).contains(byte)
+    }
 }
 
 private final class MMSStreamTerminalView: TerminalView {
