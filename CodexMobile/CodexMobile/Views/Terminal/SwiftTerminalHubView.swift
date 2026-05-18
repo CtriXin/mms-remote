@@ -344,8 +344,8 @@ struct SwiftTerminalHubView: View {
     }
 
     private func terminalTopChromeInset(for safeAreaTop: CGFloat) -> CGFloat {
-        let glassBreathingRoom: CGFloat = 12
-        return max(72, safeAreaTop + glassBreathingRoom)
+        let glassBreathingRoom: CGFloat = 6
+        return max(64, safeAreaTop + glassBreathingRoom)
     }
 
     private var terminalToolbarTitle: some View {
