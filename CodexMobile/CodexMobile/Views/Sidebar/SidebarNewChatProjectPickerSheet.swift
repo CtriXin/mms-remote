@@ -79,7 +79,7 @@ struct SidebarNewChatProjectPickerSheet: View {
                                             .foregroundStyle(.secondary)
                                     ),
                                     title: choice.label,
-                                    subtitle: "Detached worktree from the default branch."
+                                    subtitle: LocalizationManager.shared.localized("sidebar.detached_worktree")
                                 )
                             }
                             .buttonStyle(.plain)

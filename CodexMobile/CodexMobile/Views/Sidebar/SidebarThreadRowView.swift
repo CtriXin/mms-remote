@@ -220,7 +220,7 @@ struct SidebarThreadRowView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(isSubagentExpanded ? "Collapse subagents" : "Expand subagents")
+            .accessibilityLabel(isSubagentExpanded ? LocalizationManager.shared.localized("sidebar.collapse_subagents") : LocalizationManager.shared.localized("sidebar.expand_subagents"))
         }
     }
 
@@ -339,9 +339,9 @@ private struct SidebarSubagentNameLabel: View {
         let _ = codex.subagentIdentityVersion
         let source = thread.preferredSubagentLabel
             ?? codex.resolvedSubagentDisplayLabel(threadId: thread.id, agentId: thread.agentId)
-            ?? "Subagent"
+            ?? LocalizationManager.shared.localized("sidebar.subagent")
         let parsed = SubagentLabelParser.parse(source)
-        let nickname = parsed.nickname.isEmpty || CodexThread.isGenericPlaceholderTitle(parsed.nickname) ? "Subagent" : parsed.nickname
+        let nickname = parsed.nickname.isEmpty || CodexThread.isGenericPlaceholderTitle(parsed.nickname) ? LocalizationManager.shared.localized("sidebar.subagent") : parsed.nickname
         SubagentLabelParser.styledText(nickname: nickname, roleSuffix: parsed.roleSuffix)
             .font(AppFont.caption(weight: .medium))
             .lineLimit(1)

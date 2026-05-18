@@ -6,28 +6,7 @@
 
 import SwiftUI
 
-private let whatsNewItems: [String] = [
-    "New MMS Remote CLI v1.5.0",
-    "New message bubble colors",
-    "Image Gen is now available",
-    "Plugin mentions in the composer",
-    "AI-drafted commits and PRs",
-    "Per-file diff drilldown",
-    "Stacked Git publish with live progress",
-    "Windows host pairing",
-    "Pinned threads with auto titles",
-    "New `/compact` slash command",
-    "Cleaner Plan Mode timeline",
-    "Local folder browser for new chats",
-    "Safer workspace image previews",
-    "Sharper skill and file autocomplete",
-    "Offer code redemption",
-    "Refreshed sidebar and Settings",
-    "Smoother streaming and scrolling",
-    "New draggable pet companion",
-    "More reliable reconnect",
-    "Lots of bug fixes — Plan Mode, padding, lag",
-]
+private let whatsNewItems: [String] = (1...20).map { LocalizationManager.shared.localized("whatsnew.\($0)") }
 
 struct WhatsNewSheet: View {
     let version: String

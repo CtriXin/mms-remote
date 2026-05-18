@@ -50,6 +50,6 @@ struct SidebarComputerConnectionStatusView: View {
     }
 
     private var statusTitle: String {
-        isConnected ? "Connected to Computer" : "Saved Computer"
+        isConnected ? LocalizationManager.shared.localized("sidebar.connected_computer") : LocalizationManager.shared.localized("sidebar.saved_computer")
     }
 }
