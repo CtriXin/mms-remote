@@ -1,0 +1,98 @@
+{
+  "schema": "executor.pack.v1",
+  "generated_at": "2026-05-18T05:10:56.058715Z",
+  "task_id": "S184.2-p8g-test-target-blocker-repair",
+  "commit": "8a0624bc516a48efd9150a0956672d229d7355ab",
+  "title": "P8G test target blocker repair",
+  "objective": "Fix pre-existing compile errors across 3 test files (TurnViewModelQueueTests, CodexPlanModeTests, CodexServiceIncomingRunIndicatorTests) and 1 prod file access level to unblock CodexMobileTests target build and enable MMSChatErrorClassifierTests execution.",
+  "task_kind": "implement",
+  "difficulty": "D1",
+  "status": "ready_for_executor",
+  "dispatch_enabled": false,
+  "identity": {
+    "executor_id_order": [
+      "explicit executor=<id>",
+      "MMS_SESSION_PACKET_JSON model.primary",
+      "EXECUTOR_ID",
+      "MMS_MODEL_NAME"
+    ],
+    "wrapper_ids_forbidden_as_executor": [
+      "agent",
+      "claude-code",
+      "cli",
+      "codex",
+      "default",
+      "executor",
+      "local",
+      "mms",
+      "unknown"
+    ],
+    "case_sensitive": true
+  },
+  "paths": {
+    "pack_json": ".ai/exec/packs/S184.2-p8g-test-target-blocker-repair.json",
+    "pack_md": ".ai/exec/packs/S184.2-p8g-test-target-blocker-repair.md",
+    "result_glob": ".ai/exec/results/*/S184.2-p8g-test-target-blocker-repair-result-*.md"
+  },
+  "read_only_files": [
+    ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.json",
+    ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.md"
+  ],
+  "writable_files": [
+    "CodexMobile/CodexMobileTests/TurnViewModelQueueTests.swift",
+    "CodexMobile/CodexMobileTests/CodexPlanModeTests.swift",
+    "CodexMobile/CodexMobileTests/CodexServiceIncomingRunIndicatorTests.swift",
+    "CodexMobile/CodexMobile/Services/CodexService+Messages.swift"
+  ],
+  "forbidden_files": [
+    "CodexMobile/CodexMobile/Services/MMSChatErrorClassifier.swift",
+    "CodexMobile/CodexMobileTests/MMSChatErrorClassifierTests.swift",
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+    "mms-remote-bridge/",
+    "package.json",
+    "package-lock.json"
+  ],
+  "difficulty": "D2",
+  "success_criteria": [
+    "CodexMobileTests target builds successfully (build-for-testing).",
+    "TurnViewModelQueueTests: async → async throws on 2 functions only.",
+    "CodexPlanModeTests: API alignment (CodexStructuredUserInputQuestion init, CodexMessage param order, RPCMessage result, CodexServiceError equality, CodexPlanSessionSource enum cases).",
+    "CodexServiceIncomingRunIndicatorTests: enqueueAssistantDelta access level + assistantPhase param.",
+    "No logic changes to any test — only signature/API alignment fixes."
+  ],
+  "validation_commands": [
+    "git diff --check -- CodexMobile/CodexMobileTests/ CodexMobile/CodexMobile/Services/CodexService+Messages.swift",
+    "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath .build/p8g-repair-xcode-derived CODE_SIGNING_ALLOWED=NO build-for-testing"
+  ],
+  "non_goals": [
+    "No changes to MMSChatErrorClassifier.swift or MMSChatErrorClassifierTests.swift.",
+    "No bridge/runtime changes.",
+    "No behavior changes to any test."
+  ],
+  "expected_outputs": [
+    "one executor result markdown under .ai/exec/results/<executor-id>/"
+  ],
+  "required_result_sections": [
+    "Verdict",
+    "Self Assessment",
+    "Scope Compliance",
+    "Changes",
+    "Validation",
+    "Findings / Loophole Review",
+    "Residual Risk",
+    "Blast Radius",
+    "Notes"
+  ],
+  "scoring": {
+    "confidence": "0-100",
+    "task_complexity": "D1-D5",
+    "completion": "0-100",
+    "debug_depth": "0-100",
+    "evidence_quality": "0-100",
+    "risk_level": "low|medium|high",
+    "status": "PASS|PARTIAL|BLOCKED"
+  },
+  "blocking_count": 0,
+  "blocking_items": [],
+  "allowed": true
+}

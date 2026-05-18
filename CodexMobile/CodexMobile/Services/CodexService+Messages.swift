@@ -4121,7 +4121,7 @@ extension CodexService {
 // ─── Private helpers ──────────────────────────────────────────
 
 extension CodexService {
-    private func enqueueAssistantDelta(
+    func enqueueAssistantDelta(
         threadId: String,
         turnId: String,
         itemId: String?,
