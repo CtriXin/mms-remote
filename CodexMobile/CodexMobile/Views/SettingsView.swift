@@ -1089,11 +1089,11 @@ private struct SettingsBridgeVersionCard: View {
     }
 
     private var installedVersionLabel: String {
-        normalizedVersion(codex.bridgeInstalledVersion) ?? "Unknown"
+        normalizedVersion(codex.bridgeInstalledVersion) ?? LocalizationManager.shared.localized("settings.unknown")
     }
 
     private var latestVersionLabel: String {
-        normalizedVersion(codex.latestBridgePackageVersion) ?? "Unknown"
+        normalizedVersion(codex.latestBridgePackageVersion) ?? LocalizationManager.shared.localized("settings.unknown")
     }
 
     private var guidanceText: String? {
@@ -1231,7 +1231,7 @@ private struct SettingsAboutCard: View {
                 isShowingAbout = true
             } label: {
                 settingsAccessoryRow(
-                    title: "How MMS Remote Works",
+                    title: LocalizationManager.shared.localized("settings.how_it_works"),
                     leading: {
                         Image(systemName: "info.circle")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1245,7 +1245,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.feedbackMailtoURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Send Feedback",
+                    title: LocalizationManager.shared.localized("settings.send_feedback"),
                     leading: {
                         Image(systemName: "envelope")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1259,7 +1259,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Privacy Policy",
+                    title: LocalizationManager.shared.localized("settings.privacy_policy"),
                     leading: {
                         Image(systemName: "hand.raised")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1273,7 +1273,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.termsOfUseURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Terms of Use",
+                    title: LocalizationManager.shared.localized("settings.terms_of_use"),
                     leading: {
                         Image(systemName: "doc.text")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1373,7 +1373,7 @@ private struct SettingsTrustedComputerCard: View {
 
             if let detail = presentation.detail,
                !detail.isEmpty {
-                labeledRow("Status", value: detail)
+                labeledRow(LocalizationManager.shared.localized("settings.status"), value: detail)
             }
         }
         .padding(14)

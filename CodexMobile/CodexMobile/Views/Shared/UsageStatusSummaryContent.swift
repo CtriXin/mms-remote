@@ -168,7 +168,7 @@ struct UsageStatusSummaryContent: View {
 
                 Spacer(minLength: 12)
 
-                Text("\(row.window.remainingPercent)% left")
+                Text(String(format: LocalizationManager.shared.localized("usage.percent_left"), row.window.remainingPercent))
                     .font(AppFont.mono(.callout))
                     .foregroundStyle(.primary)
 
