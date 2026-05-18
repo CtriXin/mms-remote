@@ -126,7 +126,7 @@ struct SwiftTerminalHubView: View {
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .navigationBar)
+        .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
         .toolbar {
             if showsPaneToolbarButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -331,13 +331,17 @@ struct SwiftTerminalHubView: View {
                         chordComposerPanel
                     }
                 }
-                .background(theme.shellBackground)
+                .background(terminalBackdropBackground)
                 keyBar
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         }
         .ignoresSafeArea(edges: .top)
-        .background(theme.shellBackground.ignoresSafeArea(edges: .top))
+        .background(terminalBackdropBackground.ignoresSafeArea(edges: .top))
+    }
+
+    private var terminalBackdropBackground: Color {
+        theme.terminalSurface
     }
 
     private func terminalTopReserveHeight(for safeAreaTop: CGFloat) -> CGFloat {
@@ -350,7 +354,7 @@ struct SwiftTerminalHubView: View {
         Color.clear
             .frame(height: height)
             .frame(maxWidth: .infinity)
-            .background(theme.shellBackground)
+            .background(terminalBackdropBackground)
             .allowsHitTesting(false)
     }
 
@@ -1953,7 +1957,9 @@ private struct SwiftTerminalPanePickerSheet: View {
     }
 
     private var terminalSheetAccent: Color {
-        Color(red: 0.38, green: 0.82, blue: 1.00)
+        colorScheme == .dark
+            ? Color(red: 0.38, green: 0.82, blue: 1.00)
+            : Color(red: 0.02, green: 0.44, blue: 0.68)
     }
 
     private var header: some View {
@@ -2015,7 +2021,11 @@ private struct SwiftTerminalPanePickerSheet: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 46)
-        .background(theme.buttonBackground.opacity(theme.isDark ? 0.72 : 0.88), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color(.systemBackground).opacity(colorScheme == .dark ? 0.24 : 0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08), lineWidth: 1)
+        }
         .padding(.horizontal, 18)
         .padding(.top, 12)
         .padding(.bottom, 8)
@@ -2048,7 +2058,7 @@ private struct SwiftTerminalPanePickerSheet: View {
             }
             .disabled(!isConnected || isRefreshing)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.borderedProminent)
         .tint(terminalSheetAccent)
         .padding(.horizontal, 18)
         .padding(.bottom, 12)
@@ -2239,6 +2249,8 @@ private struct SwiftTerminalPanePickerRow: View {
     let onClosePane: () -> Void
     let onCloseSession: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 11) {
@@ -2255,7 +2267,7 @@ private struct SwiftTerminalPanePickerRow: View {
             .background(rowBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(isSelected ? accent.opacity(0.62) : theme.border, lineWidth: 1)
+                    .stroke(isSelected ? accent.opacity(0.72) : rowBorder, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -2314,22 +2326,31 @@ private struct SwiftTerminalPanePickerRow: View {
                 .truncationMode(.middle)
         }
         .font(AppFont.caption2())
-        .foregroundStyle(theme.secondaryText)
+        .foregroundStyle(rowSecondaryText)
     }
 
     private var joinLine: some View {
         Text(joinCommand)
             .font(AppFont.mono(.caption2))
-            .foregroundStyle(accent.opacity(0.9))
+            .foregroundStyle(accent)
             .lineLimit(2)
             .textSelection(.enabled)
             .truncationMode(.middle)
     }
 
     private var rowBackground: Color {
-        isSelected
-            ? accent.opacity(theme.isDark ? 0.18 : 0.13)
-            : theme.buttonBackground.opacity(theme.isDark ? 0.55 : 0.72)
+        if isSelected {
+            return accent.opacity(colorScheme == .dark ? 0.22 : 0.16)
+        }
+        return Color(.systemBackground).opacity(colorScheme == .dark ? 0.20 : 0.76)
+    }
+
+    private var rowBorder: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.10)
+    }
+
+    private var rowSecondaryText: Color {
+        Color.primary.opacity(colorScheme == .dark ? 0.64 : 0.58)
     }
 }
 
