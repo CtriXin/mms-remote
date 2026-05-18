@@ -1,0 +1,19 @@
+TOON:
+schema: mms_remote.terminal_pane_handoff.v3
+timestamp: 2026-05-18T01:58:00-04:00
+status: merged_to_main_installed_song_iphone
+language: zh-Hans
+main_head: 39d623db9c2e6854a15d40666b9dce8d3f42d077
+integration_head: 39d623db9c2e6854a15d40666b9dce8d3f42d077
+version: 1.7.111
+build: 149
+backup_branch: backup/main-before-localization-final-20260518
+worktrees[3]: main=/Users/xin/auto-skills/CtriXin-repo/mms-remote,integration=/Users/xin/auto-skills/CtriXin-repo/mms-remote-merge-swiftterm,localization=/Users/xin/auto-skills/CtriXin-repo/mms-remote/.claude/worktrees/localization-fix
+installed[1]: song的iPhone@00008150-0008781C36D9401C
+unavailable_devices[1]: iPhone 15 ProX雨
+merge_method: fast-forward integration to main; no final conflicts
+preserved_dirty[4]: .ai/plan/*.md except this progress note,.codegraph/,.omc/,tmp/
+critical_commits[7]: 75dd9bd fixed key controls,9251cc2 reverted bad stream start,144fc1b restored stable pre-reconnect state,ee1417b light prompt contrast,9d7bc77 avoid shared tmux resize,6c25a5d localization cleanup,39d623d final localization merge
+final_decisions[5]: bottom Sessions drawer baseline,no old left-sidebar experiment,no SwiftTerm global terminal resize while streaming,Terminal display fixes stay client-side, TUI replay separate专项
+validation[5]: git diff --check passed,localization duplicate scan passed,generic iOS Simulator build passed,device install passed,final docs recorded
+followups[4]: TUI replay/resize专项,install iPhone 15 ProX雨 when available,user smoke localization,do not run Xcode tests unless requested

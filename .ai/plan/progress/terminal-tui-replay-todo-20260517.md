@@ -59,3 +59,11 @@
 ## 当前建议
 
 短期不要继续在这条线上叠加 replay patch。下次专项从 tracing 和幂等保护开始，而不是直接改 stream/replay 时序。
+
+## 2026-05-18 更新
+
+- 最终 `main` 已到 `39d623d`，iOS 版本 `1.7.111 (149)`。
+- `9d7bc77 fix(ios): avoid resizing shared tmux windows` 已解决手机 SwiftTerm stream 期间仍调用全局 `terminal/resize` 的问题。
+- 关键结论：iPhone 不应再通过 `terminal/resize` 改共享 tmux window；SwiftTerm active stream 只更新本地 size / control client size，避免把 Mac 端压成手机宽度。
+- Mac 上已经被 55 列尺寸写入的旧 scrollback 不会自动重排；这属于历史内容，不要把它当成新的 iOS renderer 回归。
+- TUI 创建时乱码/旧内容叠加仍按本 TODO 单开专项；不要在稳定主线继续试探 replay/resize 时序。
