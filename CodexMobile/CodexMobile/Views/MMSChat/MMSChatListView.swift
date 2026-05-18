@@ -34,8 +34,12 @@ struct MMSChatListView: View {
                 Button {
                     isShowingLaunchPlanSheet = true
                 } label: {
-                    Image(systemName: "slider.horizontal.3")
+                    Label(LocalizationManager.shared.localized("mmschat.model_picker.open"), systemImage: "plus.bubble")
                 }
+                .accessibilityLabel(LocalizationManager.shared.localized("mmschat.model_picker.open"))
+                .accessibilityHint(LocalizationManager.shared.localized("mmschat.model_picker.open_hint"))
+                .help(LocalizationManager.shared.localized("mmschat.model_picker.open_hint"))
+                .labelStyle(.titleAndIcon)
                 .disabled(!codex.isConnected)
 
                 Button {
@@ -104,7 +108,7 @@ struct MMSChatListView: View {
                 Button {
                     isShowingLaunchPlanSheet = true
                 } label: {
-                    Label(LocalizationManager.shared.localized("mmschat.model_picker.open"), systemImage: "slider.horizontal.3")
+                    Label(LocalizationManager.shared.localized("mmschat.model_picker.open"), systemImage: "plus.bubble")
                 }
                 .buttonStyle(.bordered)
                 .disabled(!codex.isConnected)
@@ -172,32 +176,39 @@ struct MMSChatListView: View {
 
     private struct SessionGroup {
         let key: String
-        let sessions: [MMSChatSession]
+        var sessions: [MMSChatSession]
     }
 
     private var groupedSessions: [SessionGroup] {
         let sorted = sessions.sorted(by: compareSessionsForDisplay)
-        let grouped = Dictionary(grouping: sorted) { session -> String in
-            session.project ?? session.cwd.components(separatedBy: "/").last ?? session.cwd
-        }
-        return grouped
-            .map { SessionGroup(key: $0.key, sessions: $0.value) }
-            .sorted { group1, group2 in
-                guard let latest1 = group1.sessions.first?.lastActivityAt,
-                      let latest2 = group2.sessions.first?.lastActivityAt else {
-                    return group1.key < group2.key
-                }
-                return compareSessionsForDisplay(group1.sessions[0], group2.sessions[0])
+        var groups: [SessionGroup] = []
+        var indexByKey: [String: Int] = [:]
+        for session in sorted {
+            let key = session.project ?? session.cwd.components(separatedBy: "/").last ?? session.cwd
+            if let index = indexByKey[key] {
+                groups[index].sessions.append(session)
+            } else {
+                indexByKey[key] = groups.count
+                groups.append(SessionGroup(key: key, sessions: [session]))
             }
+        }
+        return groups.sorted { left, right in
+            let leftSession = left.sessions.first
+            let rightSession = right.sessions.first
+            if let leftSession, let rightSession, compareSessionsForDisplay(leftSession, rightSession) != compareSessionsForDisplay(rightSession, leftSession) {
+                return compareSessionsForDisplay(leftSession, rightSession)
+            }
+            return left.key.localizedStandardCompare(right.key) == .orderedAscending
+        }
     }
 
     private func compareSessionsForDisplay(_ left: MMSChatSession, _ right: MMSChatSession) -> Bool {
         let leftRank = activityQualityRank(left)
         let rightRank = activityQualityRank(right)
-        if leftRank != rightRank {
-            return leftRank < rightRank
-        }
-        return left.lastActivityAt > right.lastActivityAt
+        if leftRank != rightRank { return leftRank < rightRank }
+        if left.lastActivityAt != right.lastActivityAt { return left.lastActivityAt > right.lastActivityAt }
+        if left.createdAt != right.createdAt { return left.createdAt > right.createdAt }
+        return left.mmschatId.localizedStandardCompare(right.mmschatId) == .orderedAscending
     }
 
     private func activityQualityRank(_ session: MMSChatSession) -> Int {

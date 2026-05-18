@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct MMSChatDetailView: View {
+    // REDLINE_EXCEPTION: transcript rendering and live-action guardrails stay colocated in this phone-only detail view to avoid splitting behavior across multiple tiny MMSChat files.
     @Environment(CodexService.self) private var codex
 
     let session: MMSChatSession
@@ -73,7 +74,7 @@ struct MMSChatDetailView: View {
                      } label: {
                          Image(systemName: "display")
                      }
-                     .disabled(!codex.isConnected || !liveActionsEnabled || isLoading)
+                     .disabled(!codex.isConnected || !canOpenVisible || isLoading)
 
                      Button {
                          Task { await loadDetail() }
@@ -263,7 +264,7 @@ struct MMSChatDetailView: View {
     }
 
     private func messageBubble(_ message: MMSChatTranscriptMessage) -> some View {
-        let role = normalizedRole(message.role)
+        let role = transcriptDisplayRole(for: message)
         let isUser = role == "user"
         return HStack {
             if isUser { Spacer(minLength: 40) }
@@ -272,16 +273,14 @@ struct MMSChatDetailView: View {
                     Text(roleTitle(role))
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(roleTint(role))
-
                     if let createdAt = message.createdAt {
                         Text(dateString(createdAt))
                             .font(.system(size: 10))
                             .foregroundStyle(.tertiary)
                     }
                 }
-
                 ForEach(Array(message.content.enumerated()), id: \.offset) { _, content in
-                    messageContent(content, role: role)
+                    messageContentBlock(content, messageRole: role, showsBoundary: shouldShowContentBoundary(in: message))
                 }
             }
             .padding(12)
@@ -295,24 +294,167 @@ struct MMSChatDetailView: View {
         }
     }
 
+    private func messageContentBlock(_ content: MMSChatTranscriptContent, messageRole: String, showsBoundary: Bool) -> some View {
+        let contentRole = transcriptDisplayRole(for: content, messageRole: messageRole)
+        return VStack(alignment: .leading, spacing: 4) {
+            if showsBoundary {
+                Text(roleTitle(contentRole))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(roleTint(contentRole))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(roleTint(contentRole).opacity(0.12))
+                    .clipShape(Capsule())
+            }
+
+            messageContent(content, role: contentRole)
+        }
+    }
+
     @ViewBuilder
     private func messageContent(_ content: MMSChatTranscriptContent, role: String) -> some View {
-        if let text = content.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
-            if shouldUseMonospacedContent(content, role: role) {
-                Text(text)
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .padding(8)
-                    .background(Color(.systemBackground).opacity(0.72))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .textSelection(.enabled)
-            } else {
-                markdownText(text)
-                    .font(.system(size: 14))
-                    .lineSpacing(3)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
+        switch normalizedContentKind(content) {
+        case "tool_use", "tool_result":
+            toolCard(content)
+        case "thinking":
+            markdownContent(content.text ?? "", emphasis: .thinking)
+        default:
+            markdownContent(content.text ?? "", emphasis: role == "assistant" ? .standard : .subtle)
+        }
+    }
+
+    @ViewBuilder
+    private func markdownContent(_ text: String, emphasis: TranscriptTextEmphasis) -> some View {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(parsedMarkdownBlocks(from: trimmed), id: \.self) { block in
+                    markdownBlockView(block, emphasis: emphasis)
+                }
             }
+            .textSelection(.enabled)
+        }
+    }
+
+    @ViewBuilder
+    private func markdownBlockView(_ block: TranscriptMarkdownBlock, emphasis: TranscriptTextEmphasis) -> some View {
+        switch block {
+        case .heading(let level, let text):
+            markdownText(text)
+                .font(.system(size: level <= 1 ? 18 : 16, weight: .bold))
+                .foregroundStyle(.primary)
+        case .quote(let text):
+            markdownText(text)
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
+                .padding(.leading, 10)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(Color.orange.opacity(0.75)).frame(width: 3)
+                }
+        case .code(let text):
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(text)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .background(Color(.systemBackground).opacity(0.82))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        case .paragraph(let text):
+            markdownText(text)
+                .font(.system(size: 14))
+                .lineSpacing(3)
+                .foregroundStyle(emphasis == .standard ? .primary : .secondary)
+        case .unorderedList(let items):
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("•")
+                            .font(.system(size: 14, weight: .bold))
+                        markdownText(item)
+                            .font(.system(size: 14))
+                            .lineSpacing(3)
+                    }
+                }
+            }
+            .foregroundStyle(emphasis == .standard ? .primary : .secondary)
+        case .orderedList(let items):
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(index + 1).")
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        markdownText(item)
+                            .font(.system(size: 14))
+                            .lineSpacing(3)
+                    }
+                }
+            }
+            .foregroundStyle(emphasis == .standard ? .primary : .secondary)
+        }
+    }
+
+    private func markdownText(_ text: String) -> Text {
+        if let attributed = try? AttributedString(markdown: text) {
+            return Text(attributed)
+        }
+        return Text(text)
+    }
+
+    private func toolCard(_ content: MMSChatTranscriptContent) -> some View {
+        let isError = content.isError == true
+        let accent: Color = isError ? .red : .blue
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: normalizedContentKind(content) == "tool_use" ? "hammer.circle.fill" : (isError ? "exclamationmark.triangle.fill" : "terminal.fill"))
+                    .foregroundStyle(accent)
+                Text(toolCardTitle(for: content))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            if let name = content.name, !name.isEmpty {
+                toolMetadataRow(label: LocalizationManager.shared.localized("mmschat.tool.name"), value: name)
+            }
+            if let command = content.command, !command.isEmpty {
+                toolMetadataRow(label: LocalizationManager.shared.localized("mmschat.tool.command"), value: command, monospaced: true)
+            }
+            if let cwd = content.cwd, !cwd.isEmpty {
+                toolMetadataRow(label: LocalizationManager.shared.localized("mmschat.tool.cwd"), value: cwd, monospaced: true)
+            }
+            if let preview = content.inputPreviewText, !preview.isEmpty {
+                toolMetadataRow(label: LocalizationManager.shared.localized("mmschat.tool.input"), value: preview, monospaced: true)
+            }
+            if let text = content.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(text)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .background(Color(.systemBackground).opacity(0.86))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+        .padding(10)
+        .background((isError ? Color.red : Color.blue).opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(accent.opacity(0.28), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .textSelection(.enabled)
+    }
+
+    private func toolMetadataRow(label: String, value: String, monospaced: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 12, design: monospaced ? .monospaced : .default))
+                .foregroundStyle(.primary)
         }
     }
 
@@ -331,7 +473,8 @@ struct MMSChatDetailView: View {
             return true
         }
         return message.content.allSatisfy { content in
-            (content.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            normalizedContentKind(content) != "tool_use"
+                && (content.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
@@ -339,23 +482,51 @@ struct MMSChatDetailView: View {
         role.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    private func normalizedContentKind(_ content: MMSChatTranscriptContent) -> String {
+        (content.kind ?? content.type).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func transcriptDisplayRole(for message: MMSChatTranscriptMessage) -> String {
+        let baseRole = normalizedRole(message.role)
+        let hasFinalText = message.content.contains { content in
+            let kind = normalizedContentKind(content)
+            return kind != "thinking" && kind != "tool_use" && kind != "tool_result"
+                && !(content.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if hasFinalText { return baseRole }
+        if message.content.contains(where: { normalizedContentKind($0) == "tool_use" || normalizedContentKind($0) == "tool_result" }) {
+            return "tool"
+        }
+        if message.content.contains(where: { normalizedContentKind($0) == "thinking" }) {
+            return "reasoning"
+        }
+        return baseRole
+    }
+
+    private func transcriptDisplayRole(for content: MMSChatTranscriptContent, messageRole: String) -> String {
+        switch normalizedContentKind(content) {
+        case "tool_use", "tool_result": return "tool"
+        case "thinking": return "reasoning"
+        default: return messageRole
+        }
+    }
+
+    private func shouldShowContentBoundary(in message: MMSChatTranscriptMessage) -> Bool {
+        Set(message.content.map { transcriptDisplayRole(for: $0, messageRole: normalizedRole(message.role)) }).count > 1
+    }
+
     private func roleTitle(_ role: String) -> String {
         switch role {
-        case "user":
-            LocalizationManager.shared.localized("mmschat.role.user")
-        case "assistant":
-            LocalizationManager.shared.localized("mmschat.role.assistant")
-        case "reasoning":
-            LocalizationManager.shared.localized("mmschat.role.reasoning")
-        case "tool":
-            LocalizationManager.shared.localized("mmschat.role.tool")
-        default:
-            role.uppercased()
+        case "user": LocalizationManager.shared.localized("mmschat.role.user")
+        case "assistant": LocalizationManager.shared.localized("mmschat.role.assistant")
+        case "reasoning": LocalizationManager.shared.localized("mmschat.role.reasoning")
+        case "tool": LocalizationManager.shared.localized("mmschat.role.tool")
+        default: role.uppercased()
         }
     }
 
     private func roleTint(_ role: String) -> Color {
-        return switch role {
+        switch role {
         case "user": .accentColor
         case "assistant": .green
         case "reasoning": .orange
@@ -365,7 +536,7 @@ struct MMSChatDetailView: View {
     }
 
     private func roleBackground(_ role: String) -> Color {
-        return switch role {
+        switch role {
         case "user": Color.accentColor.opacity(0.12)
         case "assistant": Color(.tertiarySystemFill)
         case "reasoning": Color.orange.opacity(0.10)
@@ -374,15 +545,80 @@ struct MMSChatDetailView: View {
         }
     }
 
-    private func shouldUseMonospacedContent(_ content: MMSChatTranscriptContent, role: String) -> Bool {
-        role == "tool" || content.type == "tool_result" || content.type == "tool_use"
+    private func parsedMarkdownBlocks(from text: String) -> [TranscriptMarkdownBlock] {
+        var blocks: [TranscriptMarkdownBlock] = []
+        var buffer: [String] = []
+        var code: [String] = []
+        var listItems: [String] = []
+        var listKind: TranscriptMarkdownListKind?
+        var inCode = false
+        func flush() {
+            let body = buffer.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !body.isEmpty { blocks.append(.paragraph(body)) }
+            buffer.removeAll(keepingCapacity: true)
+        }
+        func flushList() {
+            guard let kind = listKind, !listItems.isEmpty else { return }
+            blocks.append(kind == .ordered ? .orderedList(listItems) : .unorderedList(listItems))
+            listItems.removeAll(keepingCapacity: true)
+            listKind = nil
+        }
+        for line in text.components(separatedBy: .newlines) {
+            if line.hasPrefix("```") { if inCode { blocks.append(.code(code.joined(separator: "\n"))); code.removeAll() } else { flush(); flushList() }; inCode.toggle(); continue }
+            if inCode { code.append(line); continue }
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { flush(); flushList(); continue }
+            if let item = unorderedListItem(from: trimmed) {
+                flush()
+                if listKind != .unordered { flushList(); listKind = .unordered }
+                listItems.append(item)
+                continue
+            }
+            if let item = orderedListItem(from: trimmed) {
+                flush()
+                if listKind != .ordered { flushList(); listKind = .ordered }
+                listItems.append(item)
+                continue
+            }
+            if trimmed.hasPrefix("#") {
+                flush(); flushList()
+                let level = min(trimmed.prefix { $0 == "#" }.count, 3)
+                let title = trimmed.drop(while: { $0 == "#" || $0 == " " })
+                blocks.append(.heading(level: level, text: String(title)))
+            } else if trimmed.hasPrefix(">") {
+                flush(); flushList()
+                blocks.append(.quote(String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)))
+            } else {
+                flushList()
+                buffer.append(line)
+            }
+        }
+        if inCode, !code.isEmpty { blocks.append(.code(code.joined(separator: "\n"))) }
+        flushList()
+        flush()
+        return blocks.isEmpty ? [.paragraph(text)] : blocks
     }
 
-    private func markdownText(_ text: String) -> Text {
-        if let attributed = try? AttributedString(markdown: text) {
-            return Text(attributed)
+    private func unorderedListItem(from line: String) -> String? {
+        guard line.count > 2 else { return nil }
+        let marker = line.prefix(2)
+        guard marker == "- " || marker == "* " || marker == "+ " else { return nil }
+        return String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+    }
+
+    private func orderedListItem(from line: String) -> String? {
+        guard let dotIndex = line.firstIndex(of: ".") else { return nil }
+        let number = line[..<dotIndex]
+        let itemStart = line.index(after: dotIndex)
+        guard !number.isEmpty, number.allSatisfy(\.isNumber), itemStart < line.endIndex, line[itemStart] == " " else { return nil }
+        return String(line[line.index(after: itemStart)...]).trimmingCharacters(in: .whitespaces)
+    }
+
+    private func toolCardTitle(for content: MMSChatTranscriptContent) -> String {
+        if normalizedContentKind(content) == "tool_use" {
+            return LocalizationManager.shared.localized("mmschat.tool.call")
         }
-        return Text(text)
+        return LocalizationManager.shared.localized(content.isError == true ? "mmschat.tool.result_error" : "mmschat.tool.result")
     }
 
     // MARK: - Live Actions & Composer
@@ -437,7 +673,7 @@ struct MMSChatDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.blue)
-                    .disabled(!codex.isConnected || !liveActionsEnabled || isLoading)
+                    .disabled(!codex.isConnected || !canOpenVisible || isLoading)
 
                     Spacer()
                 }
@@ -604,6 +840,11 @@ struct MMSChatDetailView: View {
         detailResponse?.liveActions
     }
 
+    private var canOpenVisible: Bool {
+        guard liveActionsEnabled, let la = liveActions else { return false }
+        return la.supportedMethods?.contains(where: { $0 == "mmschat/openVisible" || $0 == "openVisible" }) == true
+    }
+
     private var canResume: Bool {
         guard liveActionsEnabled, let la = liveActions else { return false }
         guard la.supportedMethods?.contains(where: { $0 == "mmschat/resume" || $0 == "resume" }) == true else {
@@ -671,7 +912,7 @@ struct MMSChatDetailView: View {
     }
 
     private func openVisible() async {
-        guard codex.isConnected else { return }
+        guard codex.isConnected, canOpenVisible else { return }
         do {
             _ = try await codex.mmschatOpenVisible(mmschatId: session.mmschatId)
         } catch {
@@ -752,4 +993,18 @@ struct MMSChatDetailView: View {
         }
         isSending = false
     }
+}
+
+
+private enum TranscriptTextEmphasis { case standard, subtle, thinking }
+
+private enum TranscriptMarkdownListKind { case unordered, ordered }
+
+private enum TranscriptMarkdownBlock: Hashable {
+    case heading(level: Int, text: String)
+    case quote(String)
+    case code(String)
+    case paragraph(String)
+    case unorderedList([String])
+    case orderedList([String])
 }

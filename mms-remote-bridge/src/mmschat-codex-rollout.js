@@ -25,8 +25,22 @@ function discoverCodexRolloutSessions(options = {}) {
   const maxFileBytes = readPositiveInteger(options.maxFileBytes) || MAX_DISCOVERY_FILE_BYTES;
   const roots = resolveCodexSessionsRoots(options);
 
-  return roots
-    .flatMap((root) => collectRolloutFileCandidates(root, { fsImpl }))
+  // Collect and dedupe by file path hash so sessions do not appear twice
+  // when multiple roots resolve to the same underlying path.
+  const seenPathHashes = new Set();
+  const candidates = [];
+  for (const root of roots) {
+    for (const candidate of collectRolloutFileCandidates(root, { fsImpl })) {
+      const pathHash = digestText(normalizeRolloutIdentityPath(candidate.filePath, fsImpl));
+      if (seenPathHashes.has(pathHash)) {
+        continue;
+      }
+      seenPathHashes.add(pathHash);
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates
     .sort(compareRolloutCandidates)
     .slice(0, maxFiles)
     .map((candidate) => buildDiscoveredCodexSession(candidate, { fsImpl, maxFileBytes }))
@@ -55,11 +69,33 @@ function resolveCodexSessionsRoots(options = {}) {
   const env = options.env || process.env;
   const osImpl = options.osImpl || os;
   const explicitCodexHome = readNonEmptyString(options.codexHome) || readNonEmptyString(env.CODEX_HOME);
+  const defaultRoot = path.join(osImpl.homedir(), ".codex", "sessions");
+
   if (explicitCodexHome) {
-    return [path.join(path.resolve(explicitCodexHome), "sessions")];
+    const explicitRoot = path.join(path.resolve(explicitCodexHome), "sessions");
+    // Include default ~/.codex/sessions fallback when it differs from the explicit path,
+    // so that sessions stored at the default location are still discovered.
+    const normalizedExplicit = path.resolve(explicitRoot);
+    const normalizedDefault = path.resolve(defaultRoot);
+    if (normalizedExplicit === normalizedDefault) {
+      return [explicitRoot];
+    }
+    return [explicitRoot, defaultRoot];
   }
 
-  return [path.join(osImpl.homedir(), ".codex", "sessions")];
+  return [defaultRoot];
+}
+
+function normalizeRolloutIdentityPath(filePath, fsImpl = fs) {
+  if (!readNonEmptyString(filePath)) {
+    return String(filePath || "");
+  }
+  try {
+    if (typeof fsImpl.realpathSync === "function") {
+      return fsImpl.realpathSync(filePath);
+    }
+  } catch {}
+  return path.resolve(filePath);
 }
 
 function collectRolloutFileCandidates(root, { fsImpl = fs } = {}) {
@@ -112,9 +148,17 @@ function buildDiscoveredCodexSession(candidate, { fsImpl = fs, maxFileBytes = MA
 
   const rolloutId = readNonEmptyString(scanned.sessionMeta.id) || digestText(candidate.filePath).slice(0, 16);
   const cwd = readNonEmptyString(scanned.sessionMeta.cwd) || "~";
-  const lastActivityAt = scanned.lastTimestamp || candidate.mtime;
+  // Prefer max(valid transcript timestamp, file mtime) so stale transcripts don't hide newer writes.
+  // lastActivitySource tells the consumer whether the timestamp is from parsed records or file stat.
+  const transcriptTimeMs = scanned.lastTimestamp ? new Date(scanned.lastTimestamp).getTime() : null;
+  const fileMtimeMs = candidate.mtimeMs || (candidate.mtime ? new Date(candidate.mtime).getTime() : null);
+  const effectiveTimeMs = (transcriptTimeMs !== null && fileMtimeMs !== null && transcriptTimeMs > fileMtimeMs)
+    ? transcriptTimeMs
+    : (fileMtimeMs || transcriptTimeMs || Date.now());
+  const lastActivityAt = new Date(effectiveTimeMs).toISOString();
+  const lastActivitySource = (transcriptTimeMs !== null && transcriptTimeMs >= (fileMtimeMs || 0)) ? "transcript" : "file_mtime";
   const createdAt = scanned.firstTimestamp || lastActivityAt;
-  const pathHash = digestText(candidate.filePath);
+  const pathHash = digestText(normalizeRolloutIdentityPath(candidate.filePath, fsImpl));
 
   return {
     mmschatId: `mmschat_codex_${pathHash.slice(0, 24)}`,
@@ -149,6 +193,9 @@ function buildDiscoveredCodexSession(candidate, { fsImpl = fs, maxFileBytes = MA
       fileBytes: String(candidate.size),
       recordsScanned: String(scanned.recordsScanned),
       messageCount: String(scanned.messageCount),
+      lastTranscriptAt: scanned.lastTimestamp,
+      fileMtimeAt: candidate.mtime,
+      lastActivitySource,
       userMessageCount: String(scanned.userMessageCount),
       assistantMessageCount: String(scanned.assistantMessageCount),
       reasoningMessageCount: String(scanned.reasoningMessageCount),
@@ -170,7 +217,7 @@ function findRolloutFileForSession(session, options = {}) {
   const fsImpl = options.fsImpl || fs;
   for (const root of resolveCodexSessionsRoots(options)) {
     const match = collectRolloutFileCandidates(root, { fsImpl })
-      .find((candidate) => digestText(candidate.filePath) === expectedPathHash);
+      .find((candidate) => digestText(normalizeRolloutIdentityPath(candidate.filePath, fsImpl)) === expectedPathHash);
     if (match) {
       return match;
     }
@@ -183,6 +230,7 @@ function parseCodexRolloutJsonl(jsonlText, options = {}) {
     assistantMessageCount: 0,
     firstTimestamp: null,
     lastTimestamp: null,
+    lastTimestampMs: null,
     messageCount: 0,
     reasoningMessageCount: 0,
     recordsScanned: 0,
@@ -246,8 +294,9 @@ function parseCodexRolloutJsonl(jsonlText, options = {}) {
     }
   }
 
+  const { lastTimestampMs: _lastTimestampMs, ...publicState } = state;
   return {
-    ...state,
+    ...publicState,
     transcript: buildCodexTranscriptSnapshot({
       messages,
       nativePathState: state.recordsScanned > 0 ? NATIVE_PATH_STATE_CONFIRMED : NATIVE_PATH_STATE_UNAVAILABLE,
@@ -415,14 +464,17 @@ function buildCodexSessionTitle(cwd, rolloutId) {
 }
 
 function noteTimestamp(state, value) {
-  const timestamp = normalizeTimestamp(value);
-  if (!timestamp) {
+  const parsed = parseValidTimestamp(value);
+  if (!parsed) {
     return;
   }
   if (!state.firstTimestamp) {
-    state.firstTimestamp = timestamp;
+    state.firstTimestamp = parsed.iso;
   }
-  state.lastTimestamp = timestamp;
+  if (state.lastTimestampMs === null || parsed.ms > state.lastTimestampMs) {
+    state.lastTimestampMs = parsed.ms;
+    state.lastTimestamp = parsed.iso;
+  }
 }
 
 function normalizeRolloutItemType(value) {
@@ -593,6 +645,18 @@ function normalizeTimestamp(value) {
   }
   const timestamp = Date.parse(candidate);
   return Number.isNaN(timestamp) ? candidate : new Date(timestamp).toISOString();
+}
+
+function parseValidTimestamp(value) {
+  const normalized = normalizeTimestamp(value);
+  if (!normalized) {
+    return null;
+  }
+  const ms = Date.parse(normalized);
+  if (Number.isNaN(ms)) {
+    return null;
+  }
+  return { iso: new Date(ms).toISOString(), ms };
 }
 
 function readPositiveInteger(value) {

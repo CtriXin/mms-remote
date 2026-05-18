@@ -114,6 +114,14 @@ extension MMSChatTranscriptMessage {
             guard let itemObj = item.objectValue else { return nil }
             return MMSChatTranscriptContent(
                 type: itemObj["type"]?.stringValue ?? "text",
+                kind: itemObj["kind"]?.stringValue,
+                name: itemObj["name"]?.stringValue,
+                id: itemObj["id"]?.stringValue,
+                toolUseId: itemObj["toolUseId"]?.stringValue,
+                command: itemObj["command"]?.stringValue,
+                cwd: itemObj["cwd"]?.stringValue,
+                isError: itemObj["isError"]?.boolValue,
+                inputPreviewText: itemObj["inputPreviewText"]?.stringValue,
                 text: itemObj["text"]?.stringValue
             )
         }

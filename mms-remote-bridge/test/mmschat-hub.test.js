@@ -342,10 +342,13 @@ function withHubFixture(run, hubOptions = {}) {
     const stateDir = path.join(rootDir, "state");
     const claudeHome = path.join(rootDir, ".claude");
     const codexHome = path.join(rootDir, ".codex");
+    const osImpl = { homedir: () => rootDir };
     const env = {
       ...process.env,
+      CODEX_HOME: codexHome,
       MMS_REMOTE_DEVICE_STATE_DIR: stateDir,
     };
+    const hubEnv = { ...env, ...(hubOptions.env || {}), CODEX_HOME: codexHome };
     let nextId = 0;
     const store = createMMSChatStore({ env });
     const registry = createMMSChatRegistry({
@@ -370,14 +373,15 @@ function withHubFixture(run, hubOptions = {}) {
       registry,
     });
     const hub = createMMSChatHub({
-      env: hubOptions.env || env,
+      env: hubEnv,
       launcher,
       liveActionRunner: hubOptions.liveActionRunner,
       registry,
       transcriptOptions: {
         claudeHome,
         codexHome,
-        env,
+        env: hubEnv,
+        osImpl,
       },
     });
 

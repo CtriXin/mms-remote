@@ -25,6 +25,7 @@ struct MMSChatLaunchPlanSheetView: View {
     @State private var isLoadingMetadata = false
     @State private var isLoadingPlan = false
     @State private var errorMessage: String?
+    @State private var compatibilityMessage: String?
 
     init(defaultCwd: String) {
         self.defaultCwd = defaultCwd
@@ -94,6 +95,18 @@ struct MMSChatLaunchPlanSheetView: View {
                 Text(LocalizationManager.shared.localized("mmschat.model_picker.no_config_description"))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
+            }
+            if let compatibilityMessage {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(compatibilityMessage)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(10)
+                .background(Color.orange.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         } footer: {
             Text(LocalizationManager.shared.localized("mmschat.model_picker.dry_run_notice"))
@@ -236,6 +249,7 @@ struct MMSChatLaunchPlanSheetView: View {
         }
         isLoadingMetadata = true
         errorMessage = nil
+        compatibilityMessage = nil
         do {
             let providerResponse = try await codex.mmsProviders()
             let presetResponse = try await codex.mmsPresets()
@@ -247,7 +261,17 @@ struct MMSChatLaunchPlanSheetView: View {
             configFound = providerResponse.found
             selectDefaults()
         } catch {
-            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
+            if MMSChatErrorClassifier.classify(error) == .bridgeMismatch {
+                configSource = "bridge"
+                configFound = false
+                providers = []
+                presets = []
+                models = []
+                launchPlan = nil
+                compatibilityMessage = LocalizationManager.shared.localized("mmschat.error_bridge_mismatch")
+            } else {
+                errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
+            }
         }
         isLoadingMetadata = false
     }
@@ -256,6 +280,7 @@ struct MMSChatLaunchPlanSheetView: View {
         guard canPreview else { return }
         isLoadingPlan = true
         errorMessage = nil
+        compatibilityMessage = nil
         do {
             let trimmedCwd = cwd.trimmingCharacters(in: .whitespacesAndNewlines)
             if !selectedPresetId.isEmpty {
@@ -264,7 +289,12 @@ struct MMSChatLaunchPlanSheetView: View {
                 launchPlan = try await codex.mmsLaunchPlan(cwd: trimmedCwd, provider: selectedModel.provider, model: selectedModel.model)
             }
         } catch {
-            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
+            if MMSChatErrorClassifier.classify(error) == .bridgeMismatch {
+                launchPlan = nil
+                compatibilityMessage = LocalizationManager.shared.localized("mmschat.error_bridge_mismatch")
+            } else {
+                errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
+            }
         }
         isLoadingPlan = false
     }

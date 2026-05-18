@@ -132,9 +132,27 @@ struct MMSChatSessionRowView: View {
     }
 
     private var exactActivityString: String {
+        let calendar = Calendar.current
+        let date = session.lastActivityAt
+        let now = Date()
+
         let formatter = DateFormatter()
+        formatter.doesRelativeDateFormatting = false
+        formatter.locale = .current
+
+        if calendar.isDate(date, inSameDayAs: now) {
+            formatter.dateStyle = .none
+            formatter.timeStyle = .short
+            return formatter.string(from: date)
+        }
+
+        if calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear) {
+            formatter.setLocalizedDateFormatFromTemplate("EEEjm")
+            return formatter.string(from: date)
+        }
+
         formatter.dateStyle = .short
         formatter.timeStyle = .short
-        return formatter.string(from: session.lastActivityAt)
+        return formatter.string(from: date)
     }
 }

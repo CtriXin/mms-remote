@@ -122,6 +122,14 @@ struct MMSChatTranscriptMessage: Identifiable, Codable, Hashable, Sendable {
 
 struct MMSChatTranscriptContent: Codable, Hashable, Sendable {
     let type: String
+    let kind: String?
+    let name: String?
+    let id: String?
+    let toolUseId: String?
+    let command: String?
+    let cwd: String?
+    let isError: Bool?
+    let inputPreviewText: String?
     let text: String?
 }
 

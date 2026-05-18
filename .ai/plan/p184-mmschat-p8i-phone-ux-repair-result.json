@@ -1,0 +1,145 @@
+{
+  "task": "p184-mmschat-p8i-phone-ux-repair",
+  "verdict": "PASS",
+  "verdict_reason": "Closure repairs are implemented and required validations pass: focused Codex rollout tests, broader MMSChat bridge tests, git diff check, and iOS simulator build.",
+  "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair",
+  "starting_head_before_p8i": "7df110f97c0852a67c17b817e01c6e68882e9aac",
+  "head_commit": "durable checkpoint commit created after this artifact update; final hash is reported in chat after commit",
+  "worktree_clean": "expected true immediately after committing tracked changes and these artifacts",
+  "changed_files": [
+    "CodexMobile/CodexMobile/Models/MMSChatModels.swift",
+    "CodexMobile/CodexMobile/Services/CodexService+MMSChat.swift",
+    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatLaunchPlanSheetView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatSessionRowView.swift",
+    "mms-remote-bridge/src/mmschat-codex-rollout.js",
+    "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+    "mms-remote-bridge/test/mmschat-hub.test.js",
+    ".ai/plan/p184-mmschat-p8i-phone-ux-repair-result.json",
+    ".ai/plan/p184-mmschat-p8i-phone-ux-repair-result.md"
+  ],
+  "closure_repairs": [
+    {
+      "area": "Top toolbar launch/new UX",
+      "status": "done",
+      "summary": "The toolbar action next to refresh now uses a visible New MMSChat label with a plus-bubble icon and copy that distinguishes launch preview from refresh."
+    },
+    {
+      "area": "Old bridge compatibility state",
+      "status": "done",
+      "summary": "Launch-plan metadata and preview failures caused by missing MMS methods render inline compatibility guidance in the sheet instead of a generic load-failed alert, while leaving the sheet closable and read-only."
+    },
+    {
+      "area": "Markdown readability",
+      "status": "done",
+      "summary": "Assistant transcript rendering now keeps fenced code blocks, adds ordered and unordered list blocks, and uses AttributedString(markdown:) for inline markdown where safe."
+    },
+    {
+      "area": "Thinking/tool/final separation",
+      "status": "done",
+      "summary": "Mixed transcript messages now keep the parent bubble anchored to final text when present and add per-content chips so reasoning, tool, and final assistant sections remain visually separated."
+    }
+  ],
+  "feedback_mapping": [
+    {
+      "item": 1,
+      "title": "Detail transcript content classification",
+      "status": "done",
+      "summary": "Detail rendering classifies transcript items by kind first and falls back to type, so user, assistant, reasoning, and tool content route to the intended UI. Mixed messages also show per-content role chips."
+    },
+    {
+      "item": 2,
+      "title": "Tool cards and error surfacing",
+      "status": "done",
+      "summary": "Tool calls and results render as structured cards with name, command, cwd, input preview, and explicit error styling when isError is true."
+    },
+    {
+      "item": 3,
+      "title": "Markdown transcript readability",
+      "status": "done",
+      "summary": "Transcript text supports headings, quotes, fenced code, paragraphs, ordered lists, unordered lists, and inline Markdown via AttributedString(markdown:) with text selection preserved."
+    },
+    {
+      "item": 4,
+      "title": "Stable list grouping",
+      "status": "done",
+      "summary": "Session grouping stays deterministic by preserving insertion order within grouped sorted sessions and using stable tie-breakers for activity, creation time, and id."
+    },
+    {
+      "item": 5,
+      "title": "Exact activity time display",
+      "status": "done",
+      "summary": "Row subtitle now shows time only for today, localized weekday plus time for the same week, and short date plus time for older sessions without adding new strings."
+    },
+    {
+      "item": 6,
+      "title": "Launch toolbar clarity and localization",
+      "status": "done",
+      "summary": "The top action is now visibly New MMSChat with plus-bubble icon, localized label, and hint; it opens the launch preview sheet and no longer reads as a second refresh action."
+    }
+  ],
+  "reviewer_blocker_fixes": [
+    "Isolated hub tests from the real default Codex home by pinning fixture CODEX_HOME and osImpl.homedir() to the temp root, then restored strict source and visibility assertions.",
+    "Codex rollout discovery still scans both explicit and default roots, while rollout timestamp tracking now stores the maximum valid transcript timestamp regardless of record order.",
+    "Codex rollout detail stays read-only on iOS by requiring supported live actions before openVisible can be triggered, removing the rollout-only bypass.",
+    "Result artifacts now map all six phone feedback items honestly and no longer describe earlier partial toolbar or Markdown fixes as complete until the closure repairs are included."
+  ],
+  "validation": [
+    {
+      "command": "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair/mms-remote-bridge && node --test test/mmschat-codex-rollout.test.js",
+      "status": "passed",
+      "result": "10 tests, 10 passed, 0 failed"
+    },
+    {
+      "command": "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair/mms-remote-bridge && node --test test/mmschat-*.test.js",
+      "status": "passed",
+      "result": "44 tests, 44 passed, 0 failed"
+    },
+    {
+      "command": "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair && git diff --check",
+      "status": "passed",
+      "result": "no output"
+    },
+    {
+      "command": "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair && xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination \"platform=iOS Simulator,name=iPhone 17\" -derivedDataPath .build/p8i-closure-xcode-derived CODE_SIGNING_ALLOWED=NO build",
+      "status": "passed",
+      "result": "BUILD SUCCEEDED; output still includes the existing AppIntents metadata skipped warning."
+    },
+    {
+      "command": "cd /Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair && git status --short",
+      "status": "pending_until_commit",
+      "result": "will be clean after committing the listed tracked files and result artifacts"
+    }
+  ],
+  "scope_confirmation": {
+    "repair_worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8i-phone-ux-repair",
+    "main_worktree_touched": false,
+    "user_bridge_runtime_touched": false,
+    "phone_install": false,
+    "push": false,
+    "deploy": false,
+    "global_config": false,
+    "keychain": false,
+    "real_live_send_resume_open_visible_kill": false,
+    "bridge_start_stop_reconfigure": false,
+    "main_apply": false,
+    "dependency_changes": false
+  },
+  "residual_risks": [
+    "No phone reinstall, on-device verification, or main-apply/merge was performed in this session.",
+    "Real live send, resume, open-visible, and kill flows were not exercised; validation remained compile and test only per boundary.",
+    "No SwiftUI screenshot or on-device visual verification was run for the toolbar/sheet/transcript changes."
+  ],
+  "human_gate": {
+    "phone_reinstall_required": true,
+    "main_apply_required": true,
+    "release_readiness_self_approved": false
+  },
+  "fallbacks_used": [
+    "mobius-explore-glm for read-only exploration",
+    "mobius-reviewer-gpt55 for partial release-gate review; it hit max steps before final verdict",
+    "mobius-reviewer-mimo was attempted as additional critique but returned no content"
+  ]
+}
