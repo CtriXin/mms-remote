@@ -126,7 +126,7 @@ struct SwiftTerminalHubView: View {
         .navigationTitle(LocalizationManager.shared.localized("tab.terminal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(theme.isDark ? .dark : .light, for: .navigationBar)
+        .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .navigationBar)
         .toolbar {
             if showsPaneToolbarButton {
                 ToolbarItem(placement: .topBarLeading) {
@@ -315,24 +315,43 @@ struct SwiftTerminalHubView: View {
     }
 
     private var terminalContent: some View {
-        VStack(spacing: 0) {
-            Group {
-                if let recoverySnapshot = terminalConnectionRecoverySnapshot {
-                    terminalConnectionRecoveryCard(recoverySnapshot)
-                } else if !codex.isConnected {
-                    offlineBanner
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                terminalTopGlassReserve(height: terminalTopReserveHeight(for: geometry.safeAreaInsets.top))
+
+                Group {
+                    if let recoverySnapshot = terminalConnectionRecoverySnapshot {
+                        terminalConnectionRecoveryCard(recoverySnapshot)
+                    } else if !codex.isConnected {
+                        offlineBanner
+                    }
+                    terminalCanvas
+                    if showsChordComposer {
+                        Divider().overlay(swiftTerminalBorder)
+                        chordComposerPanel
+                    }
                 }
-                terminalCanvas
-                if showsChordComposer {
-                    Divider().overlay(swiftTerminalBorder)
-                    chordComposerPanel
-                }
+                .background(theme.shellBackground)
+                keyBar
             }
-            .background(theme.shellBackground)
-            Divider().overlay(swiftTerminalBorder)
-            keyBar
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         }
+        .ignoresSafeArea(edges: .top)
         .background(theme.shellBackground.ignoresSafeArea(edges: .top))
+    }
+
+    private func terminalTopReserveHeight(for safeAreaTop: CGFloat) -> CGFloat {
+        let inlineNavigationBarHeight: CGFloat = 44
+        let glassBreathingRoom: CGFloat = 16
+        return max(112, safeAreaTop + inlineNavigationBarHeight + glassBreathingRoom)
+    }
+
+    private func terminalTopGlassReserve(height: CGFloat) -> some View {
+        Color.clear
+            .frame(height: height)
+            .frame(maxWidth: .infinity)
+            .background(theme.shellBackground)
+            .allowsHitTesting(false)
     }
 
     private var terminalToolbarTitle: some View {
