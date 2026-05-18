@@ -1,0 +1,10 @@
+TOON:
+id: upstream-remodex-watchlist-20260518
+updated: 2026-05-18T06:54:00-04:00
+owner: codex
+cli: codex
+model: gpt-5
+status: recorded
+next_action: continue MMS Remote development; use upstream as reference only unless user explicitly reopens contribution work
+decisions[5]: Remodex Apache-2.0; preserve LICENSE and NOTICE attribution,Rename/rebrand/package/bundle changes OK; no implied upstream endorsement,Do not import upstream direct SSH/GhosttyKit/Citadel wholesale,Do not invest in large upstream tmux Terminal PR now; issue/RFC first if reopened,Check every new dependency/vendor binary license before importing
+watchlist[7]: iPad support,foreground WebSocket keepalive,composer draft persistence,My Macs/multi-Mac UX,relay subpath support,timeline/markdown performance,Terminal SSH UX ideas only

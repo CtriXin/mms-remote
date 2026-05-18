@@ -209,6 +209,33 @@ Bridge 需要一个 TOML 解析器。选项：
 | D2 | macOS Menu Bar companion：Agent 状态速览 | 3天 | **P2** |
 | D3 | Apple Watch / Widget / Live Activities | 3天 | **P3** |
 
+### 方向 E：Upstream Remodex Watchlist（只借鉴，不整合主线）
+
+Source checked: upstream Remodex `origin/main` = `603dfc5` on 2026-05-17 local time. License remains Apache-2.0. Treat upstream as an idea/reference source; do not direct-merge large branches into MMS Remote because our product direction is now Mac-local Bridge/tmux/SwiftTerm plus MMS Model Router.
+
+| ID | 内容 | 工作量 | 优先级 |
+|----|------|--------|--------|
+| E0 | Open-source hygiene：保留 Apache-2.0 `LICENSE`、保留 `NOTICE` attribution、检查 cherry-pick 引入的第三方 license；不要把 private relay/default domains 写入公开源码或 docs | 0.5天/每次 release | **P0** |
+| E1 | iPad support：手工 port `codex/ipad-os` 的 presentation 思路；不要直接复制 `RemodexPad` target。优先把现有 `MMS Remote` app target 从 iPhone-only 调整为 iPhone+iPad，再适配 QR/camera/sheets/composer/diff/Terminal 布局 | 3-5天 | **P1** |
+| E2 | iOS foreground WebSocket keepalive：参考 upstream `f5ac30f`/PR foreground keepalive，给 Network.framework WebSocket 增加 foreground ping loop、停止/重启 lifecycle、连接失败 recovery tests | 1-2天 | **P1** |
+| E3 | Composer draft persistence：参考 upstream `3ece820` 的 unsent per-thread draft persistence；本地加密/落盘保存输入、mentions、attachments，切 thread / app restart 后恢复 | 2-3天 | **P1** |
+| E4 | My Macs / multi-Mac UX：参考 `dpcode/multiple-macos` 的 `MyMacsView`、Mac-scoped local state、显式 switch/forget/recovery；必须适配现有 E2EE trusted Mac registry 和 relay resolve，不整条 merge | 4-6天 | **P2** |
+| E5 | Relay subpath self-host：参考 upstream `/relay/v1/...` HTTP API prefix support，支持 reverse proxy 挂在 `/relay` 或自定义 prefix；同时更新 tests 和 URL builder | 1天 | **P2** |
+| E6 | Timeline / markdown performance：跟踪 upstream `d4cd146` streaming smoothness 和 `603dfc5` RemodexTextKit migration；只有在本地 Textual/AttributedString cache 仍卡顿时再手工 port | 2-4天 | **P2** |
+| E7 | Terminal SSH ideas only：不要引入 upstream direct SSH/GhosttyKit/Citadel stack。只可摘 keybar、host platform modifier mapping、profile nickname、known-host reset UX 等局部交互 | 1-2天 | **P3** |
+| E8 | Upstream contribution posture：暂不投入大 PR。Remodex `CONTRIBUTING.md` 明确 not actively accepting contributions；如未来贡献，只做 tiny bugfix/docs/reliability patch，并先开 issue/RFC 探口风 | 0.5天 | **P3** |
+
+Terminal SSH decision:
+- upstream direction = iPhone native SSH client + `GhosttyKit.xcframework` + phone-side private key/known-host/profile storage.
+- MMS Remote direction = iPhone controls Mac-local Bridge/tmux/SwiftTerm panes, credentials stay on Mac, Terminal is tied to Codex/MMS local runtime.
+- Therefore direct SSH overlaps conceptually but conflicts architecturally. Importing the full stack would add binary/vendor surface, mobile SSH key risk, and a second terminal protocol. Do not do this unless the product explicitly decides to add a separate "direct SSH client" mode.
+
+Open-source / contribution decision:
+- Continue developing MMS Remote independently under Apache-2.0 with preserved `LICENSE` and `NOTICE` attribution.
+- Rename/branding/package/bundle-id changes are allowed under Apache-2.0; do not imply upstream endorsement or use Remodex marks for our fork.
+- Do not spend engineering cycles preparing a large upstream tmux Terminal PR now. Their contribution policy and product direction make acceptance unlikely.
+- If relationship-building is desired later, open a small issue/discussion first; only send tiny focused patches that remove MMS/private-relay/product-specific code.
+
 #### Public release / review guard
 
 - 公开版、GitHub source checkout、App review/demo build 不得内置用户私有公网 relay。

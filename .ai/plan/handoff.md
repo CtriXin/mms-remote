@@ -1,5 +1,36 @@
 # Handoff Log
 
+## 2026-05-18T06:58:28-04:00 | agent=codex | cli=codex | model=gpt-5 | task=main-final-docs-cleanup-20260518
+- TL;DR: Cleaned up the final main handoff so Terminal/localization merge state, upstream Remodex watchlist, and local-cache policy are all durable and current.
+- Next action: Continue from `main`; app code baseline is `39d623d` / iOS `1.7.111 (149)`, docs baseline before this commit is `2874a88`.
+- Scope / boundary: Docs and `.gitignore` only; no iOS or Bridge code changed, no version/build bump, no tests, no worktree cleanup.
+- Changed files: `.gitignore`, `.ai/plan/current.md`, `.ai/plan/fresh-session-continue-prompt.md`, `.ai/plan/next-agent-prompt.md`, `.ai/plan/handoff.md`, `.ai/plan/v2-roadmap.md`, `.ai/plan/packet.json`, `.ai/plan/packet.toon`, `.ai/plan/progress/upstream-remodex-watchlist-20260518.md`, `.ai/plan/progress/upstream-remodex-watchlist-20260518.toon`, `.ai/plan/current-owner.json`, `.ai/plan/current-audit.jsonl`.
+- Validation: planned `git diff --check`; local cache/tool dirs should remain uncommitted/ignored: `.codegraph/`, `.omc/`, `mms-remote-bridge/.omc/`, `tmp/`.
+- Open risks: Terminal TUI replay/resize 乱码 remains a future专项; this docs pass does not change runtime behavior.
+
+## 2026-05-18T06:54:00-04:00 | agent=codex | cli=codex | model=gpt-5 | task=upstream-remodex-watchlist-20260518
+- TL;DR: Recorded all upstream Remodex/license/contribution conclusions into durable handoff docs and packet files.
+- Next action: Continue MMS Remote development from `main`; use upstream only as reference unless user explicitly reopens contribution/PR work.
+- Scope / boundary: Docs/metadata only; no iOS or Bridge code changed, no version/build bump, no tests, no worktree cleanup.
+- Changed files: `.ai/plan/current.md`, `.ai/plan/fresh-session-continue-prompt.md`, `.ai/plan/next-agent-prompt.md`, `.ai/plan/handoff.md`, `.ai/plan/v2-roadmap.md`, `.ai/plan/packet.json`, `.ai/plan/packet.toon`, `.ai/plan/progress/upstream-remodex-watchlist-20260518.md`, `.ai/plan/progress/upstream-remodex-watchlist-20260518.toon`, `.ai/plan/current-owner.json`, `.ai/plan/current-audit.jsonl`.
+- Validation: `handover_current.py audit` OK; `git diff --check` OK; upstream license/contributing details previously checked from Remodex `origin/main` at `603dfc5`.
+- Open risks: Engineering-level OSS guidance only, not formal legal advice; check each new third-party dependency/binary before importing.
+
+## 2026-05-18T06:53:34-04:00 | agent=codex | cli=codex | model=gpt-5 | task=upstream-remodex-watchlist-20260518
+- TL;DR: Claimed top-level `current.md` ownership.
+- Next action: Record upstream/license/contribution decisions into handoff docs
+- Scope / boundary: Only this owner should overwrite `current.md`; side sessions should write `progress/<task-id>.md`.
+- Validation: current_sha_at_claim=1819124f393a4d95e7cd665c0f45f386d7a2b148ea77e6ecb8d474aa2f0f1ecf
+- Risk: If audit reports conflict, inspect `handoff.md` before continuing.
+
+## 2026-05-17T22:59:43-04:00 | agent=codex | cli=codex | model=gpt-5 | task=upstream-remodex-watchlist-20260517
+- TL;DR: Added upstream Remodex comparison recommendations to the future roadmap and refreshed current handoff with the post-merge baseline.
+- Next action: Future feature iterations should read `.ai/plan/v2-roadmap.md` direction E before pulling upstream ideas; do not wholesale import upstream Terminal SSH/GhosttyKit.
+- Scope / boundary: Docs only; no iOS/Bridge code change, no version/build bump, no tests, no worktree deletion.
+- Changed files: `.ai/plan/v2-roadmap.md`, `.ai/plan/current.md`, `.ai/plan/fresh-session-continue-prompt.md`, `.ai/plan/next-agent-prompt.md`, `.ai/plan/handoff.md`.
+- Validation: Upstream Remodex fetched and checked at `603dfc5`; local `LICENSE`/`NOTICE` and package license fields remain Apache-2.0.
+- Open risks: Legal conclusion is engineering-level license hygiene, not formal legal advice; re-check third-party licenses before importing new vendor binaries or dependencies.
+
 ## 2026-05-16T23:29:04-04:00 | agent=codex | cli=codex | model=gpt-5 | task=fresh-session-style-unify-merge-20260516
 - TL;DR: Claimed top-level `current.md` ownership.
 - Next action: New session should read fresh prompt, inspect dirty main and terminal-style-unify worktree, then commit small validated slices

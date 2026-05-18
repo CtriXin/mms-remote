@@ -1,24 +1,23 @@
-TOON:
-task_id: ios-swiftterm-ghost-multiagent-wait-20260516
-goal: Park unresolved SwiftTerm iOS visual ghost as a recorded multiagent investigation so v2 work can continue without blind patch loops.
-status: installed-usable-ghost-unresolved-multiagent-recorded
+schema: mms_remote.handoff_packet.v1
+task_id: main-final-docs-cleanup-20260518
+goal: Commit durable final handoff docs after Terminal/localization merge and separate commit-worthy docs from local cache artifacts.
+status: ready
 owner: codex
 cli: codex
 model: gpt-5
-timestamp: 2026-05-16T23:21:34-04:00
-latest_ios_version: 1.7.53
-latest_ios_build: "91"
-installed_device: song的iPhone
-swiftterm_revision: 9ad1b190b7b6f3dd072063c7d86535e2298f0aad
-user_feedback: User again confirmed SwiftTerm visual ghost/影子 remains; other regressions are fixed.
-next_action: "Continue v2 work unless user requests another focused ghost pass. If returning to ghost, implement only evidence-backed SwiftTerm visible-rect/row clear diagnostic plus Bridge/iOS seq/hash trace."
-multiagent[2]{agent,id,scope,status,conclusion}:
-  Peirce,019e33ec-f229-7f90-b8fa-766d3d859ac2,SwiftTerm iOS renderer/caret source analysis,completed,Most likely SwiftTerm iOS renderer dirty-rect/background clear vs UIScrollView.contentOffset; source-level draw/caret invalidation recommended.
-  Kierkegaard,019e33ed-0b05-7fa0-97ff-feda2c0249aa,Bridge/tmux/feed race analysis,completed,"Replay/live/input ordering still needs trace; avoid final replay CRLF, add phase/generation, and queue per-pane input if evidence points there."
-do_not_repeat[6]: Do not disable SwiftTerm,Do not use replay/full-screen refresh as final fix,Do not retry 1.7.49 RunLoop/default-mode stream drain,Do not reintroduce hidden input proxy + mobile cursor quarantine as the main fix,Do not start SwiftTerm with replay=false only; it caused blank startup,Do not upgrade SwiftTerm latest until Metal Toolchain dependency is handled
-changed_files_current_slice[6]: .ai/plan/current.md,.ai/plan/handoff.md,.ai/plan/packet.json,.ai/plan/packet.toon,.ai/plan/progress/swiftterm-ghost-multiagent.md,Docs/swiftterm_ghost_analysis.md
-validation[4]: Peirce completed with SwiftTerm renderer/caret source analysis,Kierkegaard completed with Bridge/tmux/feed race analysis,docs-only update; no iOS code changed in this slice,Xcode tests not run
-constraints[6]: Chinese simplified,No Xcode tests unless user asks,iOS code change requires version/build bump,Install only to song的iPhone,Do not expose private relay endpoints,Do not revert unrelated dirty files
-refs[10]: .ai/plan/progress/swiftterm-ghost-multiagent.md,.ai/plan/swiftterm-ghost-multiagent-prompt.md,Docs/swiftterm_ghost_analysis.md,CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalCanvasView.swift,CodexMobile/CodexMobile/Views/Terminal/SwiftTerminalHubView.swift,mms-remote-bridge/src/tmux-control-adapter.js,mms-remote-bridge/src/terminal-stream-hub.js,.build/DerivedData-device/SourcePackages/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSTerminalView.swift,.build/DerivedData-device/SourcePackages/checkouts/SwiftTerm/Sources/SwiftTerm/Apple/AppleTerminalView.swift,.build/DerivedData-device/SourcePackages/checkouts/SwiftTerm/Sources/SwiftTerm/iOS/iOSCaretView.swift
-writeback_required: true
-multiagent_conclusions[2]: Peirce conclusion: most likely root is SwiftTerm iOS renderer dirty-rect/background clear vs UIScrollView.contentOffset coordinate mismatch; CaretView may amplify but wrapper-level quarantine is not sufficient. Suggested source-level draw visibleRect/row clear plus old/new caret invalidation; app wrapper should only preserve scroll when user manually scrolled.,"Kierkegaard conclusion: still audit Bridge/replay/live/input ordering. Viewport replay is not raw terminal state; live-during-replay heuristic can leak duplicate tails; input sends are independent Tasks without per-pane queue. First diagnostic should trace stream seq/phase/hash and iOS feed order; patch directions include avoiding final replay CRLF, adding replayGeneration/phase, and per-pane input queue."
+timestamp: 2026-05-18T06:58:28-04:00
+current_branch: main
+main_head_before_docs_commit: 2874a881901d2727d05b4ba46b2a00ac61c635bc
+app_code_baseline: 39d623db9c2e6854a15d40666b9dce8d3f42d077
+ios_version: 1.7.111
+ios_build: 149
+bridge_package_version: 1.7.64
+installed_devices[1]: song的iPhone
+unavailable_devices[1]: iPhone 15 ProX雨
+stable_terminal_decisions[4]: Keep bottom Sessions drawer; do not restore old left-sidebar Terminal experiment.,Keep stable line after 144fc1b; do not restore reconnect/glass experiments that caused flicker/resize/scroll regressions.,Do not let iPhone SwiftTerm resize shared Mac tmux windows; key fix is 9d7bc77.,Treat Terminal TUI replay/resize garble as a separate follow-up starting with tracing and idempotency protection.
+upstream_remodex_decisions[3]: Use upstream Remodex only as reference; preserve Apache-2.0 LICENSE and NOTICE attribution.,Do not import direct SSH/GhosttyKit/Citadel wholesale into the Mac-local Bridge/tmux/SwiftTerm architecture.,Do not spend time on a large upstream PR now; future contribution should start with issue/RFC and tiny focused patches.
+changed_files_current_slice[12]: .gitignore,.ai/plan/current.md,.ai/plan/fresh-session-continue-prompt.md,.ai/plan/next-agent-prompt.md,.ai/plan/handoff.md,.ai/plan/v2-roadmap.md,.ai/plan/packet.json,.ai/plan/packet.toon,.ai/plan/progress/upstream-remodex-watchlist-20260518.md,.ai/plan/progress/upstream-remodex-watchlist-20260518.toon,.ai/plan/current-owner.json,.ai/plan/current-audit.jsonl
+do_not_commit_artifacts[4]: .codegraph/,.omc/,mms-remote-bridge/.omc/,tmp/
+refs[6]: .ai/plan/progress/terminal-pane-session-handoff-20260517.md,.ai/plan/progress/terminal-tui-replay-todo-20260517.md,.ai/plan/progress/upstream-remodex-watchlist-20260518.md,.ai/plan/v2-roadmap.md,LICENSE,NOTICE
+validation[3]: git diff --check should pass before commit,docs-only and ignore-only update; no iOS or Bridge code changed,no Xcode tests required
+writeback_required: false

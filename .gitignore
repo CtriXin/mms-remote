@@ -42,6 +42,11 @@ output/
 
 # Temp files
 $TMP_PLACEHOLDER
+tmp/
+
+# Local agent/tool caches
+.codegraph/
+.omc/
 
 # Claude project config (local only)
 .claude/
