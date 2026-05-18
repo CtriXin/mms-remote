@@ -66,7 +66,7 @@ struct OnboardingStepPage: View {
 
                     VStack(spacing: 12) {
                         // Step label
-                        Text("STEP \(stepNumber)")
+                        Text(String(format: LocalizationManager.shared.localized("onboarding.step"), stepNumber))
                             .font(AppFont.caption2(weight: .bold))
                             .foregroundStyle(Color(.plan).opacity(0.7))
                             .kerning(1.5)

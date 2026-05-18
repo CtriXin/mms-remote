@@ -31,8 +31,8 @@ struct OnboardingView: View {
                     OnboardingStepPage(
                         stepNumber: 1,
                         icon: "terminal",
-                        title: "Install Codex CLI",
-                        description: "The AI coding agent that lives in your terminal. MMS Remote connects to it from your iPhone.",
+                        title: LocalizationManager.shared.localized("onboarding.install_codex"),
+                        description: LocalizationManager.shared.localized("onboarding.install_codex_desc"),
                         command: codexInstallCommand
                     )
                     .tag(2)
@@ -40,18 +40,18 @@ struct OnboardingView: View {
                     OnboardingStepPage(
                         stepNumber: 2,
                         icon: "link",
-                        title: "Install the Bridge",
-                        description: "A lightweight relay that securely connects your Mac to your iPhone.",
+                        title: LocalizationManager.shared.localized("onboarding.install_bridge"),
+                        description: LocalizationManager.shared.localized("onboarding.install_bridge_desc"),
                         command: "npm install -g mms-remote@latest",
-                        commandCaption: "MMS Remote can keep your Mac awake with macOS caffeinate while the bridge is running, but it starts disabled by default. You can enable it later in Settings if you want."
+                        commandCaption: LocalizationManager.shared.localized("onboarding.bridge_caption")
                     )
                     .tag(3)
 
                     OnboardingStepPage(
                         stepNumber: 3,
                         icon: "qrcode.viewfinder",
-                        title: "Start Pairing",
-                        description: "Run this on your computer. A QR code will appear in your terminal — scan it next.",
+                        title: LocalizationManager.shared.localized("onboarding.start_pairing"),
+                        description: LocalizationManager.shared.localized("onboarding.start_pairing_desc"),
                         command: "mms-remote up"
                     )
                     .tag(4)
@@ -62,13 +62,13 @@ struct OnboardingView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .alert("Install Codex CLI First", isPresented: $isShowingCodexInstallReminder) {
+        .alert(LocalizationManager.shared.localized("onboarding.install_codex_first"), isPresented: $isShowingCodexInstallReminder) {
             Button(LocalizationManager.shared.localized("onboarding.stay"), role: .cancel) {}
             Button(LocalizationManager.shared.localized("onboarding.continue")) {
                 advanceToNextPage()
             }
         } message: {
-            Text("Copy and paste \"\(codexInstallCommand)\" on your computer before moving on. MMS Remote will not work until Codex CLI is installed and available in your PATH.")
+            Text(String(format: LocalizationManager.shared.localized("onboarding.install_codex_hint"), codexInstallCommand))
         }
     }
 
@@ -111,13 +111,13 @@ struct OnboardingView: View {
         if currentPage == pageCount - 1 {
             VStack(spacing: 10) {
                 PrimaryCapsuleButton(
-                    title: "Scan with QR Code",
+                    title: LocalizationManager.shared.localized("onboarding.scan_qr"),
                     systemImage: "qrcode",
                     action: handleContinue
                 )
 
                 secondaryCapsuleButton(
-                    title: "Pair with Code",
+                    title: LocalizationManager.shared.localized("onboarding.pair_with_code"),
                     systemImage: "keyboard",
                     action: onPairWithCode
                 )
@@ -157,9 +157,9 @@ struct OnboardingView: View {
 
     private var buttonTitle: String {
         switch currentPage {
-        case 0: return "Get Started"
-        case 1: return "Set Up"
-        default: return "Continue"
+        case 0: return LocalizationManager.shared.localized("onboarding.get_started")
+        case 1: return LocalizationManager.shared.localized("onboarding.set_up")
+        default: return LocalizationManager.shared.localized("onboarding.continue")
         }
     }
 

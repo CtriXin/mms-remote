@@ -17,7 +17,7 @@ struct TurnDiffPresentation: Identifiable, Equatable {
 
 enum TurnDiffPresentationBuilder {
     // Converts a raw unified repo patch into the same sectioned shape the existing diff sheet already renders.
-    static func repositoryPresentation(from rawPatch: String, title: String = "Repository Changes") -> TurnDiffPresentation? {
+    static func repositoryPresentation(from rawPatch: String, title: String = LocalizationManager.shared.localized("turn.repository_changes")) -> TurnDiffPresentation? {
         let patch = rawPatch.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !patch.isEmpty else { return nil }
 
@@ -215,7 +215,7 @@ struct TurnDiffSheet: View {
                                 }
                             }
                         } label: {
-                            Text(allExpanded ? "Collapse All" : "Expand All")
+                            Text(allExpanded ? LocalizationManager.shared.localized("turn.collapse_all") : LocalizationManager.shared.localized("turn.expand_all"))
                                 .font(AppFont.mono(.caption))
                                 .foregroundStyle(.blue)
                         }

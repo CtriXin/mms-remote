@@ -76,7 +76,7 @@ struct TurnView: View {
             gitWorkingDirectory: gitWorkingDirectory
         )
         let toolbarNavigationContext = threadNavigationContext(for: resolvedThread)
-        let toolbarWorktreeHandoffTitle = isWorktreeProject ? "Hand off to Local" : "Hand off to Worktree"
+        let toolbarWorktreeHandoffTitle = isWorktreeProject ? LocalizationManager.shared.localized("turn.handoff_local") : LocalizationManager.shared.localized("turn.handoff_worktree")
         let isGitActionEnabled = viewModel.gitRepoSync != nil && canRunGitAction(
             isThreadRunning: isThreadRunning,
             gitWorkingDirectory: gitWorkingDirectory
@@ -618,8 +618,8 @@ struct TurnView: View {
                 let result = try await gitService.diff()
                 guard let presentation = TurnDiffPresentationBuilder.repositoryPresentation(from: result.patch) else {
                     viewModel.gitSyncAlert = TurnGitSyncAlert(
-                        title: "Git Error",
-                        message: "There are no repository changes to show.",
+                        title: LocalizationManager.shared.localized("turn.git_error"),
+                        message: LocalizationManager.shared.localized("turn.no_changes"),
                         action: .dismissOnly
                     )
                     return
@@ -627,13 +627,13 @@ struct TurnView: View {
                 repositoryDiffPresentation = presentation
             } catch let error as GitActionsError {
                 viewModel.gitSyncAlert = TurnGitSyncAlert(
-                    title: "Git Error",
-                    message: error.errorDescription ?? "Could not load repository changes.",
+                    title: LocalizationManager.shared.localized("turn.git_error"),
+                    message: error.errorDescription ?? LocalizationManager.shared.localized("turn.could_not_load_changes"),
                     action: .dismissOnly
                 )
             } catch {
                 viewModel.gitSyncAlert = TurnGitSyncAlert(
-                    title: "Git Error",
+                    title: LocalizationManager.shared.localized("turn.git_error"),
                     message: error.localizedDescription,
                     action: .dismissOnly
                 )
@@ -760,7 +760,7 @@ struct TurnView: View {
     private func gitSuccessAccessibilityHint(for success: TurnGitActionSuccess) -> String? {
         switch success.kind {
         case .pullRequest where success.pullRequestURL != nil:
-            return "Tap View PR to open the pull request."
+            return LocalizationManager.shared.localized("turn.tap_view_pr")
         default:
             return nil
         }
@@ -770,7 +770,7 @@ struct TurnView: View {
         switch success.kind {
         case .pullRequest:
             guard let url = success.pullRequestURL else { return nil }
-            return InAppToastBannerAction(title: "View PR") {
+            return InAppToastBannerAction(title: LocalizationManager.shared.localized("turn.view_pr")) {
                 UIApplication.shared.open(url)
                 viewModel.dismissGitActionSuccess()
             }
@@ -830,7 +830,7 @@ struct TurnView: View {
                 StructuredUserInputCard(
                     request: request,
                     isInteractionLocked: isDismissing,
-                    secondaryActionTitle: isDismissing ? "Closing..." : "ESC",
+                    secondaryActionTitle: isDismissing ? LocalizationManager.shared.localized("turn.closing") : "ESC",
                     onSecondaryAction: isDismissing ? nil : {
                         isInputFocused = true
                         viewModel.dismissStructuredPlanPrompt(message, codex: codex, threadID: thread.id)
@@ -928,9 +928,9 @@ struct TurnView: View {
                     )
                 } catch {
                     viewModel.gitSyncAlert = TurnGitSyncAlert(
-                        title: "Local Handoff Failed",
+                        title: LocalizationManager.shared.localized("turn.local_handoff_failed"),
                         message: error.localizedDescription.isEmpty
-                            ? "Could not hand off the thread back to Local."
+                            ? LocalizationManager.shared.localized("turn.could_not_handoff_local")
                             : error.localizedDescription,
                         action: .dismissOnly
                     )
@@ -968,9 +968,9 @@ struct TurnView: View {
                 }
             } catch {
                 viewModel.gitSyncAlert = TurnGitSyncAlert(
-                    title: "Worktree Handoff Failed",
+                    title: LocalizationManager.shared.localized("turn.worktree_handoff_failed"),
                     message: error.localizedDescription.isEmpty
-                        ? "Could not hand off the thread to the new worktree."
+                        ? LocalizationManager.shared.localized("turn.could_not_handoff_worktree")
                         : error.localizedDescription,
                     action: .dismissOnly
                 )
@@ -1130,8 +1130,8 @@ struct TurnView: View {
             onOpenWorktree: { result in
                 guard !result.alreadyExisted else {
                     viewModel.gitSyncAlert = TurnGitSyncAlert(
-                        title: "Branch Already Exists",
-                        message: "A worktree for '\(result.branch)' already exists. Choose a different name.",
+                        title: LocalizationManager.shared.localized("turn.branch_exists"),
+                        message: String(format: LocalizationManager.shared.localized("turn.branch_exists_msg"), result.branch),
                         action: .dismissOnly
                     )
                     return
@@ -1178,10 +1178,10 @@ struct TurnView: View {
                 localCheckoutPath: viewModel.gitLocalCheckoutPath
             ) != nil else {
                 viewModel.gitSyncAlert = TurnGitSyncAlert(
-                    title: "Local Fork Unavailable",
+                    title: LocalizationManager.shared.localized("turn.local_fork_unavailable"),
                     message: sourceThread.isManagedWorktreeProject
-                        ? "Could not resolve the Local checkout for this worktree thread."
-                        : "Could not resolve the local project path for this thread.",
+                        ? LocalizationManager.shared.localized("turn.local_fork_worktree_hint")
+                        : LocalizationManager.shared.localized("turn.local_fork_hint"),
                     action: .dismissOnly
                 )
                 return
@@ -1223,8 +1223,8 @@ struct TurnView: View {
             onOpenWorktree: { result in
                 guard !result.alreadyExisted else {
                     viewModel.gitSyncAlert = TurnGitSyncAlert(
-                        title: "Branch Already Exists",
-                        message: "A worktree for '\(result.branch)' already exists. Choose a different name.",
+                        title: LocalizationManager.shared.localized("turn.branch_exists"),
+                        message: String(format: LocalizationManager.shared.localized("turn.branch_exists_msg"), result.branch),
                         action: .dismissOnly
                     )
                     return
