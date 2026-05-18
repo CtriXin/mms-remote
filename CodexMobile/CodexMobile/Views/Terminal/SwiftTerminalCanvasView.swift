@@ -16,6 +16,7 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
     let messages: [TerminalStreamMessage]
     let fontSize: CGFloat
     let usesDarkTheme: Bool
+    let topChromeInset: CGFloat
     let focusRequestID: Int
     let copyRequestID: Int
     let pasteRequestID: Int
@@ -39,30 +40,32 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         )
     }
 
-    func makeUIView(context: Context) -> TerminalView {
+    func makeUIView(context: Context) -> MMSStreamTerminalContainerView {
         let terminalView = MMSStreamTerminalView(
             frame: .zero,
             font: AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
         )
+        let containerView = MMSStreamTerminalContainerView(terminalView: terminalView)
         terminalView.terminalDelegate = context.coordinator
         context.coordinator.attach(terminalView)
         configure(terminalView)
+        containerView.backgroundColor = terminalView.backgroundColor
+        containerView.applyTopChromeInset(topChromeInset)
         terminalView.getTerminal().changeHistorySize(5_000)
-        return terminalView
+        return containerView
     }
 
-    func updateUIView(_ terminalView: TerminalView, context: Context) {
+    func updateUIView(_ containerView: MMSStreamTerminalContainerView, context: Context) {
+        let terminalView = containerView.terminalView
         context.coordinator.onSendData = onSendData
         context.coordinator.onResize = onResize
         context.coordinator.onTitle = onTitle
         context.coordinator.onStatus = onStatus
         configure(terminalView)
+        containerView.backgroundColor = terminalView.backgroundColor
+        containerView.applyTopChromeInset(topChromeInset)
         let nextFont = AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
-        if let streamView = terminalView as? MMSStreamTerminalView {
-            streamView.applyTerminalFontIfNeeded(nextFont)
-        } else {
-            terminalView.font = nextFont
-        }
+        terminalView.applyTerminalFontIfNeeded(nextFont)
         context.coordinator.applyCommands(
             to: terminalView,
             paneTarget: paneTarget,
@@ -620,7 +623,42 @@ private enum TerminalByte {
     static let stringTerminator: UInt8 = 0x5C
 }
 
-private final class MMSStreamTerminalView: TerminalView {
+final class MMSStreamTerminalContainerView: UIView {
+    let terminalView: MMSStreamTerminalView
+    private var topChromeInset: CGFloat = 0
+
+    init(terminalView: MMSStreamTerminalView) {
+        self.terminalView = terminalView
+        super.init(frame: .zero)
+        clipsToBounds = true
+        addSubview(terminalView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func applyTopChromeInset(_ inset: CGFloat) {
+        let clamped = max(0, inset)
+        guard abs(topChromeInset - clamped) > 0.5 else { return }
+        topChromeInset = clamped
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let inset = min(max(0, topChromeInset), max(0, bounds.height - 80))
+        terminalView.frame = CGRect(
+            x: 0,
+            y: inset,
+            width: bounds.width,
+            height: max(0, bounds.height - inset)
+        )
+    }
+}
+
+final class MMSStreamTerminalView: TerminalView {
     private var preservedScrollY: CGFloat?
     private var preserveScrollUntil: TimeInterval = 0
     private var isApplyingStreamFeed = false

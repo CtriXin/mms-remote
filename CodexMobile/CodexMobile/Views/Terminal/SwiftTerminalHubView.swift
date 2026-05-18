@@ -316,16 +316,15 @@ struct SwiftTerminalHubView: View {
 
     private var terminalContent: some View {
         GeometryReader { geometry in
+            let topChromeInset = terminalTopChromeInset(for: geometry.safeAreaInsets.top)
             VStack(spacing: 0) {
-                terminalTopGlassReserve(height: terminalTopReserveHeight(for: geometry.safeAreaInsets.top))
-
                 Group {
                     if let recoverySnapshot = terminalConnectionRecoverySnapshot {
                         terminalConnectionRecoveryCard(recoverySnapshot)
                     } else if !codex.isConnected {
                         offlineBanner
                     }
-                    terminalCanvas
+                    terminalCanvas(topChromeInset: topChromeInset)
                     if showsChordComposer {
                         Divider().overlay(swiftTerminalBorder)
                         chordComposerPanel
@@ -344,18 +343,10 @@ struct SwiftTerminalHubView: View {
         theme.terminalSurface
     }
 
-    private func terminalTopReserveHeight(for safeAreaTop: CGFloat) -> CGFloat {
+    private func terminalTopChromeInset(for safeAreaTop: CGFloat) -> CGFloat {
         let inlineNavigationBarHeight: CGFloat = 44
-        let glassBreathingRoom: CGFloat = 16
-        return max(112, safeAreaTop + inlineNavigationBarHeight + glassBreathingRoom)
-    }
-
-    private func terminalTopGlassReserve(height: CGFloat) -> some View {
-        Color.clear
-            .frame(height: height)
-            .frame(maxWidth: .infinity)
-            .background(terminalBackdropBackground)
-            .allowsHitTesting(false)
+        let glassBreathingRoom: CGFloat = 8
+        return max(96, safeAreaTop + inlineNavigationBarHeight + glassBreathingRoom)
     }
 
     private var terminalToolbarTitle: some View {
@@ -463,7 +454,7 @@ struct SwiftTerminalHubView: View {
             .adaptiveToolbarItem(in: Circle())
     }
 
-    private var terminalCanvas: some View {
+    private func terminalCanvas(topChromeInset: CGFloat) -> some View {
         Group {
             if displayedPanes.isEmpty && !codex.isLoadingTerminals {
                 emptyState
@@ -474,6 +465,7 @@ struct SwiftTerminalHubView: View {
                     messages: streamMessages,
                     fontSize: CGFloat(effectiveFontSize),
                     usesDarkTheme: theme.isDark,
+                    topChromeInset: topChromeInset,
                     focusRequestID: focusRequestID,
                     copyRequestID: copyRequestID,
                     pasteRequestID: pasteRequestID,
@@ -497,19 +489,20 @@ struct SwiftTerminalHubView: View {
                     focusTerminalInput()
                 }
             } else {
-                stableSnapshotView
+                stableSnapshotView(topChromeInset: topChromeInset)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var stableSnapshotView: some View {
+    private func stableSnapshotView(topChromeInset: CGFloat) -> some View {
         GeometryReader { geometry in
             StableTerminalSnapshotTextView(
                 attributedText: currentSnapshotAttributedText,
                 fontSize: CGFloat(effectiveFontSize),
                 backgroundColor: UIColor(theme.terminalSurface),
                 foregroundColor: UIColor(theme.terminalText),
+                topChromeInset: topChromeInset,
                 scrollTopRequestID: stableScrollTopRequestID,
                 scrollBottomRequestID: stableScrollBottomRequestID,
                 resetKey: stableCanvasResetKey
