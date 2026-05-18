@@ -1,0 +1,64 @@
+{
+  "task": "p184-mmschat-p8h-version-stamp",
+  "lane": "lite",
+  "baseline": "eb5b51533b702feb7c0fcdbcad44851ee494550e",
+  "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8g-bridge-version-guard",
+  "final_head": "eae4046b4ae5f2d000a24bd78838e82785bc24db",
+  "commit": {
+    "hash": "eae4046b4ae5f2d000a24bd78838e82785bc24db",
+    "message": "chore(mmschat): stamp P8H app version"
+  },
+  "changed_files": [
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj"
+  ],
+  "version_after": {
+    "target": "CodexMobile",
+    "marketing_version": "1.7.83",
+    "current_project_version": "121",
+    "updated_occurrences": [
+      "CodexMobile/CodexMobile.xcodeproj/project.pbxproj:732",
+      "CodexMobile/CodexMobile.xcodeproj/project.pbxproj:751",
+      "CodexMobile/CodexMobile.xcodeproj/project.pbxproj:779",
+      "CodexMobile/CodexMobile.xcodeproj/project.pbxproj:798"
+    ],
+    "remaining_old_values": []
+  },
+  "validation": [
+    {
+      "command": "git diff --check eb5b51533b702feb7c0fcdbcad44851ee494550e..HEAD",
+      "status": "passed",
+      "result": "no output"
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination \"platform=iOS Simulator,name=iPhone 17\" -derivedDataPath .build/p8h-version-stamp-derived CODE_SIGNING_ALLOWED=NO build",
+      "status": "passed",
+      "result": "BUILD SUCCEEDED with pre-existing Swift concurrency warnings in StructuredUserInputCardView.swift and TurnComposerRuntimeState.swift, plus an AppIntents metadata warning."
+    },
+    {
+      "command": "rg -n \"CURRENT_PROJECT_VERSION = 121;|MARKETING_VERSION = 1.7.83;\" CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+      "status": "passed",
+      "result": "lines 732, 751, 779, 798"
+    },
+    {
+      "command": "rg -n \"CURRENT_PROJECT_VERSION = 120;|MARKETING_VERSION = 1.7.82;\" CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+      "status": "passed",
+      "result": "no output; no remaining old app-target values"
+    }
+  ],
+  "scope_confirmation": {
+    "phone_install": false,
+    "push": false,
+    "deploy": false,
+    "global_config": false,
+    "keychain": false,
+    "bridge_start_stop_restart": false,
+    "main_apply": false,
+    "behavior_or_runtime_changes": false,
+    "package_or_dependency_changes": false
+  },
+  "notes": [
+    "Only CodexMobile app target Debug and Release version/build settings were changed.",
+    ".codegraph/ was pre-existing untracked status and was left untouched.",
+    "Result artifacts were written after the version stamp commit so they can record final_head exactly."
+  ]
+}
