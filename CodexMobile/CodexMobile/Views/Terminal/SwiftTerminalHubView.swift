@@ -11,7 +11,6 @@ struct SwiftTerminalHubView: View {
     @Environment(CodexService.self) private var codex
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.reconnectAction) private var reconnectAction
 
     var paneSheetRequestID = 0
     var showsPaneToolbarButton = true
@@ -315,37 +314,22 @@ struct SwiftTerminalHubView: View {
     }
 
     private var terminalContent: some View {
-        GeometryReader { geometry in
-            let topChromeInset = terminalTopChromeInset(for: geometry.safeAreaInsets.top)
-            VStack(spacing: 0) {
-                Group {
-                    if let recoverySnapshot = terminalConnectionRecoverySnapshot {
-                        terminalConnectionRecoveryCard(recoverySnapshot)
-                    } else if !codex.isConnected {
-                        offlineBanner
-                    }
-                    terminalCanvas(topChromeInset: topChromeInset)
-                    if showsChordComposer {
-                        Divider().overlay(swiftTerminalBorder)
-                        chordComposerPanel
-                    }
+        VStack(spacing: 0) {
+            Group {
+                if !codex.isConnected {
+                    offlineBanner
                 }
-                .background(terminalBackdropBackground)
-                keyBar
+                terminalCanvas
+                if showsChordComposer {
+                    Divider().overlay(swiftTerminalBorder)
+                    chordComposerPanel
+                }
             }
-            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+            .background(theme.shellBackground)
+            Divider().overlay(swiftTerminalBorder)
+            keyBar
         }
-        .ignoresSafeArea(edges: .top)
-        .background(terminalBackdropBackground.ignoresSafeArea(edges: .top))
-    }
-
-    private var terminalBackdropBackground: Color {
-        theme.terminalSurface
-    }
-
-    private func terminalTopChromeInset(for safeAreaTop: CGFloat) -> CGFloat {
-        let glassBreathingRoom: CGFloat = 6
-        return max(64, safeAreaTop + glassBreathingRoom)
+        .background(theme.shellBackground.ignoresSafeArea(edges: .top))
     }
 
     private var terminalToolbarTitle: some View {
@@ -453,7 +437,7 @@ struct SwiftTerminalHubView: View {
             .adaptiveToolbarItem(in: Circle())
     }
 
-    private func terminalCanvas(topChromeInset: CGFloat) -> some View {
+    private var terminalCanvas: some View {
         Group {
             if displayedPanes.isEmpty && !codex.isLoadingTerminals {
                 emptyState
@@ -464,7 +448,6 @@ struct SwiftTerminalHubView: View {
                     messages: streamMessages,
                     fontSize: CGFloat(effectiveFontSize),
                     usesDarkTheme: theme.isDark,
-                    topChromeInset: topChromeInset,
                     focusRequestID: focusRequestID,
                     copyRequestID: copyRequestID,
                     pasteRequestID: pasteRequestID,
@@ -488,20 +471,19 @@ struct SwiftTerminalHubView: View {
                     focusTerminalInput()
                 }
             } else {
-                stableSnapshotView(topChromeInset: topChromeInset)
+                stableSnapshotView
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func stableSnapshotView(topChromeInset: CGFloat) -> some View {
+    private var stableSnapshotView: some View {
         GeometryReader { geometry in
             StableTerminalSnapshotTextView(
                 attributedText: currentSnapshotAttributedText,
                 fontSize: CGFloat(effectiveFontSize),
                 backgroundColor: UIColor(theme.terminalSurface),
                 foregroundColor: UIColor(theme.terminalText),
-                topChromeInset: topChromeInset,
                 scrollTopRequestID: stableScrollTopRequestID,
                 scrollBottomRequestID: stableScrollBottomRequestID,
                 resetKey: stableCanvasResetKey
@@ -698,50 +680,6 @@ struct SwiftTerminalHubView: View {
         .frame(maxWidth: .infinity)
         .padding(10)
         .background(theme.panelBackground)
-    }
-
-    private var terminalConnectionRecoverySnapshot: ConnectionRecoverySnapshot? {
-        guard codex.hasReconnectCandidate,
-              !codex.isConnected,
-              codex.secureConnectionState != .rePairRequired else {
-            return nil
-        }
-
-        let isRetryingConnectionRecovery: Bool
-        if case .retrying = codex.connectionRecoveryState {
-            isRetryingConnectionRecovery = true
-        } else {
-            isRetryingConnectionRecovery = false
-        }
-
-        if codex.isConnecting || codex.shouldAutoReconnectOnForeground || isRetryingConnectionRecovery {
-            return ConnectionRecoverySnapshot(
-                summary: LocalizationManager.shared.localized("terminal.reconnect.progress"),
-                status: .reconnecting,
-                trailingStyle: .progress
-            )
-        }
-
-        let trimmedError = codex.lastErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return ConnectionRecoverySnapshot(
-            summary: trimmedError?.isEmpty == false
-                ? trimmedError ?? ""
-                : LocalizationManager.shared.localized("terminal.reconnect.summary"),
-            status: .interrupted,
-            trailingStyle: .action(LocalizationManager.shared.localized("terminal.reconnect.action"))
-        )
-    }
-
-    private func terminalConnectionRecoveryCard(_ snapshot: ConnectionRecoverySnapshot) -> some View {
-        ConnectionRecoveryCard(snapshot: snapshot) {
-            guard snapshot.isActionable else { return }
-            localErrorMessage = nil
-            reconnectAction?()
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
-        .background(theme.shellBackground)
     }
 
     private var liveStatusBadge: some View {
@@ -971,36 +909,6 @@ struct SwiftTerminalHubView: View {
         Binding(get: { localErrorMessage != nil }, set: { if !$0 { localErrorMessage = nil } })
     }
 
-    private func handleTerminalOperationError(_ error: Error) {
-        if shouldRouteToConnectionRecovery(error) {
-            codex.presentConnectionErrorIfNeeded(error)
-            localErrorMessage = nil
-            return
-        }
-
-        localErrorMessage = error.localizedDescription
-    }
-
-    private func shouldRouteToConnectionRecovery(_ error: Error) -> Bool {
-        if let serviceError = error as? CodexServiceError,
-           case .disconnected = serviceError {
-            return true
-        }
-
-        let isRetryingConnectionRecovery: Bool
-        if case .retrying = codex.connectionRecoveryState {
-            isRetryingConnectionRecovery = true
-        } else {
-            isRetryingConnectionRecovery = false
-        }
-
-        if codex.shouldTreatSendFailureAsDisconnect(error) || codex.shouldSuppressUserFacingConnectionError(error) {
-            return !codex.isConnected || codex.shouldAutoReconnectOnForeground || isRetryingConnectionRecovery
-        }
-
-        return !codex.isConnected && codex.hasReconnectCandidate
-    }
-
     private var closeDialogIsPresented: Binding<Bool> {
         Binding(get: { pendingCloseRequest != nil }, set: { if !$0 { pendingCloseRequest = nil } })
     }
@@ -1057,7 +965,7 @@ struct SwiftTerminalHubView: View {
             _ = try await codex.refreshTerminalList(showLoading: true)
             selectDefaultPaneIfNeeded(preferUsefulDefault: preferUsefulDefault)
         } catch {
-            handleTerminalOperationError(error)
+            localErrorMessage = error.localizedDescription
         }
     }
 
@@ -1123,7 +1031,7 @@ struct SwiftTerminalHubView: View {
                 isShowingCreateTerminalSheet = false
                 selectedPaneTarget = list.createdPane?.requestTarget ?? list.panes.first?.requestTarget
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1159,7 +1067,7 @@ struct SwiftTerminalHubView: View {
                 await refreshStableSnapshotIfNeeded()
             } catch {
                 pendingCloseRequest = nil
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1234,7 +1142,7 @@ struct SwiftTerminalHubView: View {
                     streamId = nil
                     activeStreamSignature = ""
                     statusLine = "stream error"
-                    handleTerminalOperationError(error)
+                    localErrorMessage = error.localizedDescription
                 }
             }
         }
@@ -1308,7 +1216,7 @@ struct SwiftTerminalHubView: View {
                 try await codex.sendTerminalKey(.enter, paneId: target)
                 scheduleStableRefresh(target: target)
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1379,7 +1287,7 @@ struct SwiftTerminalHubView: View {
                 scheduleStableRefresh(target: target)
                 scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1449,7 +1357,7 @@ struct SwiftTerminalHubView: View {
                 scheduleStableRefresh(target: target)
                 scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1607,7 +1515,7 @@ struct SwiftTerminalHubView: View {
                 scheduleStableRefresh(target: target)
                 scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1746,7 +1654,7 @@ struct SwiftTerminalHubView: View {
                 try await codex.resizeTerminalPane(paneId: target, cols: cols, rows: rows)
                 scheduleSwiftTermViewportReplay(streamIdAtResize: streamIdAtResize)
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
         if isSwiftTermRendererActive, streamId == nil, !isStartingStream, codex.isConnected, scenePhase == .active {
@@ -1765,7 +1673,7 @@ struct SwiftTerminalHubView: View {
                 try await codex.resizeTerminalPane(paneId: target, cols: dims.cols, rows: dims.rows)
                 await refreshStableSnapshot(target: target)
             } catch {
-                handleTerminalOperationError(error)
+                localErrorMessage = error.localizedDescription
             }
         }
     }
@@ -1949,9 +1857,7 @@ private struct SwiftTerminalPanePickerSheet: View {
     }
 
     private var terminalSheetAccent: Color {
-        colorScheme == .dark
-            ? Color(red: 0.38, green: 0.82, blue: 1.00)
-            : Color(red: 0.02, green: 0.44, blue: 0.68)
+        Color(red: 0.38, green: 0.82, blue: 1.00)
     }
 
     private var header: some View {
@@ -2013,11 +1919,7 @@ private struct SwiftTerminalPanePickerSheet: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 46)
-        .background(Color(.systemBackground).opacity(colorScheme == .dark ? 0.24 : 0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08), lineWidth: 1)
-        }
+        .background(theme.buttonBackground.opacity(theme.isDark ? 0.72 : 0.88), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 18)
         .padding(.top, 12)
         .padding(.bottom, 8)
@@ -2050,7 +1952,7 @@ private struct SwiftTerminalPanePickerSheet: View {
             }
             .disabled(!isConnected || isRefreshing)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.bordered)
         .tint(terminalSheetAccent)
         .padding(.horizontal, 18)
         .padding(.bottom, 12)
@@ -2241,8 +2143,6 @@ private struct SwiftTerminalPanePickerRow: View {
     let onClosePane: () -> Void
     let onCloseSession: () -> Void
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: 11) {
@@ -2259,7 +2159,7 @@ private struct SwiftTerminalPanePickerRow: View {
             .background(rowBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(isSelected ? accent.opacity(0.72) : rowBorder, lineWidth: 1)
+                    .stroke(isSelected ? accent.opacity(0.62) : theme.border, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -2318,31 +2218,22 @@ private struct SwiftTerminalPanePickerRow: View {
                 .truncationMode(.middle)
         }
         .font(AppFont.caption2())
-        .foregroundStyle(rowSecondaryText)
+        .foregroundStyle(theme.secondaryText)
     }
 
     private var joinLine: some View {
         Text(joinCommand)
             .font(AppFont.mono(.caption2))
-            .foregroundStyle(accent)
+            .foregroundStyle(accent.opacity(0.9))
             .lineLimit(2)
             .textSelection(.enabled)
             .truncationMode(.middle)
     }
 
     private var rowBackground: Color {
-        if isSelected {
-            return accent.opacity(colorScheme == .dark ? 0.22 : 0.16)
-        }
-        return Color(.systemBackground).opacity(colorScheme == .dark ? 0.20 : 0.76)
-    }
-
-    private var rowBorder: Color {
-        Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.10)
-    }
-
-    private var rowSecondaryText: Color {
-        Color.primary.opacity(colorScheme == .dark ? 0.64 : 0.58)
+        isSelected
+            ? accent.opacity(theme.isDark ? 0.18 : 0.13)
+            : theme.buttonBackground.opacity(theme.isDark ? 0.55 : 0.72)
     }
 }
 

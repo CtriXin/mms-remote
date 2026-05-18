@@ -72,7 +72,7 @@ struct SwiftTerminalTheme {
 
     static func resolve(systemScheme: ColorScheme, useDarkTerminalCanvas: Bool) -> SwiftTerminalTheme {
         let terminalSurface = useDarkTerminalCanvas
-            ? Color(red: 0.02, green: 0.024, blue: 0.029)
+            ? Color(red: 0.12, green: 0.12, blue: 0.17)
             : Color(.systemBackground)
         let terminalText = useDarkTerminalCanvas
             ? Color(red: 0.86, green: 0.88, blue: 0.96)

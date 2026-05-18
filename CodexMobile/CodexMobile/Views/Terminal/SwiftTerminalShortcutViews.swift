@@ -39,24 +39,18 @@ struct SwiftTerminalKeyBarView<StableInput: View>: View {
         VStack(spacing: 8) {
             if !isSwiftTermRendererActive {
                 stableInput()
-                    .padding(8)
-                    .adaptiveGlass(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             }
 
             if keyBarExpanded {
                 expandedControls
-                    .padding(10)
-                    .adaptiveGlass(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             }
 
             primaryControls
-                .padding(6)
-                .adaptiveGlass(.regular, in: Capsule())
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.top, keyBarExpanded ? 10 : 8)
         .padding(.bottom, 8)
-        .background(Color.clear)
+        .background(.regularMaterial)
     }
 
     private var primaryControls: some View {

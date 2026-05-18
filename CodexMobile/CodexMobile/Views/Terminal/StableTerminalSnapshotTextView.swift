@@ -10,7 +10,6 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
     let fontSize: CGFloat
     let backgroundColor: UIColor
     let foregroundColor: UIColor
-    let topChromeInset: CGFloat
     let scrollTopRequestID: Int
     let scrollBottomRequestID: Int
     let resetKey: String
@@ -38,6 +37,7 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
         textView.textContainer.widthTracksTextView = true
         textView.textContainer.lineBreakMode = .byCharWrapping
         textView.contentInsetAdjustmentBehavior = .never
+        textView.textContainerInset = UIEdgeInsets(top: 12, left: 14, bottom: 18, right: 14)
         configure(textView, context: context)
         return textView
     }
@@ -58,7 +58,6 @@ struct StableTerminalSnapshotTextView: UIViewRepresentable {
         textView.textColor = foregroundColor
         textView.indicatorStyle = isDark(backgroundColor) ? .white : .black
         textView.font = font
-        textView.textContainerInset = UIEdgeInsets(top: 12 + topChromeInset, left: 14, bottom: 18, right: 14)
 
         if didChangeText || didChangeResetKey {
             textView.attributedText = preparedAttributedText(font: font, foregroundColor: foregroundColor)

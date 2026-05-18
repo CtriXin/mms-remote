@@ -2,7 +2,7 @@
 // Purpose: Shows compact recovery guidance above the composer using the shared glass accessory style.
 // Layer: View Component
 // Exports: ConnectionRecoveryCard, ConnectionRecoverySnapshot, ConnectionRecoveryStatus, ConnectionRecoveryTrailingStyle
-// Depends on: SwiftUI, PlanAccessoryCard, AppFont, LocalizationManager
+// Depends on: SwiftUI, PlanAccessoryCard, AppFont
 
 import SwiftUI
 
@@ -15,13 +15,13 @@ enum ConnectionRecoveryStatus: Equatable {
     var label: String {
         switch self {
         case .interrupted:
-            return LocalizationManager.shared.localized("connection.recovery.status.interrupted")
+            return "Interrupted"
         case .reconnecting:
-            return LocalizationManager.shared.localized("connection.recovery.status.reconnecting")
+            return "Reconnecting"
         case .actionRequired:
-            return LocalizationManager.shared.localized("connection.recovery.status.action_required")
+            return "Action Needed"
         case .syncing:
-            return LocalizationManager.shared.localized("connection.recovery.status.syncing")
+            return "Syncing"
         }
     }
 
@@ -53,7 +53,7 @@ struct ConnectionRecoverySnapshot: Equatable {
     let trailingStyle: ConnectionRecoveryTrailingStyle
 
     init(
-        title: String = LocalizationManager.shared.localized("connection.recovery.title"),
+        title: String = "Connection",
         summary: String,
         detail: String? = nil,
         status: ConnectionRecoveryStatus,
@@ -94,9 +94,7 @@ struct ConnectionRecoveryCard: View {
         .opacity(snapshot.isActionable ? 1 : 0.94)
         .accessibilityLabel(snapshot.title)
         .accessibilityValue(snapshot.status.label)
-        .accessibilityHint(snapshot.isActionable
-            ? LocalizationManager.shared.localized("connection.recovery.accessibility.action")
-            : LocalizationManager.shared.localized("connection.recovery.accessibility.status"))
+        .accessibilityHint(snapshot.isActionable ? "Opens the suggested recovery action" : "Shows the current recovery status")
     }
 
     private var leadingMarker: some View {

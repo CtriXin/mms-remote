@@ -625,11 +625,6 @@ struct ContentView: View {
                 }
             }
         }
-        .environment(\.reconnectAction, {
-            Task {
-                await viewModel.toggleConnection(codex: codex)
-            }
-        })
     }
 
     private var mmsChatPlaceholderBody: some View {

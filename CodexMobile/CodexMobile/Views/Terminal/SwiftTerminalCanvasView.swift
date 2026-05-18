@@ -16,7 +16,6 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
     let messages: [TerminalStreamMessage]
     let fontSize: CGFloat
     let usesDarkTheme: Bool
-    let topChromeInset: CGFloat
     let focusRequestID: Int
     let copyRequestID: Int
     let pasteRequestID: Int
@@ -40,32 +39,30 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         )
     }
 
-    func makeUIView(context: Context) -> MMSStreamTerminalContainerView {
+    func makeUIView(context: Context) -> TerminalView {
         let terminalView = MMSStreamTerminalView(
             frame: .zero,
             font: AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
         )
-        let containerView = MMSStreamTerminalContainerView(terminalView: terminalView)
         terminalView.terminalDelegate = context.coordinator
         context.coordinator.attach(terminalView)
         configure(terminalView)
-        containerView.backgroundColor = terminalView.backgroundColor
-        containerView.applyTopChromeInset(topChromeInset)
         terminalView.getTerminal().changeHistorySize(5_000)
-        return containerView
+        return terminalView
     }
 
-    func updateUIView(_ containerView: MMSStreamTerminalContainerView, context: Context) {
-        let terminalView = containerView.terminalView
+    func updateUIView(_ terminalView: TerminalView, context: Context) {
         context.coordinator.onSendData = onSendData
         context.coordinator.onResize = onResize
         context.coordinator.onTitle = onTitle
         context.coordinator.onStatus = onStatus
         configure(terminalView)
-        containerView.backgroundColor = terminalView.backgroundColor
-        containerView.applyTopChromeInset(topChromeInset)
         let nextFont = AppFont.terminalMonoUIFont(size: fontSize, textStyle: .caption1)
-        terminalView.applyTerminalFontIfNeeded(nextFont)
+        if let streamView = terminalView as? MMSStreamTerminalView {
+            streamView.applyTerminalFontIfNeeded(nextFont)
+        } else {
+            terminalView.font = nextFont
+        }
         context.coordinator.applyCommands(
             to: terminalView,
             paneTarget: paneTarget,
@@ -109,7 +106,7 @@ struct SwiftTerminalCanvasView: UIViewRepresentable {
         terminalView.isDirectionalLockEnabled = true
         terminalView.contentInsetAdjustmentBehavior = .never
         terminalView.contentInset = .zero
-        terminalView.verticalScrollIndicatorInsets = .zero
+        terminalView.scrollIndicatorInsets = .zero
         terminalView.indicatorStyle = usesDarkTheme ? .white : .black
         terminalView.keyboardDismissMode = .onDrag
         if let streamView = terminalView as? MMSStreamTerminalView {
@@ -623,70 +620,15 @@ private enum TerminalByte {
     static let stringTerminator: UInt8 = 0x5C
 }
 
-final class MMSStreamTerminalContainerView: UIView {
-    let terminalView: MMSStreamTerminalView
-    private var topChromeInset: CGFloat = 0
-
-    init(terminalView: MMSStreamTerminalView) {
-        self.terminalView = terminalView
-        super.init(frame: .zero)
-        clipsToBounds = true
-        addSubview(terminalView)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func applyTopChromeInset(_ inset: CGFloat) {
-        let clamped = max(0, inset)
-        let needsLayout = abs(topChromeInset - clamped) > 0.5
-        let needsTerminalInset = abs(terminalView.contentInset.top - clamped) > 0.5
-            || abs(terminalView.verticalScrollIndicatorInsets.top - clamped) > 0.5
-        guard needsLayout || needsTerminalInset else { return }
-        topChromeInset = clamped
-        terminalView.applyCanvasTopChromeInset(clamped)
-        if needsLayout {
-            setNeedsLayout()
-        }
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        terminalView.frame = bounds
-        terminalView.applyCanvasTopChromeInset(topChromeInset)
-    }
-}
-
-final class MMSStreamTerminalView: TerminalView {
+private final class MMSStreamTerminalView: TerminalView {
     private var preservedScrollY: CGFloat?
     private var preserveScrollUntil: TimeInterval = 0
     private var isApplyingStreamFeed = false
-    private var canvasTopChromeInset: CGFloat = 0
     private weak var suppressedCaretView: UIView?
     private let ghostSafeCursorOverlay = UIView(frame: .zero)
     private var hasInstalledGhostSafeCursorOverlay = false
     private var isGhostSafeCursorVisible = true
     private var hasPendingGhostSafeCursorRefresh = false
-
-    func applyCanvasTopChromeInset(_ inset: CGFloat) {
-        let clamped = min(max(0, inset), max(0, bounds.height - 120))
-        let previousInset = canvasTopChromeInset
-        guard abs(previousInset - clamped) > 0.5 ||
-            abs(contentInset.top - clamped) > 0.5 ||
-            abs(verticalScrollIndicatorInsets.top - clamped) > 0.5 else { return }
-
-        canvasTopChromeInset = clamped
-        contentInset.top = clamped
-        verticalScrollIndicatorInsets.top = clamped
-
-        let rebasedY = contentOffset.y + previousInset - clamped
-        let clampedY = clampedVerticalOffset(rebasedY)
-        super.setContentOffset(CGPoint(x: 0, y: clampedY), animated: false)
-        setNeedsDisplay(bounds)
-        scheduleGhostSafeCursorOverlayRefresh()
-    }
 
     func applyTerminalFontIfNeeded(_ newFont: UIFont) {
         guard fontSignature(for: font) != fontSignature(for: newFont) else { return }
@@ -838,9 +780,6 @@ final class MMSStreamTerminalView: TerminalView {
         if isTracking || isDragging || isDecelerating {
             preservedScrollY = y
             preserveScrollUntil = now + 1.5
-        } else if canvasTopChromeInset > 0, contentOffset.y <= 0.5 {
-            // SwiftTerm's scroller uses 0 as logical top; UIKit needs -topInset to reveal our glass spacer.
-            y = clampedVerticalOffset(-adjustedContentInset.top)
         } else if !isApplyingStreamFeed, now < preserveScrollUntil, let preservedScrollY, abs(y - maxY) < 1 {
             // SwiftTerm snaps to bottom on feed; keep manual scroll stable briefly.
             y = clampedVerticalOffset(preservedScrollY)
@@ -858,7 +797,7 @@ final class MMSStreamTerminalView: TerminalView {
     }
 
     private var maxVerticalOffset: CGFloat {
-        max(-adjustedContentInset.top, contentSize.height + adjustedContentInset.bottom - bounds.height)
+        max(0, contentSize.height + adjustedContentInset.bottom + adjustedContentInset.top - bounds.height)
     }
 
     private func clampedVerticalOffset(_ y: CGFloat) -> CGFloat {
