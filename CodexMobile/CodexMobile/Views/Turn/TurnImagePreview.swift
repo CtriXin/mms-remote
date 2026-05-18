@@ -46,8 +46,8 @@ struct ZoomableImagePreviewScreen: View {
         .sheet(isPresented: $isShowingShareSheet) {
             ActivityViewController(items: [payload.image])
         }
-        .alert("Image", isPresented: alertIsPresented, actions: {
-            Button("OK", role: .cancel) {
+        .alert(LocalizationManager.shared.localized("message.image"), isPresented: alertIsPresented, actions: {
+            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                 alertMessage = nil
             }
         }, message: {

@@ -64,7 +64,7 @@ struct OnboardingView: View {
         .preferredColorScheme(.dark)
         .alert(LocalizationManager.shared.localized("onboarding.install_codex_first"), isPresented: $isShowingCodexInstallReminder) {
             Button(LocalizationManager.shared.localized("onboarding.stay"), role: .cancel) {}
-            Button(LocalizationManager.shared.localized("onboarding.continue")) {
+            Button(LocalizationManager.shared.localized("onboarding.continue_anyway")) {
                 advanceToNextPage()
             }
         } message: {

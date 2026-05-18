@@ -743,7 +743,7 @@ struct ContentView: View {
                 .adaptiveToolbarItem(in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Menu")
+        .accessibilityLabel(LocalizationManager.shared.localized("accessibility.menu"))
     }
 
     private var manualPairingErrorAlertIsPresented: Binding<Bool> {
