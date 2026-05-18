@@ -584,44 +584,44 @@ enum CommandHumanizer {
         switch tool {
         case "cat", "nl", "head", "tail", "sed", "less", "more":
             return Info(
-                verb: isRunning ? "Reading" : "Read",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.reading") : LocalizationManager.shared.localized("cmd.read"),
                 target: lastPathComponents(from: args, fallback: "file")
             )
         case "rg", "grep", "ag", "ack":
             return Info(
-                verb: isRunning ? "Searching" : "Searched",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.searching") : LocalizationManager.shared.localized("cmd.searched"),
                 target: searchSummary(from: args)
             )
         case "ls":
             return Info(
-                verb: isRunning ? "Listing" : "Listed",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.listing") : LocalizationManager.shared.localized("cmd.listed"),
                 target: lastPathComponents(from: args, fallback: "directory")
             )
         case "find", "fd":
             return Info(
-                verb: isRunning ? "Finding" : "Found",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.finding") : LocalizationManager.shared.localized("cmd.found"),
                 target: lastPathComponents(from: args, fallback: "files")
             )
         case "mkdir":
             return Info(
-                verb: isRunning ? "Creating" : "Created",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.creating") : LocalizationManager.shared.localized("cmd.created"),
                 target: lastPathComponents(from: args, fallback: "directory")
             )
         case "rm":
             return Info(
-                verb: isRunning ? "Removing" : "Removed",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.removing") : LocalizationManager.shared.localized("cmd.removed"),
                 target: lastPathComponents(from: args, fallback: "file")
             )
         case "cp", "mv":
             return Info(
-                verb: isRunning ? (tool == "cp" ? "Copying" : "Moving") : (tool == "cp" ? "Copied" : "Moved"),
+                verb: isRunning ? (tool == "cp" ? LocalizationManager.shared.localized("cmd.copying") : LocalizationManager.shared.localized("cmd.running")) : (tool == "cp" ? LocalizationManager.shared.localized("cmd.moved") : LocalizationManager.shared.localized("cmd.moved")),
                 target: lastPathComponents(from: args, fallback: "file")
             )
         case "git":
             return gitInfo(args, isRunning: isRunning)
         default:
             return Info(
-                verb: isRunning ? "Running" : "Ran",
+                verb: isRunning ? LocalizationManager.shared.localized("cmd.running") : LocalizationManager.shared.localized("cmd.ran"),
                 target: command
             )
         }

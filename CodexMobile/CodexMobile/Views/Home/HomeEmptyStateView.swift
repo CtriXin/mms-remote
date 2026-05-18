@@ -147,31 +147,31 @@ struct HomeEmptyStateView<AuthSection: View, Footer: View>: View {
     private var statusLabel: String {
         switch connectionPhase {
         case .connecting:
-            guard let connectionAttemptStartedAt else { return "Connecting" }
+            guard let connectionAttemptStartedAt else { return LocalizationManager.shared.localized("connection.connecting") }
             let elapsed = Date().timeIntervalSince(connectionAttemptStartedAt)
-            if elapsed >= 12 { return "Still connecting…" }
-            return "Connecting"
+            if elapsed >= 12 { return LocalizationManager.shared.localized("connection.still_connecting") }
+            return LocalizationManager.shared.localized("connection.connecting")
         case .loadingChats:
-            return "Loading chats"
+            return LocalizationManager.shared.localized("connection.loading_chats")
         case .syncing:
-            return "Syncing"
+            return LocalizationManager.shared.localized("connection.syncing")
         case .connected:
-            return "Connected"
+            return LocalizationManager.shared.localized("connection.connected")
         case .offline:
-            return "Offline"
+            return LocalizationManager.shared.localized("connection.offline")
         }
     }
 
     private var primaryButtonTitle: String {
         switch connectionPhase {
         case .connecting:
-            return "Reconnecting..."
+            return LocalizationManager.shared.localized("connection.reconnecting")
         case .loadingChats:
-            return "Loading chats..."
+            return LocalizationManager.shared.localized("connection.loading_chats_progress")
         case .syncing:
-            return "Syncing..."
+            return LocalizationManager.shared.localized("connection.syncing_workspace")
         case .connected:
-            return "Disconnect"
+            return LocalizationManager.shared.localized("connection.disconnect")
         case .offline:
             return offlinePrimaryButtonTitle
         }

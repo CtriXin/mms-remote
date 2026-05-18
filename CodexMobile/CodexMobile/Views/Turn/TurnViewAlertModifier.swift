@@ -42,7 +42,7 @@ private struct TurnViewAlertModifier: ViewModifier {
                 Text(localized: "alert.no_changes")
             }
             .alert(
-                gitSyncAlert?.title ?? "Git",
+                gitSyncAlert?.title ?? LocalizationManager.shared.localized("git.title"),
                 isPresented: gitSyncAlertIsPresented,
                 presenting: gitSyncAlert
             ) { alert in
@@ -116,7 +116,7 @@ private struct TurnViewAlertModifier: ViewModifier {
         }
 
         if lines.isEmpty {
-            return "Codex is requesting permission to continue."
+            return LocalizationManager.shared.localized("turn.codex_requesting_permission")
         }
 
         return lines.joined(separator: "\n\n")

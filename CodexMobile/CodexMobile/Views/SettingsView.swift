@@ -132,7 +132,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             HStack {
                 Text(localized: "settings.model")
                 Spacer()
-                Picker("Model", selection: runtimeModelSelection) {
+                Picker(LocalizationManager.shared.localized("settings.model"), selection: runtimeModelSelection) {
                     Text(localized: "settings.auto").tag(runtimeAutoValue)
                     ForEach(runtimeModelOptions, id: \.id) { model in
                         Text(TurnComposerMetaMapper.modelTitle(for: model))
@@ -147,7 +147,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             HStack {
                 Text(localized: "settings.reasoning")
                 Spacer()
-                Picker("Reasoning", selection: runtimeReasoningSelection) {
+                Picker(LocalizationManager.shared.localized("settings.reasoning"), selection: runtimeReasoningSelection) {
                     Text(localized: "settings.auto").tag(runtimeAutoValue)
                     ForEach(runtimeReasoningOptions, id: \.id) { option in
                         Text(option.title).tag(option.effort)
@@ -163,7 +163,7 @@ private struct SettingsRuntimeDefaultsCard: View {
                 HStack {
                     Text(localized: "settings.speed")
                     Spacer()
-                    Picker("Speed", selection: runtimeServiceTierSelection) {
+                    Picker(LocalizationManager.shared.localized("settings.speed"), selection: runtimeServiceTierSelection) {
                         Text(localized: "settings.normal").tag(runtimeNormalValue)
                         ForEach(CodexServiceTier.allCases, id: \.rawValue) { tier in
                             Text(tier.displayName).tag(tier.rawValue)
@@ -178,7 +178,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             HStack {
                 Text(localized: "settings.access")
                 Spacer()
-                Picker("Access", selection: runtimeAccessSelection) {
+                Picker(LocalizationManager.shared.localized("settings.access"), selection: runtimeAccessSelection) {
                     ForEach(CodexAccessMode.allCases, id: \.self) { mode in
                         Text(mode.displayName).tag(mode)
                     }
@@ -193,7 +193,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             HStack {
                 Text(localized: "settings.git_writer_model")
                 Spacer()
-                Picker("Git writer model", selection: gitWriterModelSelection) {
+                Picker(LocalizationManager.shared.localized("settings.git_writer_model"), selection: gitWriterModelSelection) {
                     ForEach(gitWriterModelOptions, id: \.id) { model in
                         Text(TurnComposerMetaMapper.modelTitle(for: model))
                             .tag(model.id)
@@ -335,12 +335,12 @@ private struct SettingsConnectionCard: View {
             Divider()
 
             if codex.supportsKeepAwakeWhileBridgeRuns {
-                Toggle("Keep computer reachable", isOn: keepMacAwakeWhileBridgeRunsBinding)
+                Toggle(LocalizationManager.shared.localized("settings.keep_awake"), isOn: keepMacAwakeWhileBridgeRunsBinding)
                     .tint(settingsAccentColor)
 
                 Text(codex.keepMacAwakeWhileBridgeRuns
-                     ? "Uses the host computer's keep-awake support while the bridge is running so the computer stays reachable even if the display turns off. Best while charging."
-                     : "The computer can go back to sleeping normally when the bridge is idle.")
+                     ? LocalizationManager.shared.localized("settings.keep_awake_hint")
+                     : LocalizationManager.shared.localized("settings.keep_awake_idle_hint"))
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
 
@@ -413,11 +413,11 @@ private struct SettingsConnectionCard: View {
     private var connectionProgressLabel: String {
         switch codex.connectionPhase {
         case .connecting:
-            return "Connecting to relay..."
+            return LocalizationManager.shared.localized("connection.connecting_relay")
         case .loadingChats:
-            return "Loading chats..."
+            return LocalizationManager.shared.localized("connection.loading_chats_progress")
         case .syncing:
-            return "Syncing workspace..."
+            return LocalizationManager.shared.localized("connection.syncing_workspace")
         case .offline, .connected:
             return ""
         }
@@ -534,7 +534,7 @@ private struct SettingsUsageCard: View {
                 isLoadingRateLimits: codex.isLoadingRateLimits,
                 rateLimitsErrorMessage: codex.rateLimitsErrorMessage,
                 refreshControl: UsageStatusRefreshControl(
-                    title: "Refresh",
+                    title: LocalizationManager.shared.localized("settings.refresh_pets"),
                     isRefreshing: isRefreshing,
                     action: refreshStatus
                 )
@@ -591,7 +591,7 @@ private struct SettingsLanguageCard: View {
             HStack {
                 Text(LocalizationManager.shared.localized("settings.language"))
                 Spacer()
-                Picker("Language", selection: Binding(
+                Picker(LocalizationManager.shared.localized("settings.language"), selection: Binding(
                     get: { LocalizationManager.shared.currentLanguage },
                     set: { LocalizationManager.shared.currentLanguage = $0 }
                 )) {
@@ -659,7 +659,7 @@ private struct SettingsTerminalCard: View {
             HStack {
                 Text(LocalizationManager.shared.localized("terminal.settings.font"))
                 Spacer()
-                Picker("Terminal Font", selection: terminalFontBinding) {
+                Picker(LocalizationManager.shared.localized("terminal.settings.font"), selection: terminalFontBinding) {
                     ForEach(TerminalFontFamily.allCases) { family in
                         Text(family.localizedTitle).tag(family)
                     }
@@ -687,7 +687,7 @@ private struct SettingsTerminalCard: View {
             HStack {
                 Text(LocalizationManager.shared.localized("terminal.settings.visible_app"))
                 Spacer()
-                Picker("Mac Terminal App", selection: visibleAppBinding) {
+                Picker(LocalizationManager.shared.localized("terminal.settings.visible_app"), selection: visibleAppBinding) {
                     ForEach(TerminalVisibleAppPreference.allCases) { app in
                         Text(app.localizedTitle).tag(app)
                     }
@@ -744,7 +744,7 @@ private struct SettingsAppearanceCard: View {
             HStack {
                 Text(localized: "settings.theme")
                 Spacer()
-                Picker("Theme", selection: appThemeModeBinding) {
+                Picker(LocalizationManager.shared.localized("settings.theme"), selection: appThemeModeBinding) {
                     ForEach(AppThemeMode.allCases) { mode in
                         Text(mode.localizedTitle).tag(mode)
                     }
@@ -759,7 +759,7 @@ private struct SettingsAppearanceCard: View {
             HStack {
                 Text(localized: "settings.font")
                 Spacer()
-                Picker("Font", selection: $appFontStyle) {
+                Picker(LocalizationManager.shared.localized("settings.font"), selection: $appFontStyle) {
                     ForEach(AppFont.Style.allCases) { style in
                         Text(style.title).tag(style)
                     }
@@ -853,15 +853,15 @@ private struct SettingsPetCompanionSection: View {
             if petStore.isEnabled {
                 if petStore.availablePets.isEmpty {
                     Text(petStore.isLoading
-                         ? "Loading local Codex pets from your Mac..."
-                         : "No local Codex pets found in ~/.codex/pets.")
+                         ? LocalizationManager.shared.localized("pets.loading")
+                         : LocalizationManager.shared.localized("pets.not_found"))
                         .font(AppFont.caption())
                         .foregroundStyle(.secondary)
                 } else {
                     HStack {
                         Text(localized: "settings.pet")
                         Spacer()
-                        Picker("Pet", selection: selectedPetBinding) {
+                        Picker(LocalizationManager.shared.localized("settings.pet"), selection: selectedPetBinding) {
                             ForEach(petStore.availablePets) { pet in
                                 Text(pet.displayName).tag(pet.id)
                             }
@@ -983,12 +983,12 @@ private struct SettingsNotificationsCard: View {
 
     private var statusLabel: String {
         switch codex.notificationAuthorizationStatus {
-        case .authorized: "Authorized"
-        case .denied: "Denied"
-        case .provisional: "Provisional"
-        case .ephemeral: "Ephemeral"
-        case .notDetermined: "Not requested"
-        @unknown default: "Unknown"
+        case .authorized: return LocalizationManager.shared.localized("settings.notif_status.authorized")
+        case .denied: return LocalizationManager.shared.localized("settings.notif_status.denied")
+        case .provisional: return LocalizationManager.shared.localized("settings.notif_status.provisional")
+        case .ephemeral: return LocalizationManager.shared.localized("settings.notif_status.ephemeral")
+        case .notDetermined: return LocalizationManager.shared.localized("settings.notif_status.not_requested")
+        @unknown default: return LocalizationManager.shared.localized("settings.notif_status.unknown")
         }
     }
 }
@@ -1060,13 +1060,13 @@ private struct SettingsBridgeVersionCard: View {
             }
 
             settingsVersionRow(
-                title: "Installed on Computer",
+                title: LocalizationManager.shared.localized("bridge.version.installed_on_computer"),
                 value: installedVersionLabel,
                 valueStyle: installedValueStyle
             )
 
             settingsVersionRow(
-                title: "Latest available",
+                title: LocalizationManager.shared.localized("bridge.version.latest_available"),
                 value: latestVersionLabel,
                 valueStyle: .primary
             )
@@ -1089,11 +1089,11 @@ private struct SettingsBridgeVersionCard: View {
     }
 
     private var installedVersionLabel: String {
-        normalizedVersion(codex.bridgeInstalledVersion) ?? "Unknown"
+        normalizedVersion(codex.bridgeInstalledVersion) ?? LocalizationManager.shared.localized("settings.unknown")
     }
 
     private var latestVersionLabel: String {
-        normalizedVersion(codex.latestBridgePackageVersion) ?? "Unknown"
+        normalizedVersion(codex.latestBridgePackageVersion) ?? LocalizationManager.shared.localized("settings.unknown")
     }
 
     private var guidanceText: String? {
@@ -1231,7 +1231,7 @@ private struct SettingsAboutCard: View {
                 isShowingAbout = true
             } label: {
                 settingsAccessoryRow(
-                    title: "How MMS Remote Works",
+                    title: LocalizationManager.shared.localized("settings.how_it_works"),
                     leading: {
                         Image(systemName: "info.circle")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1245,7 +1245,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.feedbackMailtoURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Send Feedback",
+                    title: LocalizationManager.shared.localized("settings.send_feedback"),
                     leading: {
                         Image(systemName: "envelope")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1259,7 +1259,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Privacy Policy",
+                    title: LocalizationManager.shared.localized("settings.privacy_policy"),
                     leading: {
                         Image(systemName: "hand.raised")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1273,7 +1273,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.termsOfUseURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Terms of Use",
+                    title: LocalizationManager.shared.localized("settings.terms_of_use"),
                     leading: {
                         Image(systemName: "doc.text")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1373,7 +1373,7 @@ private struct SettingsTrustedComputerCard: View {
 
             if let detail = presentation.detail,
                !detail.isEmpty {
-                labeledRow("Status", value: detail)
+                labeledRow(LocalizationManager.shared.localized("settings.status"), value: detail)
             }
         }
         .padding(14)

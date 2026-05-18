@@ -120,7 +120,7 @@ final class ContentViewModel {
         }
 
         codex.shouldAutoReconnectOnForeground = false
-        codex.connectionRecoveryState = .retrying(attempt: 0, message: "Preparing reconnect...")
+        codex.connectionRecoveryState = .retrying(attempt: 0, message: LocalizationManager.shared.localized("connection.preparing_reconnect"))
         codex.lastErrorMessage = nil
         codex.cancelTrustedSessionResolve()
 
@@ -220,7 +220,7 @@ final class ContentViewModel {
             do {
                 codex.connectionRecoveryState = .retrying(
                     attempt: max(1, attempt + 1),
-                    message: "Reconnecting..."
+                    message: LocalizationManager.shared.localized("connection.reconnecting")
                 )
                 try await connect(codex: codex, serverURL: fullURL)
                 codex.connectionRecoveryState = .idle
@@ -278,7 +278,7 @@ final class ContentViewModel {
         if attempt >= maxAttempts {
             codex.shouldAutoReconnectOnForeground = false
             codex.connectionRecoveryState = .idle
-            codex.lastErrorMessage = "Could not reconnect. Tap Reconnect to try again."
+            codex.lastErrorMessage = LocalizationManager.shared.localized("connection.reconnect_failed")
         }
     }
 }
@@ -340,7 +340,7 @@ extension ContentViewModel {
             if attemptIndex > 0 {
                 codex.connectionRecoveryState = .retrying(
                     attempt: attemptIndex,
-                    message: "Connection timed out. Retrying..."
+                    message: LocalizationManager.shared.localized("connection.timed_out")
                 )
             }
 
@@ -454,7 +454,7 @@ extension ContentViewModel {
                 codex.secureConnectionState = .liveSessionUnresolved
                 codex.connectionRecoveryState = .idle
                 codex.shouldAutoReconnectOnForeground = false
-                codex.lastErrorMessage = "Trusted reconnect is unavailable from this relay endpoint. Update or check the relay/proxy, then reconnect. Scan a new QR code only if this Mac was reset."
+                codex.lastErrorMessage = LocalizationManager.shared.localized("connection.trusted_reconnect_unavailable")
                 return .stop
             }
             return .fallbackToSaved

@@ -27,14 +27,14 @@ private struct PaywallFeature: Identifiable {
 }
 
 private let paywallFeatures: [PaywallFeature] = [
-    .init(id: 0, icon: "bolt", title: "Fast mode"),
-    .init(id: 1, icon: "arrow.triangle.branch", title: "Git from your phone"),
-    .init(id: 2, icon: "lock.shield", title: "End-to-end encrypted"),
-    .init(id: 3, icon: "waveform", title: "Voice mode with speech-to-text"),
-    .init(id: 4, icon: "point.3.connected.trianglepath.dotted", title: "Subagents"),
-    .init(id: 5, icon: "at", title: "$skills, /commands & @file mentions"),
-    .init(id: 6, icon: "server.rack", title: "Hosted relay included"),
-    .init(id: 7, icon: "heart", title: "Support development"),
+    .init(id: 0, icon: "bolt", title: LocalizationManager.shared.localized("paywall.feature.fast.title")),
+    .init(id: 1, icon: "arrow.triangle.branch", title: LocalizationManager.shared.localized("paywall.feature.git.title")),
+    .init(id: 2, icon: "lock.shield", title: LocalizationManager.shared.localized("paywall.feature.e2ee.title")),
+    .init(id: 3, icon: "waveform", title: LocalizationManager.shared.localized("paywall.feature.voice.title")),
+    .init(id: 4, icon: "point.3.connected.trianglepath.dotted", title: LocalizationManager.shared.localized("paywall.feature.subagents.title")),
+    .init(id: 5, icon: "at", title: LocalizationManager.shared.localized("paywall.feature.skills.title")),
+    .init(id: 6, icon: "server.rack", title: LocalizationManager.shared.localized("paywall.feature.relay.title")),
+    .init(id: 7, icon: "heart", title: LocalizationManager.shared.localized("paywall.feature.support.title")),
 ]
 
 // MARK: - Main paywall
@@ -461,7 +461,7 @@ struct RevenueCatPaywallView: View {
     }
 
     private var selectedFooterDescription: String {
-        selectedPlan?.footerDescription ?? "Recurring billing. Cancel anytime."
+        selectedPlan?.footerDescription ?? LocalizationManager.shared.localized("paywall.footer.recurring")
     }
 
     // Keeps the pricing line compact by showing cadence inline with the main amount.

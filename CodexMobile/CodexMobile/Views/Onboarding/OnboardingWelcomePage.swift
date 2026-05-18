@@ -53,7 +53,7 @@ struct OnboardingWelcomePage: View {
                         Text("MMS Remote")
                             .font(AppFont.system(size: 32, weight: .bold))
 
-                        Text("Control Codex from your iPhone.")
+                        Text(LocalizationManager.shared.localized("onboarding.control_codex"))
                             .font(AppFont.subheadline(weight: .regular))
                             .foregroundStyle(.white.opacity(0.5))
                     }
@@ -61,7 +61,7 @@ struct OnboardingWelcomePage: View {
                     HStack(spacing: 6) {
                         Image(systemName: "lock.shield.fill")
                             .font(.system(size: 11, weight: .medium))
-                        Text("End-to-end encrypted")
+                        Text(LocalizationManager.shared.localized("onboarding.e2ee"))
                             .font(AppFont.caption(weight: .medium))
                     }
                     .foregroundStyle(.white.opacity(0.5))

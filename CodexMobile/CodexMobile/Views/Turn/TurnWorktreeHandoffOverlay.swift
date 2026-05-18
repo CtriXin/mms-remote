@@ -13,27 +13,27 @@ enum TurnWorktreeOverlayMode {
     var title: String {
         switch self {
         case .handoff:
-            return "Hand off thread to worktree"
+            return LocalizationManager.shared.localized("turn.handoff_worktree_title")
         case .fork:
-            return "Fork thread into new worktree"
+            return LocalizationManager.shared.localized("turn.fork_worktree_title")
         }
     }
 
     var message: String {
         switch self {
         case .handoff:
-            return "Create and check out a branch in a new worktree to continue in parallel. The branch is normalized with the mms-remote/ prefix."
+            return LocalizationManager.shared.localized("turn.handoff_desc")
         case .fork:
-            return "Create and check out a branch in a new worktree, then fork this conversation into that checkout as a new chat."
+            return LocalizationManager.shared.localized("turn.fork_desc")
         }
     }
 
     var submitLabel: String {
         switch self {
         case .handoff:
-            return "Hand off"
+            return LocalizationManager.shared.localized("turn.handoff")
         case .fork:
-            return "Fork"
+            return LocalizationManager.shared.localized("turn.fork")
         }
     }
 }

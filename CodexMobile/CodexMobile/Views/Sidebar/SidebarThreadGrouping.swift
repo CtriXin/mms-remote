@@ -65,7 +65,7 @@ enum SidebarThreadGrouping {
             groups.append(
                 SidebarThreadGroup(
                     id: "pinned",
-                    label: "Pinned",
+                    label: LocalizationManager.shared.localized("sidebar.pinned"),
                     kind: .pinned,
                     sortDate: firstPinned.updatedAt ?? firstPinned.createdAt ?? .distantPast,
                     projectPath: nil,
@@ -81,7 +81,7 @@ enum SidebarThreadGrouping {
             groups.append(
                 SidebarThreadGroup(
                     id: "archived",
-                    label: "Archived (\(sortedArchived.count))",
+                    label: String(format: LocalizationManager.shared.localized("sidebar.archived_count"), sortedArchived.count),
                     kind: .archived,
                     sortDate: firstArchived.updatedAt ?? firstArchived.createdAt ?? .distantPast,
                     projectPath: nil,
@@ -142,7 +142,7 @@ enum SidebarThreadGrouping {
         let sortDate = representativeThread?.updatedAt ?? representativeThread?.createdAt ?? .distantPast
         return SidebarThreadGroup(
             id: "project:\(projectKey)",
-            label: representativeThread?.projectDisplayName ?? "Cloud",
+            label: representativeThread?.projectDisplayName ?? LocalizationManager.shared.localized("sidebar.cloud"),
             kind: .project,
             sortDate: sortDate,
             projectPath: representativeThread?.normalizedProjectPath,

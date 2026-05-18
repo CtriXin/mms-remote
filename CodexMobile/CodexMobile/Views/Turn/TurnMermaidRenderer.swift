@@ -149,7 +149,7 @@ private struct MermaidBlockView: View {
                 onDismiss: { previewImage = nil }
             )
         }
-        .alert("Image", isPresented: saveAlertIsPresented, actions: {
+        .alert(LocalizationManager.shared.localized("message.image"), isPresented: saveAlertIsPresented, actions: {
             Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                 saveAlertMessage = nil
             }

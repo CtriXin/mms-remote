@@ -150,7 +150,7 @@ struct UsageStatusSummaryContent: View {
                         .font(AppFont.system(size: 12, weight: .semibold))
                 }
 
-                Text(refreshControl.isRefreshing ? "Refreshing..." : refreshControl.title)
+                Text(refreshControl.isRefreshing ? LocalizationManager.shared.localized("common.refreshing") : refreshControl.title)
                     .font(AppFont.subheadline(weight: .semibold))
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -168,7 +168,7 @@ struct UsageStatusSummaryContent: View {
 
                 Spacer(minLength: 12)
 
-                Text("\(row.window.remainingPercent)% left")
+                Text(String(format: LocalizationManager.shared.localized("usage.percent_left"), row.window.remainingPercent))
                     .font(AppFont.mono(.callout))
                     .foregroundStyle(.primary)
 

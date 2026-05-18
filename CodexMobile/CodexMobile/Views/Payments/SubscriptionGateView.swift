@@ -15,14 +15,14 @@ private struct SubscriptionGateFeature: Identifiable {
 }
 
 private let subscriptionGateFeatures: [SubscriptionGateFeature] = [
-    .init(id: 0, icon: "bolt.fill", title: "Fast mode", subtitle: "Lower-latency turns for quick interactions"),
-    .init(id: 1, icon: "arrow.triangle.branch", title: "Git from your phone", subtitle: "Commit, push, pull, and switch branches"),
-    .init(id: 2, icon: "lock.shield.fill", title: "E2EE", subtitle: "The relay never sees your prompts or code"),
-    .init(id: 3, icon: "waveform", title: "Voice mode", subtitle: "Speech-to-text transcription for your messages"),
-    .init(id: 4, icon: "point.3.connected.trianglepath.dotted", title: "Subagents", subtitle: "Delegate complex tasks to specialized sub-agents"),
-    .init(id: 5, icon: "at", title: "$skills /cmds @files", subtitle: "Invoke skills, run slash commands, and mention files inline"),
-    .init(id: 6, icon: "server.rack", title: "Hosted relay", subtitle: "You are paying for the product and the hosted path"),
-    .init(id: 7, icon: "heart", title: "Support development", subtitle: "Help keep MMS Remote independent and open source"),
+    .init(id: 0, icon: "bolt.fill", title: LocalizationManager.shared.localized("paywall.feature.fast.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.fast.description")),
+    .init(id: 1, icon: "arrow.triangle.branch", title: LocalizationManager.shared.localized("paywall.feature.git.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.git.description")),
+    .init(id: 2, icon: "lock.shield.fill", title: LocalizationManager.shared.localized("paywall.feature.e2ee.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.e2ee.description")),
+    .init(id: 3, icon: "waveform", title: LocalizationManager.shared.localized("paywall.feature.voice.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.voice.description")),
+    .init(id: 4, icon: "point.3.connected.trianglepath.dotted", title: LocalizationManager.shared.localized("paywall.feature.subagents.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.subagents.description")),
+    .init(id: 5, icon: "at", title: LocalizationManager.shared.localized("paywall.feature.skills.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.skills.description")),
+    .init(id: 6, icon: "server.rack", title: LocalizationManager.shared.localized("paywall.feature.relay.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.relay.description")),
+    .init(id: 7, icon: "heart", title: LocalizationManager.shared.localized("paywall.feature.support.title"), subtitle: LocalizationManager.shared.localized("paywall.feature.support.description")),
 ]
 
 struct SubscriptionGatePreviewPlan: Identifiable {

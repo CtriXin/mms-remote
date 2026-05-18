@@ -18,7 +18,7 @@ struct PlanSystemCard: View {
 
     private var bodyText: String {
         let trimmed = message.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let placeholders: Set<String> = ["Planning..."]
+        let placeholders: Set<String> = [LocalizationManager.shared.localized("turn.planning")]
         guard !trimmed.isEmpty, !placeholders.contains(trimmed) else {
             return ""
         }
@@ -63,7 +63,7 @@ struct PlanSystemCard: View {
             .min()
     }
     var body: some View {
-        PlanModeCardContainer(title: "Plan", showsProgress: message.isStreaming) {
+        PlanModeCardContainer(title: LocalizationManager.shared.localized("turn.plan"), showsProgress: message.isStreaming) {
             if let inferredQuestionnaire {
                 if let introText = inferredQuestionnaire.introText {
                     MarkdownTextView(text: introText, profile: .assistantProse)
@@ -528,11 +528,11 @@ private struct PlanStepRow: View {
     private var statusLabel: String {
         switch step.status {
         case .pending:
-            return "Pending"
+            return LocalizationManager.shared.localized("turn.pending")
         case .inProgress:
-            return "In progress"
+            return LocalizationManager.shared.localized("turn.in_progress")
         case .completed:
-            return "Completed"
+            return LocalizationManager.shared.localized("turn.completed")
         }
     }
 
@@ -828,8 +828,8 @@ enum InferredPlanQuestionnaireParser {
             questions: [
                 CodexStructuredUserInputQuestion(
                     id: "inferred_plan_next_step",
-                    header: "Next step",
-                    question: "What should Codex produce next?",
+                    header: LocalizationManager.shared.localized("turn.next_step"),
+                    question: LocalizationManager.shared.localized("turn.next_step_prompt"),
                     isOther: false,
                     isSecret: false,
                     options: options

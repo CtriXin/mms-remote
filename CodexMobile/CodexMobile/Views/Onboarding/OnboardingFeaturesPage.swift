@@ -13,11 +13,11 @@ struct OnboardingFeaturesPage: View {
 
             VStack(spacing: 40) {
                 VStack(spacing: 10) {
-                    Text("What you get")
+                    Text(LocalizationManager.shared.localized("onboarding.what_you_get"))
                         .font(AppFont.system(size: 28, weight: .bold))
                         .foregroundStyle(.white)
 
-                    Text("Everything runs on your computer.\nYour phone is the remote.")
+                    Text(LocalizationManager.shared.localized("onboarding.everything_local"))
                         .font(AppFont.subheadline())
                         .foregroundStyle(.white.opacity(0.45))
                         .multilineTextAlignment(.center)
@@ -28,32 +28,32 @@ struct OnboardingFeaturesPage: View {
                     featureRow(
                         icon: "hare.fill",
                         color: .yellow,
-                        title: "Fast mode",
-                        subtitle: "Lower-latency turns for quick interactions"
+                        title: LocalizationManager.shared.localized("onboarding.feature.fast"),
+                        subtitle: LocalizationManager.shared.localized("paywall.feature.fast.description")
                     )
                     featureRow(
                         icon: "arrow.triangle.branch",
                         color: .green,
-                        title: "Git from your phone",
-                        subtitle: "Commit, push, pull, and switch branches"
+                        title: LocalizationManager.shared.localized("onboarding.feature.git"),
+                        subtitle: LocalizationManager.shared.localized("paywall.feature.git.description")
                     )
                     featureRow(
                         icon: "lock.shield.fill",
                         color: .cyan,
-                        title: "End-to-end encrypted",
-                        subtitle: "The relay never sees your prompts or code"
+                        title: LocalizationManager.shared.localized("onboarding.feature.e2ee"),
+                        subtitle: LocalizationManager.shared.localized("paywall.feature.e2ee.description")
                     )
                     featureRow(
                         icon: "waveform",
                         color: .purple,
-                        title: "Voice mode",
-                        subtitle: "Talk to Codex with speech-to-text"
+                        title: LocalizationManager.shared.localized("onboarding.feature.voice"),
+                        subtitle: LocalizationManager.shared.localized("paywall.feature.voice.description")
                     )
                     featureRow(
                         icon: "point.3.connected.trianglepath.dotted",
                         color: .orange,
-                        title: "Subagents, skills and /commands",
-                        subtitle: "Spawn and monitor parallel agents from your phone"
+                        title: LocalizationManager.shared.localized("onboarding.feature.subagents"),
+                        subtitle: LocalizationManager.shared.localized("paywall.feature.subagents.description")
                     )
                 }
                 .padding(.horizontal, 4)

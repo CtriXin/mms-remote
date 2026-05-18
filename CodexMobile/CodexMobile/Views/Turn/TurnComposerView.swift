@@ -258,7 +258,7 @@ struct TurnComposerView: View {
     }
 
     private var placeholderText: String {
-        isEmptyThread ? "Ask anything... @plugins, $skills, /commands" : "Ask for follow-up changes"
+        isEmptyThread ? LocalizationManager.shared.localized("turn.ask_placeholder") : LocalizationManager.shared.localized("turn.followup_placeholder")
     }
 
 }
@@ -442,10 +442,10 @@ private struct TurnComposerAccessorySection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ComposerActionChip(
-                            title: "Subagents",
+                            title: LocalizationManager.shared.localized("turn.subagents"),
                             symbolName: "point.3.connected.trianglepath.dotted",
                             tintColor: .teal,
-                            removeAccessibilityLabel: "Remove subagents"
+                            removeAccessibilityLabel: LocalizationManager.shared.localized("turn.remove_subagents")
                         ) {
                             onRemoveComposerSubagentsSelection()
                         }
@@ -460,10 +460,10 @@ private struct TurnComposerAccessorySection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ComposerActionChip(
-                            title: "Code Review: \(reviewTarget.title)",
+                            title: String(format: LocalizationManager.shared.localized("turn.code_review"), reviewTarget.title),
                             symbolName: "checklist",
                             tintColor: .teal,
-                            removeAccessibilityLabel: "Remove code review"
+                            removeAccessibilityLabel: LocalizationManager.shared.localized("turn.remove_code_review")
                         ) {
                             onRemoveComposerReviewSelection()
                         }
@@ -726,7 +726,7 @@ private struct ComposerPreviewContent: View {
                 systemImageName: "mic",
                 foregroundColor: Color(.secondaryLabel),
                 backgroundColor: .clear,
-                accessibilityLabel: "Start voice transcription",
+                accessibilityLabel: LocalizationManager.shared.localized("turn.voice_start"),
                 isDisabled: false,
                 showsProgress: false,
                 hasCircleBackground: false

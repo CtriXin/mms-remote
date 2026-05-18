@@ -47,7 +47,7 @@ struct SubagentActionCard: View {
                 title: title,
                 accentColor: SubagentLabelParser.nicknameColor(for: title),
                 statusText: readableStatus(resolvedStatus(for: resolved).label),
-                modelTitle: resolved.modelIsRequestedHint ? "Requested model" : "Model",
+                modelTitle: resolved.modelIsRequestedHint ? LocalizationManager.shared.localized("turn.requested_model") : LocalizationManager.shared.localized("turn.model"),
                 modelLabel: resolvedModelLabel(for: resolved, prefixRequested: false),
                 instructionText: trimmedValue(resolved.prompt) ?? trimmedValue(action.prompt),
                 latestUpdateText: trimmedValue(resolved.fallbackMessage),
@@ -175,57 +175,57 @@ struct SubagentActionCard: View {
         switch action.normalizedTool {
         case "spawnagent":
             switch label {
-            case "running": return "Starting child thread"
-            case "completed": return "Child thread created"
-            case "failed": return "Could not create child thread"
-            case "stopped": return "Spawn interrupted"
-            case "queued": return "Queued for spawn"
-            default: return "Preparing child thread"
+            case "running": return LocalizationManager.shared.localized("subagent.starting")
+            case "completed": return LocalizationManager.shared.localized("subagent.created")
+            case "failed": return LocalizationManager.shared.localized("subagent.create_failed")
+            case "stopped": return LocalizationManager.shared.localized("subagent.spawn_interrupted")
+            case "queued": return LocalizationManager.shared.localized("subagent.queued")
+            default: return LocalizationManager.shared.localized("subagent.preparing")
             }
         case "wait", "waitagent":
             switch label {
-            case "running": return "Still working"
-            case "completed": return "Finished"
-            case "failed": return "Finished with error"
-            case "stopped": return "Stopped early"
-            case "queued": return "Queued"
-            default: return "Waiting for updates"
+            case "running": return LocalizationManager.shared.localized("subagent.working")
+            case "completed": return LocalizationManager.shared.localized("subagent.finished")
+            case "failed": return LocalizationManager.shared.localized("subagent.finished_error")
+            case "stopped": return LocalizationManager.shared.localized("subagent.stopped")
+            case "queued": return LocalizationManager.shared.localized("subagent.queued")
+            default: return LocalizationManager.shared.localized("subagent.waiting")
             }
         case "sendinput":
             switch label {
-            case "running": return "Working on new instructions"
-            case "completed": return "Processed the update"
-            case "failed": return "Update failed"
-            case "stopped": return "Update interrupted"
-            case "queued": return "Queued update"
-            default: return "Instructions sent"
+            case "running": return LocalizationManager.shared.localized("subagent.processing")
+            case "completed": return LocalizationManager.shared.localized("subagent.processed")
+            case "failed": return LocalizationManager.shared.localized("subagent.update_failed")
+            case "stopped": return LocalizationManager.shared.localized("subagent.update_interrupted")
+            case "queued": return LocalizationManager.shared.localized("subagent.queued_update")
+            default: return LocalizationManager.shared.localized("subagent.instructions_sent")
             }
         case "resumeagent":
             switch label {
-            case "running": return "Back to work"
-            case "completed": return "Resumed and completed"
-            case "failed": return "Resume failed"
-            case "stopped": return "Resume interrupted"
-            case "queued": return "Queued to resume"
-            default: return "Resuming agent"
+            case "running": return LocalizationManager.shared.localized("subagent.back_to_work")
+            case "completed": return LocalizationManager.shared.localized("subagent.resumed_completed")
+            case "failed": return LocalizationManager.shared.localized("subagent.resume_failed")
+            case "stopped": return LocalizationManager.shared.localized("subagent.resume_interrupted")
+            case "queued": return LocalizationManager.shared.localized("subagent.queued_resume")
+            default: return LocalizationManager.shared.localized("subagent.resuming")
             }
         case "closeagent":
             switch label {
-            case "running": return "Closing"
-            case "completed": return "Closed"
-            case "failed": return "Close failed"
-            case "stopped": return "Close interrupted"
-            case "queued": return "Queued to close"
-            default: return "Closing agent"
+            case "running": return LocalizationManager.shared.localized("subagent.closing")
+            case "completed": return LocalizationManager.shared.localized("subagent.closed")
+            case "failed": return LocalizationManager.shared.localized("subagent.close_failed")
+            case "stopped": return LocalizationManager.shared.localized("subagent.close_interrupted")
+            case "queued": return LocalizationManager.shared.localized("subagent.queued_close")
+            default: return LocalizationManager.shared.localized("subagent.closing_agent")
             }
         default:
             switch label {
-            case "running": return "Working now"
-            case "completed": return "Completed"
-            case "failed": return "Ended with error"
-            case "stopped": return "Stopped"
-            case "queued": return "Queued"
-            default: return "Idle"
+            case "running": return LocalizationManager.shared.localized("subagent.working_now")
+            case "completed": return LocalizationManager.shared.localized("subagent.finished")
+            case "failed": return LocalizationManager.shared.localized("subagent.ended_error")
+            case "stopped": return LocalizationManager.shared.localized("subagent.stopped")
+            case "queued": return LocalizationManager.shared.localized("subagent.queued")
+            default: return LocalizationManager.shared.localized("subagent.idle")
             }
         }
     }

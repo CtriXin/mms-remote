@@ -15,13 +15,13 @@ enum ConnectionRecoveryStatus: Equatable {
     var label: String {
         switch self {
         case .interrupted:
-            return "Interrupted"
+            return LocalizationManager.shared.localized("connection.interrupted")
         case .reconnecting:
-            return "Reconnecting"
+            return LocalizationManager.shared.localized("connection.reconnecting")
         case .actionRequired:
-            return "Action Needed"
+            return LocalizationManager.shared.localized("connection.action_needed")
         case .syncing:
-            return "Syncing"
+            return LocalizationManager.shared.localized("connection.syncing")
         }
     }
 
@@ -53,7 +53,7 @@ struct ConnectionRecoverySnapshot: Equatable {
     let trailingStyle: ConnectionRecoveryTrailingStyle
 
     init(
-        title: String = "Connection",
+        title: String = LocalizationManager.shared.localized("connection.title"),
         summary: String,
         detail: String? = nil,
         status: ConnectionRecoveryStatus,
@@ -94,7 +94,9 @@ struct ConnectionRecoveryCard: View {
         .opacity(snapshot.isActionable ? 1 : 0.94)
         .accessibilityLabel(snapshot.title)
         .accessibilityValue(snapshot.status.label)
-        .accessibilityHint(snapshot.isActionable ? "Opens the suggested recovery action" : "Shows the current recovery status")
+        .accessibilityHint(snapshot.isActionable
+            ? LocalizationManager.shared.localized("connection.hint_actionable")
+            : LocalizationManager.shared.localized("connection.hint_status"))
     }
 
     private var leadingMarker: some View {

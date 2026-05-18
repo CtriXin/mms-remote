@@ -240,19 +240,19 @@ struct ContentView: View {
             } message: { _ in
                 Text(LocalizationManager.shared.localized("alert.chat_deleted_message"))
             }
-            .alert("Pairing Error", isPresented: manualPairingErrorAlertIsPresented) {
+            .alert(LocalizationManager.shared.localized("pairing.error"), isPresented: manualPairingErrorAlertIsPresented) {
                 Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                     manualPairingErrorMessage = nil
                 }
             } message: {
                 Text(manualPairingErrorAlertMessage)
             }
-            .alert("Enter Pairing Code", isPresented: $isShowingManualPairingEntry) {
+            .alert(LocalizationManager.shared.localized("pairing.enter_code"), isPresented: $isShowingManualPairingEntry) {
                 TextField("AB23CD34EF", text: $manualPairingCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
 
-                Button(isResolvingManualPairingCode ? "Connecting..." : "Enter") {
+                Button(isResolvingManualPairingCode ? LocalizationManager.shared.localized("pairing.connecting") : LocalizationManager.shared.localized("pairing.enter")) {
                     submitManualPairingCode()
                 }
 
@@ -743,7 +743,7 @@ struct ContentView: View {
                 .adaptiveToolbarItem(in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Menu")
+        .accessibilityLabel(LocalizationManager.shared.localized("accessibility.menu"))
     }
 
     private var manualPairingErrorAlertIsPresented: Binding<Bool> {
