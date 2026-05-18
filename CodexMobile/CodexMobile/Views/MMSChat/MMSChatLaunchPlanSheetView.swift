@@ -247,7 +247,7 @@ struct MMSChatLaunchPlanSheetView: View {
             configFound = providerResponse.found
             selectDefaults()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
         isLoadingMetadata = false
     }
@@ -264,7 +264,7 @@ struct MMSChatLaunchPlanSheetView: View {
                 launchPlan = try await codex.mmsLaunchPlan(cwd: trimmedCwd, provider: selectedModel.provider, model: selectedModel.model)
             }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
         isLoadingPlan = false
     }

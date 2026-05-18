@@ -1,0 +1,80 @@
+{
+  "verdict": "ACCEPTABLE_WITH_UNRELATED_TEST_TARGET_BLOCKER",
+  "closure_event": "closure_repair_P8G",
+  "head_commit": "e4d2844732759d3d95f80a93c789f721435e593d",
+  "validated_at": "2026-05-17",
+  "closure_repaired_at": "2026-05-17T17:50:00Z",
+  "trace": "trc-20260516T082907Z-f43b858883",
+  "host_intake_refs": [
+    ".ai/plan/p184-mmschat-p8g-host-intake.md",
+    ".ai/plan/p184-mmschat-p8g-host-intake.json"
+  ],
+  "files_changed": {
+    "tracked_modified": [
+      "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+      "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+      "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
+      "CodexMobile/CodexMobile/Views/MMSChat/MMSChatLaunchPlanSheetView.swift",
+      "CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift"
+    ],
+    "untracked_new": [
+      "CodexMobile/CodexMobile/Services/MMSChatErrorClassifier.swift",
+      "CodexMobile/CodexMobileTests/MMSChatErrorClassifierTests.swift",
+      ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.json",
+      ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.md"
+    ]
+  },
+  "diff_stat": {
+    "files_changed": 5,
+    "insertions": 21,
+    "deletions": 11
+  },
+  "line_counts": {
+    "MMSChatErrorClassifier.swift": 163,
+    "MMSChatErrorClassifierTests.swift": 88
+  },
+  "behavior_summary": {
+    "classifier": "MMSChatErrorClassifier (163 lines) classifies errors into 3 categories: bridgeMismatch (RPC code -32601 or combined-fragment check: any fragment contains 'mmschat/' AND any fragment contains hint like 'unsupported'/'missing'/'not found'/'not supported'/'unknown method'/'not implemented'), disconnected (CodexServiceError.disconnected or connection-lost fragments), other (generic fallback). Combined-fragment logic resolves reviewer HIGH finding about split data: { method: 'mmschat/list', reason: 'not supported' } where method and reason appear in separate SSE fragments.",
+    "classifier_tests": "MMSChatErrorClassifierTests (88 lines) covers direct RPCError cases, wrapped CodexServiceError.rpcError cases, split method/reason data direct RPCError, and wrapped split-fragment scenarios. Includes tests for bridgeMismatch, disconnected, and other categories.",
+    "localization": "3 new keys added in both zh-Hans and en: mmschat.error_bridge_mismatch (advises updating Mac Bridge and re-pairing), mmschat.error_connection_lost (advises confirming Mac is online and restarting Bridge), mmschat.error_generic (temporarily unavailable, retry later).",
+    "view_sites": "11 error catch sites across MMSChatListView (list load, demo seed, hide), MMSChatDetailView (detail load, open visible, hide session, clear cache, resume, send stop), and MMSChatLaunchPlanSheetView (load metadata, load plan) now route through MMSChatErrorClassifier.localizedMessage(for:) instead of raw error.localizedDescription.",
+    "empty_list": "Empty-list behavior unaffected—only error path changed.",
+    "project": "project.pbxproj updated with PBXBuildFile, PBXFileReference, group membership, and Sources build phase for MMSChatErrorClassifierTests.swift."
+  },
+  "host_validation": {
+    "source": "Host (Claude) executed validation in P8G worktree",
+    "git_diff_check": {
+      "status": "PASS",
+      "detail": "No output, no whitespace issues"
+    },
+    "xcodebuild_app_build": {
+      "status": "PASS",
+      "log": "/tmp/p184-p8g-host-xcodebuild.log",
+      "marker": "** BUILD SUCCEEDED **",
+      "detail": "App target CodexMobile built successfully for iPhone 17 simulator (Debug)"
+    },
+    "xctest_targeted": {
+      "status": "BLOCKED",
+      "log": "/tmp/p184-p8g-host-xctest.log",
+      "detail": "Test command 'xcodebuild test -only-testing:CodexMobileTests/MMSChatErrorClassifierTests' failed to compile because of an existing unrelated test-target compile error in CodexMobile/CodexMobileTests/TurnViewModelQueueTests.swift at lines 261 and 285 ('Errors thrown from here are not handled'). This is a pre-existing test-target issue, not caused by P8G changes.",
+      "blocker": {
+        "file": "CodexMobile/CodexMobileTests/TurnViewModelQueueTests.swift",
+        "lines": [261, 285],
+        "error": "Errors thrown from here are not handled",
+        "caused_by_p8g": false
+      }
+    }
+  },
+  "reviewer_findings": {
+    "HIGH_split_fragment": "RESOLVED — Classifier now uses combined-fragment check: any fragment contains 'mmschat/' AND any fragment contains a hint keyword => bridgeMismatch. Tests added for split method/reason data in both direct RPCError and wrapped CodexServiceError.rpcError cases."
+  },
+  "notes": {
+    "main_worktree": "Untouched. All work confined to p184-mmschat-p8g-bridge-version-guard worktree.",
+    "bridge_runtime": "Untouched. No bridge code (mms-remote-bridge/) was modified. User daemon, relay, pairing, and QR flow untouched.",
+    "product_code": "No P8G bugs found. All 11 catch sites correctly wired. Combined-fragment logic tested. Localization keys present in both locales.",
+    "residual_risks": [
+      "XCTests could not run due to unrelated TurnViewModelQueueTests.swift compile error (lines 261, 285); MMSChatErrorClassifierTests correctness relies on static code inspection validated by host review.",
+      "Phone reinstall and main apply remain HumanGate—user must verify on device."
+    ]
+  }
+}

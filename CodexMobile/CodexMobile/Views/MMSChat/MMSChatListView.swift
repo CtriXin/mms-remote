@@ -225,7 +225,7 @@ struct MMSChatListView: View {
             let response = try await codex.mmschatList()
             sessions = response.sessions.filter { !$0.hidden }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
         isLoading = false
     }
@@ -241,7 +241,7 @@ struct MMSChatListView: View {
             let response = try await codex.mmschatDemoSeed()
             sessions = response.sessions.filter { !$0.hidden }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
         isSeedingDemo = false
     }
@@ -252,7 +252,7 @@ struct MMSChatListView: View {
             _ = try await codex.mmschatHide(mmschatId: session.mmschatId, hidden: true)
             sessions.removeAll { $0.mmschatId == session.mmschatId }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
     }
 }

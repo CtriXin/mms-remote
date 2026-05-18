@@ -46,6 +46,7 @@
 		E1A2B3C4D5E6F708192A3B4C /* QRScannerPairingValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F708192A3B4D /* QRScannerPairingValidatorTests.swift */; };
 		E9A1B2C3D4E5F60718293A10 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = E9A1B2C3D4E5F60718293A11 /* SwiftTerm */; };
 		F1B2C3D4E5F60718293A4B10 /* CodexGPTAccountTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B2C3D4E5F60718293A4B11 /* CodexGPTAccountTests.swift */; };
+		F2A3B4C5D6E7F8091A2B3C4C /* MMSChatErrorClassifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E7F8091A2B3C4D /* MMSChatErrorClassifierTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -109,6 +110,7 @@
 		F0EE6A924EE6B288E7D0DFE1 /* CodexMobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F1B2C3D4E5F60718293A4B11 /* CodexGPTAccountTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CodexGPTAccountTests.swift; sourceTree = "<group>"; };
 		FBC8EB1341C49A392A43BFB3 /* CodexMobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2A3B4C5D6E7F8091A2B3C4D /* MMSChatErrorClassifierTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MMSChatErrorClassifierTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -186,6 +188,7 @@
 				A9F1B2C3D4E5F60718293A47 /* CodexStructuredUserInputDecodeTests.swift */,
 				B3C4D5E6F708192A3B4C5D6F /* CodexPlanModeTests.swift */,
 				4EEB36EBEA2A475AC9B30B1F /* TurnTimelineReducerTests.swift */,
+				F2A3B4C5D6E7F8091A2B3C4D /* MMSChatErrorClassifierTests.swift */,
 			);
 			path = CodexMobileTests;
 			sourceTree = "<group>";
@@ -496,6 +499,7 @@
 				A9F1B2C3D4E5F60718293A46 /* CodexStructuredUserInputDecodeTests.swift in Sources */,
 				B3C4D5E6F708192A3B4C5D6E /* CodexPlanModeTests.swift in Sources */,
 				4CCE0926DAD312571934343A /* TurnTimelineReducerTests.swift in Sources */,
+				F2A3B4C5D6E7F8091A2B3C4C /* MMSChatErrorClassifierTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

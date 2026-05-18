@@ -665,7 +665,7 @@ struct MMSChatDetailView: View {
         do {
             detailResponse = try await codex.mmschatDetail(mmschatId: session.mmschatId)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
         isLoading = false
     }
@@ -675,7 +675,7 @@ struct MMSChatDetailView: View {
         do {
             _ = try await codex.mmschatOpenVisible(mmschatId: session.mmschatId)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
     }
 
@@ -686,7 +686,7 @@ struct MMSChatDetailView: View {
             onHidden(response.session)
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = MMSChatErrorClassifier.localizedMessage(for: error)
         }
     }
 
@@ -701,7 +701,7 @@ struct MMSChatDetailView: View {
             showCacheClearResult = true
             await loadDetail()
         } catch {
-            cacheClearResultMessage = error.localizedDescription
+            cacheClearResultMessage = MMSChatErrorClassifier.localizedMessage(for: error)
             showCacheClearResult = true
         }
         isLoading = false
@@ -723,7 +723,7 @@ struct MMSChatDetailView: View {
                 inlineStatusIsError = true
             }
         } catch {
-            inlineStatusMessage = error.localizedDescription
+            inlineStatusMessage = MMSChatErrorClassifier.localizedMessage(for: error)
             inlineStatusIsError = true
         }
         isResuming = false
@@ -747,7 +747,7 @@ struct MMSChatDetailView: View {
                 inlineStatusIsError = true
             }
         } catch {
-            inlineStatusMessage = error.localizedDescription
+            inlineStatusMessage = MMSChatErrorClassifier.localizedMessage(for: error)
             inlineStatusIsError = true
         }
         isSending = false
