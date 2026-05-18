@@ -321,6 +321,7 @@ extension SwiftTerminalCanvasView {
             escapeFilterState = .none
             terminalView.getTerminal().resetToInitialState()
             terminalView.setContentOffset(.zero, animated: false)
+            (terminalView as? MMSStreamTerminalView)?.reapplyCanvasTopChromeInsetAfterTerminalUpdate(force: true)
         }
 
         private func normalizedOutputBytes(from data: Data) -> [UInt8] {
@@ -641,20 +642,21 @@ final class MMSStreamTerminalContainerView: UIView {
 
     func applyTopChromeInset(_ inset: CGFloat) {
         let clamped = max(0, inset)
-        guard abs(topChromeInset - clamped) > 0.5 else { return }
+        let needsLayout = abs(topChromeInset - clamped) > 0.5
+        let needsTerminalInset = abs(terminalView.contentInset.top - clamped) > 0.5
+            || abs(terminalView.scrollIndicatorInsets.top - clamped) > 0.5
+        guard needsLayout || needsTerminalInset else { return }
         topChromeInset = clamped
-        setNeedsLayout()
+        terminalView.applyCanvasTopChromeInset(clamped)
+        if needsLayout {
+            setNeedsLayout()
+        }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let inset = min(max(0, topChromeInset), max(0, bounds.height - 80))
-        terminalView.frame = CGRect(
-            x: 0,
-            y: inset,
-            width: bounds.width,
-            height: max(0, bounds.height - inset)
-        )
+        terminalView.frame = bounds
+        terminalView.applyCanvasTopChromeInset(topChromeInset)
     }
 }
 
@@ -662,11 +664,49 @@ final class MMSStreamTerminalView: TerminalView {
     private var preservedScrollY: CGFloat?
     private var preserveScrollUntil: TimeInterval = 0
     private var isApplyingStreamFeed = false
+    private var canvasTopChromeInset: CGFloat = 0
+    private var lastCanvasChromeAdjustedOffsetY: CGFloat?
     private weak var suppressedCaretView: UIView?
     private let ghostSafeCursorOverlay = UIView(frame: .zero)
     private var hasInstalledGhostSafeCursorOverlay = false
     private var isGhostSafeCursorVisible = true
     private var hasPendingGhostSafeCursorRefresh = false
+
+    func applyCanvasTopChromeInset(_ inset: CGFloat) {
+        let clamped = min(max(0, inset), max(0, bounds.height - 120))
+        let previousInset = canvasTopChromeInset
+        guard abs(previousInset - clamped) > 0.5 ||
+            abs(contentInset.top - clamped) > 0.5 ||
+            abs(scrollIndicatorInsets.top - clamped) > 0.5 else { return }
+
+        canvasTopChromeInset = clamped
+        contentInset.top = clamped
+        scrollIndicatorInsets.top = clamped
+
+        let rebasedY = contentOffset.y + previousInset - clamped
+        let clampedY = clampedVerticalOffset(rebasedY)
+        lastCanvasChromeAdjustedOffsetY = clampedY
+        super.setContentOffset(CGPoint(x: 0, y: clampedY), animated: false)
+        setNeedsDisplay(bounds)
+        scheduleGhostSafeCursorOverlayRefresh()
+    }
+
+    func reapplyCanvasTopChromeInsetAfterTerminalUpdate(force: Bool = false) {
+        guard canvasTopChromeInset > 0, !isTracking, !isDragging, !isDecelerating else { return }
+        let rawY = contentOffset.y
+        if !force,
+           let lastCanvasChromeAdjustedOffsetY,
+           abs(rawY - lastCanvasChromeAdjustedOffsetY) < 0.5 {
+            return
+        }
+
+        let adjustedY = clampedVerticalOffset(rawY - canvasTopChromeInset)
+        guard abs(adjustedY - contentOffset.y) > 0.5 else { return }
+        lastCanvasChromeAdjustedOffsetY = adjustedY
+        super.setContentOffset(CGPoint(x: 0, y: adjustedY), animated: false)
+        setNeedsDisplay(bounds)
+        scheduleGhostSafeCursorOverlayRefresh()
+    }
 
     func applyTerminalFontIfNeeded(_ newFont: UIFont) {
         guard fontSignature(for: font) != fontSignature(for: newFont) else { return }
@@ -714,6 +754,21 @@ final class MMSStreamTerminalView: TerminalView {
         isGhostSafeCursorVisible = false
         suppressedCaretView?.removeFromSuperview()
         ghostSafeCursorOverlay.isHidden = true
+    }
+
+    override func bufferActivated(source: Terminal) {
+        super.bufferActivated(source: source)
+        reapplyCanvasTopChromeInsetAfterTerminalUpdate()
+    }
+
+    override func scrolled(source terminal: Terminal, yDisp: Int) {
+        super.scrolled(source: terminal, yDisp: yDisp)
+        reapplyCanvasTopChromeInsetAfterTerminalUpdate()
+    }
+
+    override func sizeChanged(source: Terminal) {
+        super.sizeChanged(source: source)
+        reapplyCanvasTopChromeInsetAfterTerminalUpdate()
     }
 
     override func addSubview(_ view: UIView) {
@@ -797,6 +852,7 @@ final class MMSStreamTerminalView: TerminalView {
         isApplyingStreamFeed = true
         operation()
         isApplyingStreamFeed = false
+        reapplyCanvasTopChromeInsetAfterTerminalUpdate()
         forceGhostSafeRendererRefresh()
         refreshGhostSafeCursorOverlay()
 
@@ -818,6 +874,7 @@ final class MMSStreamTerminalView: TerminalView {
         if isTracking || isDragging || isDecelerating {
             preservedScrollY = y
             preserveScrollUntil = now + 1.5
+            lastCanvasChromeAdjustedOffsetY = nil
         } else if !isApplyingStreamFeed, now < preserveScrollUntil, let preservedScrollY, abs(y - maxY) < 1 {
             // SwiftTerm snaps to bottom on feed; keep manual scroll stable briefly.
             y = clampedVerticalOffset(preservedScrollY)
@@ -835,7 +892,11 @@ final class MMSStreamTerminalView: TerminalView {
     }
 
     private var maxVerticalOffset: CGFloat {
-        max(0, contentSize.height + adjustedContentInset.bottom + adjustedContentInset.top - bounds.height)
+        max(-adjustedContentInset.top, contentSize.height + adjustedContentInset.bottom - bounds.height)
+    }
+
+    private var chromeAdjustedBottomOffset: CGFloat {
+        max(-adjustedContentInset.top, maxVerticalOffset - canvasTopChromeInset)
     }
 
     private func clampedVerticalOffset(_ y: CGFloat) -> CGFloat {
@@ -843,7 +904,7 @@ final class MMSStreamTerminalView: TerminalView {
     }
 
     private func isNearBottom(threshold: CGFloat = 56) -> Bool {
-        maxVerticalOffset - contentOffset.y < threshold
+        chromeAdjustedBottomOffset - contentOffset.y < threshold
     }
 
     private func fontSignature(for font: UIFont) -> String {
