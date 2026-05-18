@@ -1,0 +1,31 @@
+{
+  "task": "P8J version stamp",
+  "trace": "trc-20260516T082907Z-f43b858883",
+  "branch": "p184/mmschat-p8i-phone-ux-repair",
+  "base_commit": "c00439e361be363fcfc78bbed9fdf40b81afac2d",
+  "status": "PASS",
+  "changes": [
+    {
+      "file": "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+      "from": "1.7.83 / 121",
+      "to": "1.7.84 / 122",
+      "targets_affected": ["CodexMobile Debug", "CodexMobile Release"]
+    }
+  ],
+  "validation": {
+    "rg_version_check": "PASS — 4 CodexMobile entries at 1.7.84/122, 4 framework entries unchanged at 1.0/1",
+    "git_diff_check": "PASS — no whitespace errors",
+    "xcodebuild": "BUILD SUCCEEDED",
+    "scheme": "CodexMobile",
+    "destination": "platform=iOS Simulator,name=iPhone 17",
+    "derivedDataPath": ".build/p8j-version-xcode-derived"
+  },
+  "hard_boundaries": {
+    "no_phone_install": true,
+    "no_main_worktree_touch": true,
+    "no_behavior_code_change": true,
+    "no_push_deploy": true
+  },
+  "committed": false,
+  "timestamp": "2026-05-18T09:07:00Z"
+}
