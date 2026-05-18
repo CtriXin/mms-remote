@@ -71,7 +71,8 @@ struct SwiftTerminalHubView: View {
     @State private var streamLifecycleToken = 0
     @State private var startStreamTask: Task<Void, Never>?
     @State private var swiftTermInputReplayTask: Task<Void, Never>?
-    @State private var swiftTermViewportReplayTask: Task<Void, Never>?
+    @State private var swiftTermResizeTask: Task<Void, Never>?
+    @State private var swiftTermResizeSignature = ""
     @State private var shortcutEditorDraft = SwiftTerminalShortcut.defaultCustomJSON
     @State private var shortcutEditorError: String?
     @State private var showsShortcutEditor = false
@@ -296,14 +297,12 @@ struct SwiftTerminalHubView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
             isKeyboardPresented = true
-            scheduleSwiftTermViewportReplay(streamIdAtResize: streamId)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardPresented = false
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
             isKeyboardPresented = false
-            scheduleSwiftTermViewportReplay(streamIdAtResize: streamId)
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwiftTerm.TerminalView.controlModifierReset"))) { _ in
             isControlModifierLatched = false
@@ -1099,8 +1098,9 @@ struct SwiftTerminalHubView: View {
         pendingStreamStartSignature = startSignature
         isStartingStream = true
         startStreamTask?.cancel()
-        swiftTermViewportReplayTask?.cancel()
-        swiftTermViewportReplayTask = nil
+        swiftTermResizeTask?.cancel()
+        swiftTermResizeTask = nil
+        swiftTermResizeSignature = ""
         startStreamTask = Task {
             defer {
                 if token == streamLifecycleToken {
@@ -1185,8 +1185,9 @@ struct SwiftTerminalHubView: View {
         startStreamTask = nil
         swiftTermInputReplayTask?.cancel()
         swiftTermInputReplayTask = nil
-        swiftTermViewportReplayTask?.cancel()
-        swiftTermViewportReplayTask = nil
+        swiftTermResizeTask?.cancel()
+        swiftTermResizeTask = nil
+        swiftTermResizeSignature = ""
         isStartingStream = false
         pendingStreamStartSignature = ""
         activeStreamSignature = ""
@@ -1312,33 +1313,6 @@ struct SwiftTerminalHubView: View {
                 }
             }
             swiftTermInputReplayTask = nil
-        }
-    }
-
-    private func scheduleSwiftTermViewportReplay(streamIdAtResize: String?) {
-        guard isSwiftTermRendererActive,
-              SwiftTerminalPaneHeuristics.shouldUseViewportReplay(selectedPane),
-              let streamIdAtResize,
-              !isStartingStream else {
-            return
-        }
-        swiftTermViewportReplayTask?.cancel()
-        swiftTermViewportReplayTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 180_000_000)
-            guard !Task.isCancelled,
-                  isSwiftTermRendererActive,
-                  streamId == streamIdAtResize,
-                  scenePhase == .active else {
-                return
-            }
-            do {
-                try await codex.replayTerminalStream(streamId: streamIdAtResize)
-            } catch {
-                if !Task.isCancelled {
-                    statusLine = "replay error"
-                }
-            }
-            swiftTermViewportReplayTask = nil
         }
     }
 
@@ -1648,17 +1622,51 @@ struct SwiftTerminalHubView: View {
         }
         latestSize = (cols, rows)
         guard let target = selectedPaneTarget else { return }
-        let streamIdAtResize = streamId
+
+        if isSwiftTermRendererActive {
+            if streamId == nil, !isStartingStream, codex.isConnected, scenePhase == .active {
+                startStream()
+            }
+            guard let activeStreamId = streamId else { return }
+            let signature = "\(target)|\(activeStreamId)|\(cols)x\(rows)"
+            swiftTermResizeSignature = signature
+            swiftTermResizeTask?.cancel()
+            swiftTermResizeTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 180_000_000)
+                guard !Task.isCancelled,
+                      isSwiftTermRendererActive,
+                      codex.isConnected,
+                      scenePhase == .active,
+                      selectedPaneTarget == target,
+                      streamId == activeStreamId,
+                      swiftTermResizeSignature == signature else {
+                    return
+                }
+                do {
+                    try await codex.resizeTerminalPane(paneId: target, cols: cols, rows: rows)
+                    if swiftTermResizeSignature == signature {
+                        swiftTermResizeTask = nil
+                        swiftTermResizeSignature = ""
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    guard !Task.isCancelled, swiftTermResizeSignature == signature else { return }
+                    swiftTermResizeTask = nil
+                    swiftTermResizeSignature = ""
+                    // Resize can lag behind TUI startup; keep the stream interactive instead of showing a modal alert.
+                    statusLine = "resize skipped"
+                }
+            }
+            return
+        }
+
         Task {
             do {
                 try await codex.resizeTerminalPane(paneId: target, cols: cols, rows: rows)
-                scheduleSwiftTermViewportReplay(streamIdAtResize: streamIdAtResize)
             } catch {
                 localErrorMessage = error.localizedDescription
             }
-        }
-        if isSwiftTermRendererActive, streamId == nil, !isStartingStream, codex.isConnected, scenePhase == .active {
-            startStream()
         }
     }
 
