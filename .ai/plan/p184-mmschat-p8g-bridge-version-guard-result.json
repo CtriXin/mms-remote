@@ -1,7 +1,8 @@
 {
   "verdict": "ACCEPTABLE_WITH_UNRELATED_TEST_TARGET_BLOCKER",
   "closure_event": "closure_repair_P8G",
-  "head_commit": "e4d2844732759d3d95f80a93c789f721435e593d",
+  "base_commit": "e4d2844732759d3d95f80a93c789f721435e593d",
+  "closure_checkpoint_commit": "a6087bf550fcc7baf1b121e99ec6c7695cea46df",
   "validated_at": "2026-05-17",
   "closure_repaired_at": "2026-05-17T17:50:00Z",
   "trace": "trc-20260516T082907Z-f43b858883",
@@ -9,24 +10,20 @@
     ".ai/plan/p184-mmschat-p8g-host-intake.md",
     ".ai/plan/p184-mmschat-p8g-host-intake.json"
   ],
-  "files_changed": {
-    "tracked_modified": [
-      "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
-      "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
-      "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
-      "CodexMobile/CodexMobile/Views/MMSChat/MMSChatLaunchPlanSheetView.swift",
-      "CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift"
-    ],
-    "untracked_new": [
-      "CodexMobile/CodexMobile/Services/MMSChatErrorClassifier.swift",
-      "CodexMobile/CodexMobileTests/MMSChatErrorClassifierTests.swift",
-      ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.json",
-      ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.md"
-    ]
-  },
+  "committed_files": [
+    ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.json",
+    ".ai/plan/p184-mmschat-p8g-bridge-version-guard-result.md",
+    "CodexMobile/CodexMobile.xcodeproj/project.pbxproj",
+    "CodexMobile/CodexMobile/Services/LocalizationManager.swift",
+    "CodexMobile/CodexMobile/Services/MMSChatErrorClassifier.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatLaunchPlanSheetView.swift",
+    "CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift",
+    "CodexMobile/CodexMobileTests/MMSChatErrorClassifierTests.swift"
+  ],
   "diff_stat": {
-    "files_changed": 5,
-    "insertions": 21,
+    "files_changed": 9,
+    "insertions": 509,
     "deletions": 11
   },
   "line_counts": {

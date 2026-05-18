@@ -2,7 +2,8 @@
 
 **Verdict: ACCEPTABLE_WITH_UNRELATED_TEST_TARGET_BLOCKER**
 **Closure event:** closure_repair_P8G
-**Head commit:** `e4d2844732759d3d95f80a93c789f721435e593d`
+**Base commit:** `e4d2844732759d3d95f80a93c789f721435e593d`
+**Closure checkpoint commit:** `a6087bf550fcc7baf1b121e99ec6c7695cea46df`
 **Validated:** 2026-05-17
 **Repaired:** 2026-05-17T17:50:00Z
 **Trace:** `trc-20260516T082907Z-f43b858883`
@@ -25,23 +26,23 @@ The implementation code is correct and complete — 11 view sites wired, 3 local
 
 ---
 
-## Files Changed
+## Committed Files (9 files, 509 insertions, 11 deletions)
 
-### Tracked (modified)
-| File | +/− |
-|------|-----|
-| `CodexMobile/CodexMobile.xcodeproj/project.pbxproj` | +4 |
-| `CodexMobile/CodexMobile/Services/LocalizationManager.swift` | +6 |
-| `CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift` | +6/−6 |
-| `CodexMobile/CodexMobile/Views/MMSChat/MMSChatLaunchPlanSheetView.swift` | +2/−2 |
-| `CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift` | +3/−3 |
-| **Total tracked** | **+21/−11 (5 files)** |
+All files below are committed in checkpoint `a6087bf550fcc7baf1b121e99ec6c7695cea46df`:
 
-### Untracked (new)
-- `CodexMobile/CodexMobile/Services/MMSChatErrorClassifier.swift` (**163 lines**)
-- `CodexMobile/CodexMobileTests/MMSChatErrorClassifierTests.swift` (**88 lines**)
-- `.ai/plan/p184-mmschat-p8g-bridge-version-guard-result.json` (artifact)
-- `.ai/plan/p184-mmschat-p8g-bridge-version-guard-result.md` (artifact)
+| # | File | Status |
+|---|------|--------|
+| 1 | `.ai/plan/p184-mmschat-p8g-bridge-version-guard-result.json` | Added |
+| 2 | `.ai/plan/p184-mmschat-p8g-bridge-version-guard-result.md` | Added |
+| 3 | `CodexMobile/CodexMobile.xcodeproj/project.pbxproj` | Modified |
+| 4 | `CodexMobile/CodexMobile/Services/LocalizationManager.swift` | Modified |
+| 5 | `CodexMobile/CodexMobile/Services/MMSChatErrorClassifier.swift` | Added |
+| 6 | `CodexMobile/CodexMobile/Views/MMSChat/MMSChatDetailView.swift` | Modified |
+| 7 | `CodexMobile/CodexMobile/Views/MMSChat/MMSChatLaunchPlanSheetView.swift` | Modified |
+| 8 | `CodexMobile/CodexMobile/Views/MMSChat/MMSChatListView.swift` | Modified |
+| 9 | `CodexMobile/CodexMobileTests/MMSChatErrorClassifierTests.swift` | Added |
+
+**Diff stat:** 9 files changed, 509 insertions(+), 11 deletions(-)
 
 ---
 
