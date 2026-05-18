@@ -11,6 +11,7 @@ struct SwiftTerminalHubView: View {
     @Environment(CodexService.self) private var codex
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.reconnectAction) private var reconnectAction
 
     var paneSheetRequestID = 0
     var showsPaneToolbarButton = true
@@ -316,7 +317,9 @@ struct SwiftTerminalHubView: View {
     private var terminalContent: some View {
         VStack(spacing: 0) {
             Group {
-                if !codex.isConnected {
+                if let recoverySnapshot = terminalConnectionRecoverySnapshot {
+                    terminalConnectionRecoveryCard(recoverySnapshot)
+                } else if !codex.isConnected {
                     offlineBanner
                 }
                 terminalCanvas
@@ -682,6 +685,50 @@ struct SwiftTerminalHubView: View {
         .background(theme.panelBackground)
     }
 
+    private var terminalConnectionRecoverySnapshot: ConnectionRecoverySnapshot? {
+        guard codex.hasReconnectCandidate,
+              !codex.isConnected,
+              codex.secureConnectionState != .rePairRequired else {
+            return nil
+        }
+
+        let isRetryingConnectionRecovery: Bool
+        if case .retrying = codex.connectionRecoveryState {
+            isRetryingConnectionRecovery = true
+        } else {
+            isRetryingConnectionRecovery = false
+        }
+
+        if codex.isConnecting || codex.shouldAutoReconnectOnForeground || isRetryingConnectionRecovery {
+            return ConnectionRecoverySnapshot(
+                summary: LocalizationManager.shared.localized("terminal.reconnect.progress"),
+                status: .reconnecting,
+                trailingStyle: .progress
+            )
+        }
+
+        let trimmedError = codex.lastErrorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ConnectionRecoverySnapshot(
+            summary: trimmedError?.isEmpty == false
+                ? trimmedError ?? ""
+                : LocalizationManager.shared.localized("terminal.reconnect.summary"),
+            status: .interrupted,
+            trailingStyle: .action(LocalizationManager.shared.localized("terminal.reconnect.action"))
+        )
+    }
+
+    private func terminalConnectionRecoveryCard(_ snapshot: ConnectionRecoverySnapshot) -> some View {
+        ConnectionRecoveryCard(snapshot: snapshot) {
+            guard snapshot.isActionable else { return }
+            localErrorMessage = nil
+            reconnectAction?()
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .background(theme.shellBackground)
+    }
+
     private var liveStatusBadge: some View {
         HStack(spacing: 6) {
             Circle()
@@ -909,6 +956,36 @@ struct SwiftTerminalHubView: View {
         Binding(get: { localErrorMessage != nil }, set: { if !$0 { localErrorMessage = nil } })
     }
 
+    private func handleTerminalOperationError(_ error: Error) {
+        if shouldRouteToConnectionRecovery(error) {
+            codex.presentConnectionErrorIfNeeded(error)
+            localErrorMessage = nil
+            return
+        }
+
+        localErrorMessage = error.localizedDescription
+    }
+
+    private func shouldRouteToConnectionRecovery(_ error: Error) -> Bool {
+        if let serviceError = error as? CodexServiceError,
+           case .disconnected = serviceError {
+            return true
+        }
+
+        let isRetryingConnectionRecovery: Bool
+        if case .retrying = codex.connectionRecoveryState {
+            isRetryingConnectionRecovery = true
+        } else {
+            isRetryingConnectionRecovery = false
+        }
+
+        if codex.shouldTreatSendFailureAsDisconnect(error) || codex.shouldSuppressUserFacingConnectionError(error) {
+            return !codex.isConnected || codex.shouldAutoReconnectOnForeground || isRetryingConnectionRecovery
+        }
+
+        return !codex.isConnected && codex.hasReconnectCandidate
+    }
+
     private var closeDialogIsPresented: Binding<Bool> {
         Binding(get: { pendingCloseRequest != nil }, set: { if !$0 { pendingCloseRequest = nil } })
     }
@@ -965,7 +1042,7 @@ struct SwiftTerminalHubView: View {
             _ = try await codex.refreshTerminalList(showLoading: true)
             selectDefaultPaneIfNeeded(preferUsefulDefault: preferUsefulDefault)
         } catch {
-            localErrorMessage = error.localizedDescription
+            handleTerminalOperationError(error)
         }
     }
 
@@ -1031,7 +1108,7 @@ struct SwiftTerminalHubView: View {
                 isShowingCreateTerminalSheet = false
                 selectedPaneTarget = list.createdPane?.requestTarget ?? list.panes.first?.requestTarget
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
@@ -1067,7 +1144,7 @@ struct SwiftTerminalHubView: View {
                 await refreshStableSnapshotIfNeeded()
             } catch {
                 pendingCloseRequest = nil
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
@@ -1142,7 +1219,7 @@ struct SwiftTerminalHubView: View {
                     streamId = nil
                     activeStreamSignature = ""
                     statusLine = "stream error"
-                    localErrorMessage = error.localizedDescription
+                    handleTerminalOperationError(error)
                 }
             }
         }
@@ -1216,7 +1293,7 @@ struct SwiftTerminalHubView: View {
                 try await codex.sendTerminalKey(.enter, paneId: target)
                 scheduleStableRefresh(target: target)
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
@@ -1287,7 +1364,7 @@ struct SwiftTerminalHubView: View {
                 scheduleStableRefresh(target: target)
                 scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
@@ -1357,7 +1434,7 @@ struct SwiftTerminalHubView: View {
                 scheduleStableRefresh(target: target)
                 scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
@@ -1515,7 +1592,7 @@ struct SwiftTerminalHubView: View {
                 scheduleStableRefresh(target: target)
                 scheduleSwiftTermInputReplay(streamIdAtSend: streamIdAtSend)
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
@@ -1654,7 +1731,7 @@ struct SwiftTerminalHubView: View {
                 try await codex.resizeTerminalPane(paneId: target, cols: cols, rows: rows)
                 scheduleSwiftTermViewportReplay(streamIdAtResize: streamIdAtResize)
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
         if isSwiftTermRendererActive, streamId == nil, !isStartingStream, codex.isConnected, scenePhase == .active {
@@ -1673,7 +1750,7 @@ struct SwiftTerminalHubView: View {
                 try await codex.resizeTerminalPane(paneId: target, cols: dims.cols, rows: dims.rows)
                 await refreshStableSnapshot(target: target)
             } catch {
-                localErrorMessage = error.localizedDescription
+                handleTerminalOperationError(error)
             }
         }
     }
