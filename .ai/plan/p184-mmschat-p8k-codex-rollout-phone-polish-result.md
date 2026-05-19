@@ -1,15 +1,22 @@
 # P8K Codex Rollout Phone Polish Result
 
-**Status: PASS** — Trace: `trc-20260516T082907Z-f43b858883`
+**Status: PASS** - Trace: `trc-20260516T082907Z-f43b858883`
 
-## Changes
+## Commit Lineage
 
-| File | Lines Δ |
-|------|---------|
-| `mms-remote-bridge/src/mmschat-codex-rollout.js` | +6 |
-| `mms-remote-bridge/test/mmschat-codex-rollout.test.js` | +147 |
+- Original base commit remains `b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd`
+- `255899d` - initial cleanup commit: `fix(mmschat): clean codex rollout replay`
+- `6f2fa02` - first release-gate repair commit: `fix(mmschat): filter codex rollout context roles`
+- Pending follow-up commit - second release-gate repair: `fix(mmschat): narrow codex bootstrap filters`
 
-No Swift files changed. Existing read-only replay/localization in the iOS app documents historical replay behavior; no version bump needed.
+## Files Changed
+
+- `mms-remote-bridge/src/mmschat-codex-rollout.js`
+- `mms-remote-bridge/test/mmschat-codex-rollout.test.js`
+- `.ai/plan/p184-mmschat-p8k-codex-rollout-phone-polish-result.json`
+- `.ai/plan/p184-mmschat-p8k-codex-rollout-phone-polish-result.md`
+
+No Swift files changed. Existing read-only replay/localization in the iOS app continues to document historical replay behavior.
 
 ## Screenshot Findings Addressed (5/5)
 
@@ -18,30 +25,33 @@ No Swift files changed. Existing read-only replay/localization in the iOS app do
 | 1 | Duplicate-looking titles | Real prompt titles with rollout id fallback |
 | 2 | Bootstrap/context records leaked | Hidden from list, detail, count, and title |
 | 3 | Empty Thinking placeholders | Suppressed for empty/whitespace-only content |
-| 4 | Read-only replay on iOS | Preserved — existing localization/copy covers historical replay; no Swift change needed |
+| 4 | Read-only replay on iOS | Preserved; no Swift change needed |
 | 5 | Session_meta-only empty rollouts | Excluded from list and count |
 
-## Release Gate Repair (commit: pending)
+## Release-Gate Repairs
 
-| Change | Detail |
-|--------|--------|
-| system/developer response_item role filter | System and developer role `response_item` messages are now filtered before entering chat, counts, or titles. Internal context instructions no longer leak as user-visible chat bubbles. |
-| Broad bootstrap matcher narrowed | Changed `/You are (powered by\|an?)\s/i` → `/You are (powered by\|an AI)\s/i`. Original `an?` wildcard was too broad and caught genuine role prompts like "You are an expert reviewer". |
-| Fallback rollout-id title coverage non-guarded | Rebuilt the "no real user text" test with synthetic `response_item` records. Now asserts exact `cwd - rollout-id` fallback title format, verified role counts, and proves the fallback path is exercised without guarded conditions. |
-| New role filter test | Added test: system + developer messages hidden while user + assistant remain visible. Confirms message counts (2 total, 1 user, 1 assistant) and asserts no system/developer text leaks into transcript. |
-| Bootstrap matcher regression guard | Added `isBootstrapContextText("You are an expert reviewer; inspect this diff") === false` assertion to prevent the narrowed pattern from regressing on real role prompts. |
+### First repair - committed in `6f2fa02`
+
+- System/developer `response_item` role messages are filtered before they enter chat, counts, or titles.
+- Existing regression coverage verifies role filtering, title fallback behavior, and the earlier false-positive guard.
+
+### Second repair - pending commit
+
+- Bootstrap filters in `mmschat-codex-rollout.js` are narrowed to explicit injected AGENTS.md, `<INSTRUCTIONS>`, and MCP bootstrap shapes.
+- Legitimate user prompts mentioning MCP, `<INSTRUCTIONS>`, or AGENTS remain visible instead of being discarded as bootstrap context.
+- Test coverage adds negative regression assertions for legitimate MCP, `<INSTRUCTIONS>`, and AGENTS prompts.
 
 ## Validation
 
-```
+```text
 cd mms-remote-bridge && node --test test/mmschat-codex-rollout.test.js
-  PASS: 18 tests, 18 pass, 0 fail
+  PASS: 18 tests, 18 passed, 0 failed
 
 cd mms-remote-bridge && node --test test/mmschat-*.test.js
-  PASS: 52 tests, 52 pass, 0 fail
+  PASS: 52 tests, 52 passed, 0 failed
 
 git diff --check
-  PASS: no output — no whitespace errors
+  PASS: no output - no whitespace errors
 
 xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile \
   -destination "platform=iOS Simulator,name=iPhone 17" \
@@ -54,22 +64,23 @@ xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile \
 
 - Main worktree untouched
 - No phone install
-- No push / deploy
-- No global config / keychain
-- No dependencies added
+- No push or deploy
+- No global config, keychain, or dependency changes
 - No bridge start/stop/reconfigure
 - No Swift changes
 
 ## Risks
 
-- Phone reinstall NOT performed. Role filter + title fallback rendering confirmed only via tests and xcodebuild compile.
-- Real live send, resume, open-visible, and kill flows not exercised.
-- HumanGate recommended before live deployment to validate role filtering and title fallback render correctly on device.
+- Phone reinstall and on-device verification were not performed.
+- Real live send, resume, open-visible, and kill flows were not exercised.
+- Result artifacts record the second repair as pending because they are part of the commit payload; the final commit hash must be reported separately after commit.
+- HumanGate is still recommended before any live deployment or device validation.
 
 ## Next Step
 
-HumanGate — version stamp and/or install candidate if desired. No push without explicit instruction.
+HumanGate for version stamp and/or install candidate if desired. No push without explicit instruction.
 
 Branch: `p184/mmschat-p8k-codex-rollout-phone-polish`
-Base: `255899d682e1d8e01a12b0a20ec8782c8e992692`
-Updated: `2026-05-19T02:17:35Z`
+Base: `b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd`
+Head before follow-up commit: `6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55`
+Updated: `2026-05-19T02:35:57Z`

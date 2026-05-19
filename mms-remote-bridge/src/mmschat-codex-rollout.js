@@ -23,18 +23,18 @@ const MAX_DETAIL_MESSAGES = 500;
 // These should not be rendered as user chat bubbles or counted toward titles.
 const BOOTSTRAP_CONTEXT_PATTERNS = [
   /^\s*#\s*AGENTS\.md\b/im,
-  /AGENTS\.md\s*instructions/i,
-  /<INSTRUCTIONS>/i,
-  /<instructions>/i,
+  /^AGENTS\.md\s+instructions\s+for\b/im,
+  /^\s*<INSTRUCTIONS>/i,
   /<environment_context>/i,
   /<permissions\b/i,
   /<skills_instructions>/i,
   /<plugins_instructions>/i,
-  /MCP\s+(server|startup|diagnostic)/i,
+  /^MCP\s+server\s+started\b/im,
+  /^MCP\s+startup\s+diagnostic\s*:/im,
   /\[MCP\]/i,
   /^system\s+prompt\s*:/im,
   /^developer\s+instructions\s*:/im,
-  /You are (powered by|an AI)\s/i,  // Model identity preamble / bootstrap role injection
+  /You are (powered by|an AI)\s/i,
 ];
 
 function isBootstrapContextText(text) {

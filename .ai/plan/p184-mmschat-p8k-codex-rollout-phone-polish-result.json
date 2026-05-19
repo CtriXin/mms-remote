@@ -3,11 +3,34 @@
   "task_id": "p184-mmschat-p8k-codex-rollout-phone-polish",
   "trace_id": "trc-20260516T082907Z-f43b858883",
   "verdict": "PASS",
-  "verdict_reason": "All 5 screenshot findings addressed. Release gate repair (role filter + bootstrap matcher narrow) applied. 18/18 targeted tests pass, 52/52 full suite pass, git diff clean, xcodebuild succeeds. No Swift changes needed — existing read-only replay/localization covers historical replay. Hard boundaries held.",
+  "verdict_reason": "All 5 screenshot findings remain addressed. Original cleanup commit 255899d was followed by committed first release-gate repair 6f2fa02, and this second follow-up narrows bootstrap filters so legitimate MCP, <INSTRUCTIONS>, and AGENTS prompts stay visible while real bootstrap/system context stays hidden. Targeted tests, full mmschat node tests, git diff --check, and xcodebuild all pass. Hard boundaries held.",
   "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8k-codex-rollout-phone-polish",
   "branch": "p184/mmschat-p8k-codex-rollout-phone-polish",
   "base_commit": "b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd",
-  "head_pre_commit": "255899d682e1d8e01a12b0a20ec8782c8e992692",
+  "commit_lineage": [
+    {
+      "commit": "255899d682e1d8e01a12b0a20ec8782c8e992692",
+      "short": "255899d",
+      "status": "committed",
+      "role": "initial cleanup",
+      "message": "fix(mmschat): clean codex rollout replay"
+    },
+    {
+      "commit": "6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55",
+      "short": "6f2fa02",
+      "status": "committed",
+      "role": "first release-gate repair",
+      "message": "fix(mmschat): filter codex rollout context roles"
+    },
+    {
+      "commit": null,
+      "short": null,
+      "status": "pending_commit",
+      "role": "second release-gate repair",
+      "message": "fix(mmschat): narrow codex bootstrap filters"
+    }
+  ],
+  "head_pre_commit": "6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55",
   "head_commit": null,
   "head_commit_message": null,
   "worktree_clean": "expected true after committing tracked changes and result artifacts",
@@ -51,32 +74,35 @@
   ],
   "release_gate_repair": {
     "applied": true,
-    "committed": false,
+    "committed": true,
+    "commit": "6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55",
     "details": [
       {
         "change": "system/developer response_item role filter",
         "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
-        "summary": "Added role check in normalizeCodexRolloutMessage: system and developer role messages are now hidden before they enter chat, counts, or titles. This prevents internal context instructions from appearing as user-visible chat bubbles."
+        "summary": "Added role check in normalizeCodexRolloutMessage so system and developer role messages are hidden before they enter chat, counts, or titles. This prevents internal context instructions from appearing as user-visible chat bubbles."
       },
       {
-        "change": "Broad bootstrap matcher narrowed",
+        "change": "First regression coverage set",
+        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+        "summary": "Committed coverage in 6f2fa02 verifies role-filtering behavior, title fallback coverage, and a bootstrap false-positive guard for ordinary role prompts."
+      }
+    ]
+  },
+  "second_gate_repair": {
+    "applied": true,
+    "committed": false,
+    "pending_commit_message": "fix(mmschat): narrow codex bootstrap filters",
+    "details": [
+      {
+        "change": "bootstrap matcher narrowed to explicit injected forms",
         "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
-        "summary": "Changed bootstrap pattern from /You are (powered by|an?)\\s/i to /You are (powered by|an AI)\\s/i. The original 'an?' wildcard was too broad and matched genuine role prompts like 'You are an expert reviewer'. The narrowed pattern preserves real user prompts while still catching 'You are an AI' bootstrap injections."
+        "summary": "Narrowed AGENTS.md, <INSTRUCTIONS>, and MCP bootstrap patterns so legitimate user prompts mentioning MCP, <INSTRUCTIONS>, or AGENTS remain visible unless they match the actual injected bootstrap shapes."
       },
       {
-        "change": "Fallback rollout-id title coverage non-guarded",
+        "change": "negative regression coverage for legitimate prompts",
         "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
-        "summary": "Updated 'falls back to rollout ID in title when no real user text exists' test to use synthetic response_item-only records instead of bootstrap helper. The test now asserts the exact fallback title format (cwd-prefixed rollout ID), verified message counts, and role distribution, proving the title fallback path is exercised without guarded conditions."
-      },
-      {
-        "change": "New role filter test",
-        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
-        "summary": "Added 'response_item system and developer messages stay hidden while visible chat remains discoverable' test: verifies system/developer messages are excluded while user/assistant messages remain, confirms message counts (2 total), and asserts no system/developer text leaks into transcript."
-      },
-      {
-        "change": "Bootstrap matcher regression guard",
-        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
-        "summary": "Added assertion: isBootstrapContextText('You are an expert reviewer; inspect this diff') === false. Ensures the narrowed pattern does not regress on real role prompts."
+        "summary": "Added negative assertions proving real prompts containing MCP, <INSTRUCTIONS>, and AGENTS text are not misclassified as bootstrap context."
       }
     ]
   },
@@ -94,7 +120,7 @@
     {
       "command": "git diff --check",
       "status": "passed",
-      "result": "no output — no whitespace errors"
+      "result": "no output - no whitespace errors"
     },
     {
       "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination \"platform=iOS Simulator,name=iPhone 17\" -derivedDataPath .build/p8k-codex-rollout-phone-polish-derived CODE_SIGNING_ALLOWED=NO build",
@@ -116,14 +142,14 @@
   },
   "residual_risks": [
     "No phone reinstall, on-device verification, or main-apply/merge was performed in this session.",
-    "Real live send, resume, open-visible, and kill flows were not exercised; validation remained compile and test only per boundary.",
-    "Version stamp not applied — no marketing/build version bump needed since no Swift files changed.",
-    "Release gate repair applied only to bridge+test; phone app reinstall NOT performed. HumanGate needed before live deployment to confirm role filtering and title fallback render correctly on device."
+    "Real live send, resume, open-visible, and kill flows were not exercised; validation remained targeted tests, full node tests, diff check, and compile only per boundary.",
+    "Result artifacts intentionally record the second repair as pending commit because they are included in the commit payload; final commit hash must be reported out-of-band after commit.",
+    "HumanGate is still needed before any live deployment or device validation to confirm legitimate MCP, <INSTRUCTIONS>, and AGENTS prompts render correctly on phone."
   ],
   "human_gate": {
     "version_stamp_required": true,
     "phone_reinstall_optional": true,
-    "next": "HumanGate for version stamp/install candidate if desired. Release gate repair committed; phone reinstall recommended to validate role filter + title fallback on device."
+    "next": "HumanGate for version stamp/install candidate if desired. Do not push without explicit instruction."
   },
-  "timestamp": "2026-05-19T02:17:35Z"
+  "timestamp": "2026-05-19T02:35:57Z"
 }

@@ -426,6 +426,12 @@ test("isBootstrapContextText identifies injected context patterns", (t) => {
   assert.equal(isBootstrapContextText("你可以computer use吗?"), false);
   assert.equal(isBootstrapContextText("show git status"), false);
   assert.equal(isBootstrapContextText("write a function to sort an array"), false);
+
+  // Narrowed-filter regression guards: these user prompts must NOT be caught as bootstrap
+  assert.equal(isBootstrapContextText("Help me debug my MCP server connection"), false);
+  assert.equal(isBootstrapContextText("Can you parse <INSTRUCTIONS> tags?"), false);
+  assert.equal(isBootstrapContextText("AGENTS.md instructions are confusing"), false);
+
   assert.equal(isBootstrapContextText(""), false);
   assert.equal(isBootstrapContextText(null), false);
 });
