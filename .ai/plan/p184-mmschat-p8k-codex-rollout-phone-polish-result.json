@@ -3,7 +3,7 @@
   "task_id": "p184-mmschat-p8k-codex-rollout-phone-polish",
   "trace_id": "trc-20260516T082907Z-f43b858883",
   "verdict": "PASS",
-  "verdict_reason": "All 5 screenshot findings remain addressed. Original cleanup commit 255899d was followed by committed first release-gate repair 6f2fa02, and this second follow-up narrows bootstrap filters so legitimate MCP, <INSTRUCTIONS>, and AGENTS prompts stay visible while real bootstrap/system context stays hidden. Targeted tests, full mmschat node tests, git diff --check, and xcodebuild all pass. Hard boundaries held.",
+  "verdict_reason": "All 5 screenshot findings addressed. Three rounds of bootstrap-filter repair completed: initial cleanup (255899d), role filtering (6f2fa02), pattern narrowing (9a58202), and final prompt-preservation fix removing generic MCP bootstrap filters and narrowing You-are patterns so legitimate user prompts mentioning [MCP], MCP server started, or You are an AI assistant remain visible. 18/18 targeted tests, git diff --check clean. Hard boundaries held.",
   "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8k-codex-rollout-phone-polish",
   "branch": "p184/mmschat-p8k-codex-rollout-phone-polish",
   "base_commit": "b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd",
@@ -19,18 +19,25 @@
       "commit": "6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55",
       "short": "6f2fa02",
       "status": "committed",
-      "role": "first release-gate repair",
+      "role": "first release-gate repair (role filtering)",
       "message": "fix(mmschat): filter codex rollout context roles"
+    },
+    {
+      "commit": "9a58202ac2e0bcb52d1c60a17e6b17c8a4dbe9e8",
+      "short": "9a58202",
+      "status": "committed",
+      "role": "second release-gate repair (pattern narrowing)",
+      "message": "fix(mmschat): narrow codex bootstrap filters"
     },
     {
       "commit": null,
       "short": null,
       "status": "pending_commit",
-      "role": "second release-gate repair",
-      "message": "fix(mmschat): narrow codex bootstrap filters"
+      "role": "third release-gate repair (prompt preservation)",
+      "message": "fix(mmschat): preserve codex user prompts"
     }
   ],
-  "head_pre_commit": "6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55",
+  "head_pre_commit": "9a58202ac2e0bcb52d1c60a17e6b17c8a4dbe9e8",
   "head_commit": null,
   "head_commit_message": null,
   "worktree_clean": "expected true after committing tracked changes and result artifacts",
@@ -72,40 +79,54 @@
       "summary": "Rollout entries that contain only session_meta records and no meaningful transcript content are excluded from the list and count."
     }
   ],
-  "release_gate_repair": {
-    "applied": true,
-    "committed": true,
-    "commit": "6f2fa02d4fc1041c3bbc1e7396b8d206f1b3ae55",
-    "details": [
-      {
-        "change": "system/developer response_item role filter",
-        "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
-        "summary": "Added role check in normalizeCodexRolloutMessage so system and developer role messages are hidden before they enter chat, counts, or titles. This prevents internal context instructions from appearing as user-visible chat bubbles."
-      },
-      {
-        "change": "First regression coverage set",
-        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
-        "summary": "Committed coverage in 6f2fa02 verifies role-filtering behavior, title fallback coverage, and a bootstrap false-positive guard for ordinary role prompts."
-      }
-    ]
-  },
-  "second_gate_repair": {
-    "applied": true,
-    "committed": false,
-    "pending_commit_message": "fix(mmschat): narrow codex bootstrap filters",
-    "details": [
-      {
-        "change": "bootstrap matcher narrowed to explicit injected forms",
-        "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
-        "summary": "Narrowed AGENTS.md, <INSTRUCTIONS>, and MCP bootstrap patterns so legitimate user prompts mentioning MCP, <INSTRUCTIONS>, or AGENTS remain visible unless they match the actual injected bootstrap shapes."
-      },
-      {
-        "change": "negative regression coverage for legitimate prompts",
-        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
-        "summary": "Added negative assertions proving real prompts containing MCP, <INSTRUCTIONS>, and AGENTS text are not misclassified as bootstrap context."
-      }
-    ]
-  },
+  "release_gate_repairs": [
+    {
+      "round": 1,
+      "commit": "6f2fa02",
+      "committed": true,
+      "changes": [
+        {
+          "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
+          "summary": "Added role check in normalizeCodexRolloutMessage so system and developer role messages are hidden before they enter chat, counts, or titles."
+        },
+        {
+          "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+          "summary": "Regression coverage for role-filtering, title fallback, and bootstrap false-positive guard."
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "commit": "9a58202",
+      "committed": true,
+      "changes": [
+        {
+          "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
+          "summary": "Narrowed AGENTS.md, <INSTRUCTIONS>, and MCP bootstrap patterns so legitimate user prompts mentioning MCP, <INSTRUCTIONS>, or AGENTS remain visible unless they match actual injected bootstrap shapes."
+        },
+        {
+          "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+          "summary": "Negative regression assertions for legitimate MCP, <INSTRUCTIONS>, and AGENTS prompts."
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "commit": "pending",
+      "committed": false,
+      "pending_message": "fix(mmschat): preserve codex user prompts",
+      "changes": [
+        {
+          "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
+          "summary": "Removed generic MCP bootstrap filters ([MCP], /^MCP server started/, /^MCP startup diagnostic/) so user prompts containing [MCP] and 'MCP server started but...' remain visible. Narrowed 'You are...' patterns from generic /You are (powered by|an AI)/ to exact injected forms /^You are powered by the model named/ and /^You are an AI assistant (accessed via an API|.)/. Anchor remaining tag patterns to start-of-string."
+        },
+        {
+          "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+          "summary": "Replaced overly broad positive assertions with exact-form matches. Added prompt-preservation regression guards: 'What does [MCP] mean in this error?', 'MCP server started but my tool still cannot connect', 'Why does the prompt say You are an AI assistant?' all return false."
+        }
+      ]
+    }
+  ],
   "validation": [
     {
       "command": "cd mms-remote-bridge && node --test test/mmschat-codex-rollout.test.js",
@@ -115,7 +136,7 @@
     {
       "command": "cd mms-remote-bridge && node --test test/mmschat-*.test.js",
       "status": "passed",
-      "result": "52 tests, 52 passed, 0 failed"
+      "result": "52 tests, 52 passed, 0 failed (validated by previous fixer)"
     },
     {
       "command": "git diff --check",
@@ -125,7 +146,7 @@
     {
       "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination \"platform=iOS Simulator,name=iPhone 17\" -derivedDataPath .build/p8k-codex-rollout-phone-polish-derived CODE_SIGNING_ALLOWED=NO build",
       "status": "passed",
-      "result": "BUILD SUCCEEDED"
+      "result": "BUILD SUCCEEDED (validated by previous fixer)"
     }
   ],
   "scope_confirmation": {
@@ -143,13 +164,13 @@
   "residual_risks": [
     "No phone reinstall, on-device verification, or main-apply/merge was performed in this session.",
     "Real live send, resume, open-visible, and kill flows were not exercised; validation remained targeted tests, full node tests, diff check, and compile only per boundary.",
-    "Result artifacts intentionally record the second repair as pending commit because they are included in the commit payload; final commit hash must be reported out-of-band after commit.",
-    "HumanGate is still needed before any live deployment or device validation to confirm legitimate MCP, <INSTRUCTIONS>, and AGENTS prompts render correctly on phone."
+    "Result artifacts record the third repair as pending commit because they are included in the commit payload; final commit hash must be reported out-of-band after commit.",
+    "HumanGate is still needed before any live deployment or device validation to confirm legitimate MCP, [MCP], and You are prompts render correctly on phone."
   ],
   "human_gate": {
     "version_stamp_required": true,
     "phone_reinstall_optional": true,
     "next": "HumanGate for version stamp/install candidate if desired. Do not push without explicit instruction."
   },
-  "timestamp": "2026-05-19T02:35:57Z"
+  "timestamp": "2026-05-19T03:15:00Z"
 }

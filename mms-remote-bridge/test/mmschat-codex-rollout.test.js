@@ -414,11 +414,8 @@ test("isBootstrapContextText identifies injected context patterns", (t) => {
   assert.equal(isBootstrapContextText("<permissions instructions>"), true);
   assert.equal(isBootstrapContextText("<skills_instructions>list</skills_instructions>"), true);
   assert.equal(isBootstrapContextText("<plugins_instructions>list</plugins_instructions>"), true);
-  assert.equal(isBootstrapContextText("MCP server started on port 8080"), true);
-  assert.equal(isBootstrapContextText("MCP startup diagnostic: OK"), true);
-  assert.equal(isBootstrapContextText("[MCP] connected to server"), true);
   assert.equal(isBootstrapContextText("You are powered by the model named deepseek"), true);
-  assert.equal(isBootstrapContextText("You are an AI assistant"), true);
+  assert.equal(isBootstrapContextText("You are an AI assistant accessed via an API."), true);
 
   // Real user messages should NOT be flagged
   assert.equal(isBootstrapContextText("You are an expert reviewer; inspect this diff"), false);
@@ -427,7 +424,10 @@ test("isBootstrapContextText identifies injected context patterns", (t) => {
   assert.equal(isBootstrapContextText("show git status"), false);
   assert.equal(isBootstrapContextText("write a function to sort an array"), false);
 
-  // Narrowed-filter regression guards: these user prompts must NOT be caught as bootstrap
+  // Prompt-preservation regression guards: legitimate prompts must stay visible
+  assert.equal(isBootstrapContextText("What does [MCP] mean in this error?"), false);
+  assert.equal(isBootstrapContextText("MCP server started but my tool still cannot connect"), false);
+  assert.equal(isBootstrapContextText("Why does the prompt say You are an AI assistant?"), false);
   assert.equal(isBootstrapContextText("Help me debug my MCP server connection"), false);
   assert.equal(isBootstrapContextText("Can you parse <INSTRUCTIONS> tags?"), false);
   assert.equal(isBootstrapContextText("AGENTS.md instructions are confusing"), false);
