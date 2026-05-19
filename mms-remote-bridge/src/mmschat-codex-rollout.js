@@ -19,6 +19,38 @@ const MAX_TEXT_LENGTH = 12_000;
 const MAX_TOOL_PREVIEW_LENGTH = 4_000;
 const MAX_DETAIL_MESSAGES = 500;
 
+// Patterns that identify injected bootstrap/system/developer context text.
+// These should not be rendered as user chat bubbles or counted toward titles.
+const BOOTSTRAP_CONTEXT_PATTERNS = [
+  /^\s*#\s*AGENTS\.md\b/im,
+  /AGENTS\.md\s*instructions/i,
+  /<INSTRUCTIONS>/i,
+  /<instructions>/i,
+  /<environment_context>/i,
+  /<permissions\b/i,
+  /<skills_instructions>/i,
+  /<plugins_instructions>/i,
+  /MCP\s+(server|startup|diagnostic)/i,
+  /\[MCP\]/i,
+  /^system\s+prompt\s*:/im,
+  /^developer\s+instructions\s*:/im,
+  /You are (powered by|an?)\s/i,  // Model identity preamble
+];
+
+function isBootstrapContextText(text) {
+  if (!text) return false;
+  return BOOTSTRAP_CONTEXT_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function isPlaceholderReasoning(text) {
+  if (!text) return true;
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  // "Thinking..." is the placeholder fallback
+  if (trimmed === "Thinking..." || trimmed === "Thinking…") return true;
+  return false;
+}
+
 function discoverCodexRolloutSessions(options = {}) {
   const fsImpl = options.fsImpl || fs;
   const maxFiles = readPositiveInteger(options.maxFiles) || MAX_DISCOVERY_FILES;
@@ -160,11 +192,14 @@ function buildDiscoveredCodexSession(candidate, { fsImpl = fs, maxFileBytes = MA
   const createdAt = scanned.firstTimestamp || lastActivityAt;
   const pathHash = digestText(normalizeRolloutIdentityPath(candidate.filePath, fsImpl));
 
+  // Build meaningful title from real user prompt, falling back to rollout ID only
+  const userPrompt = readNonEmptyString(scanned.latestRealUserPrompt) || readNonEmptyString(scanned.firstRealUserPrompt);
+
   return {
     mmschatId: `mmschat_codex_${pathHash.slice(0, 24)}`,
     nativeClaudeSessionId: null,
     nativeClaudeSessionStatus: "unavailable",
-    title: buildCodexSessionTitle(cwd, rolloutId),
+    title: buildCodexSessionTitle(cwd, rolloutId, userPrompt),
     cwd,
     project: path.basename(cwd) || null,
     agent: "codex",
@@ -201,6 +236,7 @@ function buildDiscoveredCodexSession(candidate, { fsImpl = fs, maxFileBytes = MA
       reasoningMessageCount: String(scanned.reasoningMessageCount),
       toolMessageCount: String(scanned.toolMessageCount),
       skippedRecordCount: String(scanned.skippedRecordCount),
+      bootstrapSkippedCount: String(scanned.bootstrapSkippedCount || 0),
       firstTimestamp: scanned.firstTimestamp,
       lastTimestamp: scanned.lastTimestamp,
     }),
@@ -228,9 +264,12 @@ function findRolloutFileForSession(session, options = {}) {
 function parseCodexRolloutJsonl(jsonlText, options = {}) {
   const state = {
     assistantMessageCount: 0,
+    bootstrapSkippedCount: 0,
+    firstRealUserPrompt: null,
     firstTimestamp: null,
     lastTimestamp: null,
     lastTimestampMs: null,
+    latestRealUserPrompt: null,
     messageCount: 0,
     reasoningMessageCount: 0,
     recordsScanned: 0,
@@ -278,9 +317,25 @@ function parseCodexRolloutJsonl(jsonlText, options = {}) {
       continue;
     }
 
+    // Check if this is a user message with bootstrap context text
+    if (normalized.role === "user" && normalized._bootstrapContext === true) {
+      state.bootstrapSkippedCount += 1;
+      // Still track user prompt for title generation only if it's NOT bootstrap
+      // (bootstrap messages already have _bootstrapContext set, so they won't be tracked)
+      continue;
+    }
+
     state.messageCount += 1;
     if (normalized.role === "user") {
       state.userMessageCount += 1;
+      // Track real user prompts for title generation
+      const userText = extractMessageText(normalized);
+      if (userText && !isBootstrapContextText(userText)) {
+        if (!state.firstRealUserPrompt) {
+          state.firstRealUserPrompt = userText;
+        }
+        state.latestRealUserPrompt = userText;
+      }
     } else if (normalized.role === "assistant") {
       state.assistantMessageCount += 1;
     } else if (normalized.role === "reasoning") {
@@ -315,18 +370,30 @@ function normalizeCodexRolloutMessage(entry, { commandCalls, fallbackSessionId, 
   const payload = isPlainObject(entry.payload) ? entry.payload : {};
   const itemType = normalizeRolloutItemType(payload.type);
   if (itemType === "reasoning") {
+    const reasoningText = extractReasoningText(payload);
+    // Only show reasoning when there is non-placeholder text
+    if (!reasoningText || isPlaceholderReasoning(reasoningText)) {
+      return null;
+    }
     return buildMessage({
       entry,
       role: "reasoning",
       fallbackSessionId,
-      content: [{ kind: "thinking", type: "thinking", text: extractReasoningText(payload) || "Thinking..." }],
+      content: [{ kind: "thinking", type: "thinking", text: reasoningText }],
     });
   }
 
   if (itemType === "message") {
     const role = readNonEmptyString(payload.role) || "assistant";
     const text = flattenContentText(payload.content) || readNonEmptyString(payload.text);
-    return text ? buildMessage({ entry, role, fallbackSessionId, content: [makeTextContent("text", text)] }) : null;
+    if (!text) return null;
+    // Mark bootstrap context user messages so they can be filtered
+    if (role === "user" && isBootstrapContextText(text)) {
+      const msg = buildMessage({ entry, role: "user", fallbackSessionId, content: [makeTextContent("text", text)] });
+      msg._bootstrapContext = true;
+      return msg;
+    }
+    return buildMessage({ entry, role, fallbackSessionId, content: [makeTextContent("text", text)] });
   }
 
   if (itemType === "functioncall") {
@@ -387,15 +454,33 @@ function normalizeCodexEventMessage(entry, { fallbackSessionId }) {
   const eventType = readNonEmptyString(payload.type);
   if (eventType === "user_message") {
     const text = readNonEmptyString(payload.message) || readNonEmptyString(payload.text);
-    return text ? buildMessage({ entry, role: "user", fallbackSessionId, content: [makeTextContent("text", text)] }) : null;
+    if (!text) return null;
+    // Mark bootstrap context user messages so they can be filtered
+    if (isBootstrapContextText(text)) {
+      const msg = buildMessage({ entry, role: "user", fallbackSessionId, content: [makeTextContent("text", text)] });
+      msg._bootstrapContext = true;
+      return msg;
+    }
+    return buildMessage({ entry, role: "user", fallbackSessionId, content: [makeTextContent("text", text)] });
   }
   if (eventType === "agent_reasoning") {
     const text = readNonEmptyString(payload.message) || readNonEmptyString(payload.text) || readNonEmptyString(payload.summary);
-    return text ? buildMessage({ entry, role: "reasoning", fallbackSessionId, content: [makeTextContent("thinking", text)] }) : null;
+    // Only show reasoning when there is non-placeholder text
+    if (!text || isPlaceholderReasoning(text)) return null;
+    return buildMessage({ entry, role: "reasoning", fallbackSessionId, content: [makeTextContent("thinking", text)] });
   }
   if (eventType === "agent_message") {
     const text = readNonEmptyString(payload.message) || readNonEmptyString(payload.text);
     return text ? buildMessage({ entry, role: "assistant", fallbackSessionId, content: [makeTextContent("text", text)] }) : null;
+  }
+  return null;
+}
+
+function extractMessageText(message) {
+  if (!message || !Array.isArray(message.content)) return null;
+  for (const item of message.content) {
+    const text = readNonEmptyString(item.text);
+    if (text) return text;
   }
   return null;
 }
@@ -458,9 +543,16 @@ function isCodexCliRolloutOrigin(sessionMeta) {
   );
 }
 
-function buildCodexSessionTitle(cwd, rolloutId) {
+function buildCodexSessionTitle(cwd, rolloutId, userPrompt) {
   const project = path.basename(cwd || "") || "Codex";
-  return limitText(`${project} - Codex rollout ${String(rolloutId || "").slice(0, 8)}`, MAX_DISCOVERY_TITLE_LENGTH);
+  // When we have a real user prompt, build meaningful title: "project - userPrompt"
+  if (userPrompt) {
+    const truncated = userPrompt.length > 60 ? userPrompt.slice(0, 57) + "..." : userPrompt;
+    return limitText(`${project} - ${truncated}`, MAX_DISCOVERY_TITLE_LENGTH);
+  }
+  // Fall back to rollout ID only (no "Codex rollout" prefix since it is already shown as provider)
+  const idShort = String(rolloutId || "").slice(0, 8);
+  return limitText(`${project} - ${idShort}`, MAX_DISCOVERY_TITLE_LENGTH);
 }
 
 function noteTimestamp(state, value) {
@@ -707,8 +799,10 @@ function isPlainObject(value) {
 module.exports = {
   TRANSCRIPT_SOURCE_CODEX_ROLLOUT,
   discoverCodexRolloutSessions,
+  isBootstrapContextText,
   isCodexCliRolloutOrigin,
   isCodexRolloutSession,
+  isPlaceholderReasoning,
   parseCodexRolloutJsonl,
   readCodexRolloutTranscriptSnapshot,
   resolveCodexSessionsRoots,

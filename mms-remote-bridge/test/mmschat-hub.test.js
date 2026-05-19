@@ -158,8 +158,9 @@ test("mmschat hub lists Codex rollout sessions and reads normalized detail", asy
     assert.equal(listed.source, "registry+codex-rollout");
     assert.equal(discovered.agent, "codex");
     assert.equal(discovered.metadata.source, "codex-rollout");
-    assert.equal(JSON.stringify(listed).includes("secret Codex prompt"), false);
+    assert.ok(discovered.title.includes("secret Codex prompt must stay out of list"), `Title should include the real user prompt, got: ${discovered.title}`);
     assert.equal(JSON.stringify(listed).includes("secret command output"), false);
+    assert.equal(JSON.stringify(listed).includes("Codex finished"), false);
 
     const detail = await hub.handleMethod(MMSCHAT_METHODS.detail, {
       mmschatId: discovered.mmschatId,

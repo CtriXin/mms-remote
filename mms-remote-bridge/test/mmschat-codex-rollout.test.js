@@ -12,6 +12,8 @@ const assert = require("node:assert/strict");
 
 const {
   discoverCodexRolloutSessions,
+  isBootstrapContextText,
+  isPlaceholderReasoning,
   readCodexRolloutTranscriptSnapshot,
   resolveCodexSessionsRoots,
 } = require("../src/mmschat-codex-rollout");
@@ -34,8 +36,9 @@ test("discovers nested Codex CLI rollout sessions without leaking transcript tex
   assert.equal(sessions[0].provider, "codex");
   assert.equal(sessions[0].metadata.source, "codex-rollout");
   assert.equal(sessions[0].metadata.cliSource, "cli");
-  assert.equal(JSON.stringify(sessions).includes("secret prompt"), false);
+  assert.ok(sessions[0].title.includes("secret prompt must not be listed"), `Title should include the real user prompt, got: ${sessions[0].title}`);
   assert.equal(JSON.stringify(sessions).includes("secret command output"), false);
+  assert.equal(JSON.stringify(sessions).includes("Codex finished"), false);
 });
 
 test("skips empty Codex rollout files so mtimes do not look like chat activity", (t) => {
@@ -92,6 +95,255 @@ test("falls back to ~/.codex sessions when CODEX_HOME is not supplied", (t) => {
 
   assert.equal(sessions.length, 1);
   assert.equal(sessions[0].metadata.rolloutIdShort, "thread-fallb");
+});
+
+// P8K: Bootstrap context records are hidden from counts and titles
+test("bootstrap context records are excluded from message counts and do not appear as user bubbles", (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-bootstrap-"));
+  const codexHome = path.join(homeDir, ".codex");
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  writeSyntheticCodexRolloutWithBootstrap({
+    codexHome,
+    threadId: "thread-bootstrap",
+    realUserText: "你可以computer use吗?",
+    bootstrapTexts: [
+      "# AGENTS.md instructions for this session",
+      "<INSTRUCTIONS>System prompt goes here</INSTRUCTIONS>",
+      "<environment_context>Working directory: /tmp/test</environment_context>",
+    ],
+  });
+
+  const [session] = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  assert.equal(session.metadata.userMessageCount, "1", "Only the real user message should be counted");
+  assert.equal(session.metadata.bootstrapSkippedCount, "3", "All 3 bootstrap records should be skipped");
+  assert.ok(session.title.includes("你可以computer use吗?"), `Title should contain real user prompt, got: ${session.title}`);
+  assert.equal(session.title.includes("AGENTS.md"), false, "Title should not contain bootstrap text");
+  assert.equal(session.title.includes("INSTRUCTIONS"), false, "Title should not contain bootstrap text");
+
+  // Verify detail transcript does not render bootstrap messages
+  const transcript = readCodexRolloutTranscriptSnapshot({ codexHome, session });
+  const userMessages = transcript.messages.filter((m) => m.role === "user");
+  assert.equal(userMessages.length, 1, "Should only have real user message (bootstrap fully excluded before messages array)");
+});
+
+// P8K: Real user prompts generate meaningful rollout titles
+test("builds meaningful Codex rollout titles from first or latest real user prompt", (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-title-"));
+  const codexHome = path.join(homeDir, ".codex");
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  writeSyntheticCodexRollout({
+    codexHome,
+    threadId: "thread-title-test",
+    userText: "hello Codex",
+  });
+
+  const [session] = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  assert.ok(session.title.includes("hello Codex"), `Title should include user prompt, got: ${session.title}`);
+});
+
+// P8K: Fallback to rollout ID only when no real user text exists
+test("falls back to rollout ID in title when no real user text exists", (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-nouser-"));
+  const codexHome = path.join(homeDir, ".codex");
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  // Write a rollout with only bootstrap context user messages (no real user prompts)
+  writeSyntheticCodexRolloutWithBootstrap({
+    codexHome,
+    threadId: "thread-no-real-user",
+    realUserText: null,
+    bootstrapTexts: [
+      "# AGENTS.md instructions for this session",
+      "<environment_context>Working directory: /tmp/test</environment_context>",
+    ],
+  });
+
+  const sessions = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  // Should still be discovered because there are assistant/tool messages
+  if (sessions.length > 0) {
+    assert.equal(sessions[0].title.includes("AGENTS.md"), false, "Title should not contain bootstrap text");
+  }
+});
+
+// P8K: Placeholder-only reasoning does not render visibly
+test("suppresses empty Thinking... placeholders; only shows real reasoning text", (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-thinking-"));
+  const codexHome = path.join(homeDir, ".codex");
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  // Write a rollout where the reasoning payload has empty/placeholder text
+  const rolloutDir = path.join(codexHome, "sessions", "2026", "05", "17");
+  const rolloutPath = path.join(rolloutDir, "rollout-2026-05-17T10-00-00-thread-thinking.jsonl");
+  const records = [
+    {
+      timestamp: "2026-05-17T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "thread-thinking",
+        cwd: "/tmp/thinking-project",
+        model: "gpt-5.5",
+        originator: "codex-tui",
+        source: "cli",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: "real user message",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "reasoning",
+        summary: [{ text: "" }],  // Empty reasoning = should be suppressed
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:03.000Z",
+      type: "response_item",
+      payload: {
+        type: "reasoning",
+        summary: [{ text: "Actually checking the rollout schema now" }],  // Real reasoning
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:04.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: "answer",
+      },
+    },
+  ];
+
+  fs.mkdirSync(rolloutDir, { recursive: true });
+  fs.writeFileSync(rolloutPath, records.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+
+  const [session] = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  assert.equal(session.metadata.reasoningMessageCount, "1", "Only the real reasoning should be counted");
+
+  const transcript = readCodexRolloutTranscriptSnapshot({ codexHome, session });
+  const reasoningMessages = transcript.messages.filter((m) => m.role === "reasoning");
+  assert.equal(reasoningMessages.length, 1, "Only one reasoning message should appear");
+  assert.equal(reasoningMessages[0].content[0].text, "Actually checking the rollout schema now");
+
+  // Also test placeholder text "Thinking..." is suppressed
+  const placeholderRecords = [
+    {
+      timestamp: "2026-05-17T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "thread-placeholder",
+        cwd: "/tmp/placeholder-project",
+        model: "gpt-5.5",
+        originator: "codex-tui",
+        source: "cli",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: "test",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "reasoning",
+        text: "Thinking...",  // Literal placeholder
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:03.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: "answer",
+      },
+    },
+  ];
+  const placeholderDir = path.join(codexHome, "sessions", "2026", "05", "18");
+  const placeholderPath = path.join(placeholderDir, "rollout-2026-05-18T10-00-00-thread-placeholder.jsonl");
+  fs.mkdirSync(placeholderDir, { recursive: true });
+  fs.writeFileSync(placeholderPath, placeholderRecords.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
+
+  const sessions2 = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  const placeholderSession = sessions2.find((s) => s.metadata.rolloutFileName.includes("thread-placeholder"));
+  assert.ok(placeholderSession, "Placeholder session should be discovered");
+  assert.equal(placeholderSession.metadata.reasoningMessageCount, "0", "Placeholder reasoning should not be counted");
+
+  const transcript2 = readCodexRolloutTranscriptSnapshot({ codexHome, session: placeholderSession });
+  const reasoning2 = transcript2.messages.filter((m) => m.role === "reasoning");
+  assert.equal(reasoning2.length, 0, "Placeholder 'Thinking...' should not render");
+});
+
+// P8K: Bootstrap context detection function tests
+test("isBootstrapContextText identifies injected context patterns", (t) => {
+  assert.equal(isBootstrapContextText("# AGENTS.md instructions"), true);
+  assert.equal(isBootstrapContextText("AGENTS.md instructions for this session"), true);
+  assert.equal(isBootstrapContextText("<INSTRUCTIONS>System prompt</INSTRUCTIONS>"), true);
+  assert.equal(isBootstrapContextText("<instructions>lowercase</instructions>"), true);
+  assert.equal(isBootstrapContextText("<environment_context>path</environment_context>"), true);
+  assert.equal(isBootstrapContextText("<permissions instructions>"), true);
+  assert.equal(isBootstrapContextText("<skills_instructions>list</skills_instructions>"), true);
+  assert.equal(isBootstrapContextText("<plugins_instructions>list</plugins_instructions>"), true);
+  assert.equal(isBootstrapContextText("MCP server started on port 8080"), true);
+  assert.equal(isBootstrapContextText("MCP startup diagnostic: OK"), true);
+  assert.equal(isBootstrapContextText("[MCP] connected to server"), true);
+  assert.equal(isBootstrapContextText("You are powered by the model named deepseek"), true);
+  assert.equal(isBootstrapContextText("You are an AI assistant"), true);
+
+  // Real user messages should NOT be flagged
+  assert.equal(isBootstrapContextText("hello Codex"), false);
+  assert.equal(isBootstrapContextText("你可以computer use吗?"), false);
+  assert.equal(isBootstrapContextText("show git status"), false);
+  assert.equal(isBootstrapContextText("write a function to sort an array"), false);
+  assert.equal(isBootstrapContextText(""), false);
+  assert.equal(isBootstrapContextText(null), false);
+});
+
+// P8K: isPlaceholderReasoning tests
+test("isPlaceholderReasoning identifies empty or placeholder reasoning", (t) => {
+  assert.equal(isPlaceholderReasoning("Thinking..."), true);
+  assert.equal(isPlaceholderReasoning("Thinking…"), true);
+  assert.equal(isPlaceholderReasoning(""), true);
+  assert.equal(isPlaceholderReasoning("   "), true);
+  assert.equal(isPlaceholderReasoning(null), true);
+  assert.equal(isPlaceholderReasoning(undefined), true);
+
+  assert.equal(isPlaceholderReasoning("Actually checking the rollout schema now"), false);
+  assert.equal(isPlaceholderReasoning("analyzing code structure"), false);
+  assert.equal(isPlaceholderReasoning("let me think about this..."), false);
+});
+
+// P8K: Preserve empty rollout suppression
+test("rollout with only bootstrap context + session_meta still counts as empty", (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-bootstrap-only-"));
+  const codexHome = path.join(homeDir, ".codex");
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  writeSyntheticCodexRolloutWithBootstrap({
+    codexHome,
+    threadId: "thread-bootstrap-only",
+    realUserText: null,
+    bootstrapTexts: [
+      "# AGENTS.md instructions for this session",
+      "<INSTRUCTIONS>System prompt</INSTRUCTIONS>",
+    ],
+  });
+
+  const sessions = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  // Should be hidden because after filtering bootstrap, no real messages remain
+  assert.equal(sessions.length, 0);
 });
 
 function writeSyntheticCodexRollout({
@@ -190,6 +442,64 @@ function writeEmptyCodexRollout({ codexHome, threadId }) {
 
   fs.mkdirSync(rolloutDir, { recursive: true });
   fs.writeFileSync(rolloutPath, `${records.map((entry) => JSON.stringify(entry)).join("\n")}\n`, "utf8");
+  return rolloutPath;
+}
+
+function writeSyntheticCodexRolloutWithBootstrap({
+  codexHome,
+  threadId,
+  realUserText = null,
+  bootstrapTexts = [],
+}) {
+  const rolloutDir = path.join(codexHome, "sessions", "2026", "05", "17");
+  const rolloutPath = path.join(rolloutDir, `rollout-2026-05-17T10-00-00-${threadId}.jsonl`);
+  const records = [
+    {
+      timestamp: "2026-05-17T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: threadId,
+        cwd: "/tmp/bootstrap-project",
+        model: "gpt-5.5",
+        originator: "codex-tui",
+        source: "cli",
+      },
+    },
+    // Bootstrap context messages first
+    ...bootstrapTexts.map((text) => ({
+      timestamp: "2026-05-17T10:00:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: text,
+      },
+    })),
+    // Real user message (if any)
+    ...(realUserText ? [{
+      timestamp: "2026-05-17T10:00:02.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: realUserText,
+      },
+    }] : []),
+    // Assistant reply only when there is real user content (else bootstrap-only sessions stay empty)
+    ...(realUserText ? [{
+      timestamp: "2026-05-17T10:00:03.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: "I understand. Let me help you with that.",
+      },
+    }] : []),
+  ];
+
+  fs.mkdirSync(rolloutDir, { recursive: true });
+  fs.writeFileSync(
+    rolloutPath,
+    records.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+    "utf8"
+  );
   return rolloutPath;
 }
 

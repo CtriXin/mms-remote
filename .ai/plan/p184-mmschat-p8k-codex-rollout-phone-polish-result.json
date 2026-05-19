@@ -1,0 +1,97 @@
+{
+  "task": "p184-mmschat-p8k-codex-rollout-phone-polish",
+  "task_id": "p184-mmschat-p8k-codex-rollout-phone-polish",
+  "trace_id": "trc-20260516T082907Z-f43b858883",
+  "verdict": "PASS",
+  "verdict_reason": "All 5 screenshot findings addressed, 51 tests pass, git diff clean, xcodebuild succeeds. No Swift changes needed — existing read-only replay/localization covers historical replay. Hard boundaries held.",
+  "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8k-codex-rollout-phone-polish",
+  "branch": "p184/mmschat-p8k-codex-rollout-phone-polish",
+  "base_commit": "b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd",
+  "head_pre_commit": "b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd",
+  "head_commit": null,
+  "worktree_clean": "expected true after committing tracked changes and result artifacts",
+  "changed_files": [
+    "mms-remote-bridge/src/mmschat-codex-rollout.js",
+    "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+    "mms-remote-bridge/test/mmschat-hub.test.js",
+    ".ai/plan/p184-mmschat-p8k-codex-rollout-phone-polish-result.json",
+    ".ai/plan/p184-mmschat-p8k-codex-rollout-phone-polish-result.md"
+  ],
+  "screenshot_findings_addressed": [
+    {
+      "finding": 1,
+      "title": "Duplicate-looking titles fixed",
+      "status": "done",
+      "summary": "Replaced generic titles in replay entries with real prompt titles from the rollout data, falling back to the rollout id when prompt text is unavailable."
+    },
+    {
+      "finding": 2,
+      "title": "Bootstrap/context records hidden",
+      "status": "done",
+      "summary": "Bootstrap and context records are now excluded from the rollout list, detail view, item count, and title generation. These internal records no longer leak into user-facing UI."
+    },
+    {
+      "finding": 3,
+      "title": "Empty Thinking placeholders suppressed",
+      "status": "done",
+      "summary": "Thinking/reasoning entries with empty or whitespace-only content no longer produce placeholder rows."
+    },
+    {
+      "finding": 4,
+      "title": "Read-only replay preserved",
+      "status": "done",
+      "summary": "Rollout detail remains read-only on iOS. Existing phone localization/copy documents historical replay behavior; no Swift changes required."
+    },
+    {
+      "finding": 5,
+      "title": "Session-meta-only empty rollouts suppressed",
+      "status": "done",
+      "summary": "Rollout entries that contain only session_meta records and no meaningful transcript content are excluded from the list and count."
+    }
+  ],
+  "validation": [
+    {
+      "command": "cd mms-remote-bridge && node --test test/mmschat-codex-rollout.test.js",
+      "status": "passed",
+      "result": "17 tests, 17 passed, 0 failed"
+    },
+    {
+      "command": "cd mms-remote-bridge && node --test test/mmschat-*.test.js",
+      "status": "passed",
+      "result": "51 tests, 51 passed, 0 failed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "result": "no output — no whitespace errors"
+    },
+    {
+      "command": "xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile -destination \"platform=iOS Simulator,name=iPhone 17\" -derivedDataPath .build/p8k-codex-rollout-phone-polish-derived CODE_SIGNING_ALLOWED=NO build",
+      "status": "passed",
+      "result": "BUILD SUCCEEDED"
+    }
+  ],
+  "scope_confirmation": {
+    "main_worktree_touched": false,
+    "user_bridge_runtime_touched": false,
+    "phone_install": false,
+    "push": false,
+    "deploy": false,
+    "global_config": false,
+    "keychain": false,
+    "dependency_changes": false,
+    "bridge_start_stop_reconfigure": false,
+    "no_swift_changes": true
+  },
+  "residual_risks": [
+    "No phone reinstall, on-device verification, or main-apply/merge was performed in this session.",
+    "Real live send, resume, open-visible, and kill flows were not exercised; validation remained compile and test only per boundary.",
+    "Version stamp not applied — no marketing/build version bump needed since no Swift files changed."
+  ],
+  "human_gate": {
+    "version_stamp_required": true,
+    "phone_reinstall_optional": true,
+    "next": "HumanGate for version stamp/install candidate if desired"
+  },
+  "timestamp": "2026-05-18T09:00:00Z"
+}
