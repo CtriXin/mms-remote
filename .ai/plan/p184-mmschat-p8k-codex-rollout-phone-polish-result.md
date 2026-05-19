@@ -6,9 +6,8 @@
 
 | File | Lines Δ |
 |------|---------|
-| `mms-remote-bridge/src/mmschat-codex-rollout.js` | +108 |
-| `mms-remote-bridge/test/mmschat-codex-rollout.test.js` | +312 |
-| `mms-remote-bridge/test/mmschat-hub.test.js` | +3 |
+| `mms-remote-bridge/src/mmschat-codex-rollout.js` | +6 |
+| `mms-remote-bridge/test/mmschat-codex-rollout.test.js` | +147 |
 
 No Swift files changed. Existing read-only replay/localization in the iOS app documents historical replay behavior; no version bump needed.
 
@@ -22,17 +21,27 @@ No Swift files changed. Existing read-only replay/localization in the iOS app do
 | 4 | Read-only replay on iOS | Preserved — existing localization/copy covers historical replay; no Swift change needed |
 | 5 | Session_meta-only empty rollouts | Excluded from list and count |
 
+## Release Gate Repair (commit: pending)
+
+| Change | Detail |
+|--------|--------|
+| system/developer response_item role filter | System and developer role `response_item` messages are now filtered before entering chat, counts, or titles. Internal context instructions no longer leak as user-visible chat bubbles. |
+| Broad bootstrap matcher narrowed | Changed `/You are (powered by\|an?)\s/i` → `/You are (powered by\|an AI)\s/i`. Original `an?` wildcard was too broad and caught genuine role prompts like "You are an expert reviewer". |
+| Fallback rollout-id title coverage non-guarded | Rebuilt the "no real user text" test with synthetic `response_item` records. Now asserts exact `cwd - rollout-id` fallback title format, verified role counts, and proves the fallback path is exercised without guarded conditions. |
+| New role filter test | Added test: system + developer messages hidden while user + assistant remain visible. Confirms message counts (2 total, 1 user, 1 assistant) and asserts no system/developer text leaks into transcript. |
+| Bootstrap matcher regression guard | Added `isBootstrapContextText("You are an expert reviewer; inspect this diff") === false` assertion to prevent the narrowed pattern from regressing on real role prompts. |
+
 ## Validation
 
 ```
 cd mms-remote-bridge && node --test test/mmschat-codex-rollout.test.js
-  PASS: 17 tests, 17 pass
+  PASS: 18 tests, 18 pass, 0 fail
 
 cd mms-remote-bridge && node --test test/mmschat-*.test.js
-  PASS: 51 tests, 51 pass
+  PASS: 52 tests, 52 pass, 0 fail
 
 git diff --check
-  PASS: no output
+  PASS: no output — no whitespace errors
 
 xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile \
   -destination "platform=iOS Simulator,name=iPhone 17" \
@@ -51,9 +60,16 @@ xcodebuild -project CodexMobile/CodexMobile.xcodeproj -scheme CodexMobile \
 - No bridge start/stop/reconfigure
 - No Swift changes
 
+## Risks
+
+- Phone reinstall NOT performed. Role filter + title fallback rendering confirmed only via tests and xcodebuild compile.
+- Real live send, resume, open-visible, and kill flows not exercised.
+- HumanGate recommended before live deployment to validate role filtering and title fallback render correctly on device.
+
 ## Next Step
 
 HumanGate — version stamp and/or install candidate if desired. No push without explicit instruction.
 
 Branch: `p184/mmschat-p8k-codex-rollout-phone-polish`
-Base: `b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd`
+Base: `255899d682e1d8e01a12b0a20ec8782c8e992692`
+Updated: `2026-05-19T02:17:35Z`

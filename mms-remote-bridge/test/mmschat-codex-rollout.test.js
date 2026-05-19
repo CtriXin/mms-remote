@@ -149,22 +149,67 @@ test("falls back to rollout ID in title when no real user text exists", (t) => {
   const codexHome = path.join(homeDir, ".codex");
   t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
 
-  // Write a rollout with only bootstrap context user messages (no real user prompts)
-  writeSyntheticCodexRolloutWithBootstrap({
-    codexHome,
-    threadId: "thread-no-real-user",
-    realUserText: null,
-    bootstrapTexts: [
-      "# AGENTS.md instructions for this session",
-      "<environment_context>Working directory: /tmp/test</environment_context>",
-    ],
-  });
+  const rolloutDir = path.join(codexHome, "sessions", "2026", "05", "17");
+  const rolloutPath = path.join(rolloutDir, "rollout-2026-05-17T10-00-00-thread-no-real-user.jsonl");
+  const records = [
+    {
+      timestamp: "2026-05-17T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "thread-no-real-user",
+        cwd: "/tmp/bootstrap-project",
+        model: "gpt-5.5",
+        originator: "codex-tui",
+        source: "cli",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: "# AGENTS.md instructions for this session",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call",
+        call_id: "call-no-user",
+        name: "exec_command",
+        arguments: JSON.stringify({ cmd: "pwd", cwd: "/tmp/bootstrap-project" }),
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:03.000Z",
+      type: "response_item",
+      payload: {
+        type: "function_call_output",
+        call_id: "call-no-user",
+        output: "/tmp/bootstrap-project",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:04.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: "I can continue from the existing rollout context.",
+      },
+    },
+  ];
+
+  fs.mkdirSync(rolloutDir, { recursive: true });
+  fs.writeFileSync(rolloutPath, records.map((entry) => JSON.stringify(entry)).join("\n") + "\n", "utf8");
 
   const sessions = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
-  // Should still be discovered because there are assistant/tool messages
-  if (sessions.length > 0) {
-    assert.equal(sessions[0].title.includes("AGENTS.md"), false, "Title should not contain bootstrap text");
-  }
+  assert.equal(sessions.length, 1, "Visible assistant/tool content should keep the session discoverable");
+  assert.equal(sessions[0].title, "bootstrap-project - thread-n", "Title should fall back to rollout ID when no real user prompt exists");
+  assert.equal(sessions[0].metadata.userMessageCount, "0");
+  assert.equal(sessions[0].metadata.assistantMessageCount, "1");
+  assert.equal(sessions[0].metadata.toolMessageCount, "2");
+  assert.equal(sessions[0].metadata.bootstrapSkippedCount, "1");
 });
 
 // P8K: Placeholder-only reasoning does not render visibly
@@ -287,6 +332,79 @@ test("suppresses empty Thinking... placeholders; only shows real reasoning text"
 });
 
 // P8K: Bootstrap context detection function tests
+test("response_item system and developer messages stay hidden while visible chat remains discoverable", (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "mmschat-codex-role-filter-"));
+  const codexHome = path.join(homeDir, ".codex");
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+
+  const rolloutDir = path.join(codexHome, "sessions", "2026", "05", "17");
+  const rolloutPath = path.join(rolloutDir, "rollout-2026-05-17T10-00-00-thread-role-filter.jsonl");
+  const records = [
+    {
+      timestamp: "2026-05-17T10:00:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "thread-role-filter",
+        cwd: "/tmp/role-filter-project",
+        model: "gpt-5.5",
+        originator: "codex-tui",
+        source: "cli",
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:01.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "system",
+        content: [{ text: "You are the system bootstrap for this session." }],
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "developer",
+        content: [{ text: "Developer instructions: inspect the repo carefully." }],
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:03.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "user",
+        content: [{ text: "show me the rollout summary" }],
+      },
+    },
+    {
+      timestamp: "2026-05-17T10:00:04.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [{ text: "Here is the visible assistant reply." }],
+      },
+    },
+  ];
+
+  fs.mkdirSync(rolloutDir, { recursive: true });
+  fs.writeFileSync(rolloutPath, records.map((entry) => JSON.stringify(entry)).join("\n") + "\n", "utf8");
+
+  const [session] = discoverCodexRolloutSessions({ codexHome, osImpl: { homedir: () => homeDir } });
+  assert.ok(session, "Visible user/assistant messages should keep the rollout session discoverable");
+  assert.equal(session.metadata.messageCount, "2");
+  assert.equal(session.metadata.userMessageCount, "1");
+  assert.equal(session.metadata.assistantMessageCount, "1");
+  assert.equal(session.title, "role-filter-project - show me the rollout summary");
+
+  const transcript = readCodexRolloutTranscriptSnapshot({ codexHome, session });
+  assert.deepEqual(transcript.messages.map((message) => message.role), ["user", "assistant"]);
+  assert.equal(JSON.stringify(transcript.messages).includes("system bootstrap"), false);
+  assert.equal(JSON.stringify(transcript.messages).includes("Developer instructions"), false);
+});
+
 test("isBootstrapContextText identifies injected context patterns", (t) => {
   assert.equal(isBootstrapContextText("# AGENTS.md instructions"), true);
   assert.equal(isBootstrapContextText("AGENTS.md instructions for this session"), true);
@@ -303,6 +421,7 @@ test("isBootstrapContextText identifies injected context patterns", (t) => {
   assert.equal(isBootstrapContextText("You are an AI assistant"), true);
 
   // Real user messages should NOT be flagged
+  assert.equal(isBootstrapContextText("You are an expert reviewer; inspect this diff"), false);
   assert.equal(isBootstrapContextText("hello Codex"), false);
   assert.equal(isBootstrapContextText("你可以computer use吗?"), false);
   assert.equal(isBootstrapContextText("show git status"), false);

@@ -3,17 +3,17 @@
   "task_id": "p184-mmschat-p8k-codex-rollout-phone-polish",
   "trace_id": "trc-20260516T082907Z-f43b858883",
   "verdict": "PASS",
-  "verdict_reason": "All 5 screenshot findings addressed, 51 tests pass, git diff clean, xcodebuild succeeds. No Swift changes needed — existing read-only replay/localization covers historical replay. Hard boundaries held.",
+  "verdict_reason": "All 5 screenshot findings addressed. Release gate repair (role filter + bootstrap matcher narrow) applied. 18/18 targeted tests pass, 52/52 full suite pass, git diff clean, xcodebuild succeeds. No Swift changes needed — existing read-only replay/localization covers historical replay. Hard boundaries held.",
   "worktree": "/Users/xin/auto-skills/CtriXin-repo/mms-remote-p184-mmschat-p8k-codex-rollout-phone-polish",
   "branch": "p184/mmschat-p8k-codex-rollout-phone-polish",
   "base_commit": "b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd",
-  "head_pre_commit": "b4d57d2d96d6927e69f5cb1bd3d770a0ae3a6fdd",
+  "head_pre_commit": "255899d682e1d8e01a12b0a20ec8782c8e992692",
   "head_commit": null,
+  "head_commit_message": null,
   "worktree_clean": "expected true after committing tracked changes and result artifacts",
   "changed_files": [
     "mms-remote-bridge/src/mmschat-codex-rollout.js",
     "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
-    "mms-remote-bridge/test/mmschat-hub.test.js",
     ".ai/plan/p184-mmschat-p8k-codex-rollout-phone-polish-result.json",
     ".ai/plan/p184-mmschat-p8k-codex-rollout-phone-polish-result.md"
   ],
@@ -49,16 +49,47 @@
       "summary": "Rollout entries that contain only session_meta records and no meaningful transcript content are excluded from the list and count."
     }
   ],
+  "release_gate_repair": {
+    "applied": true,
+    "committed": false,
+    "details": [
+      {
+        "change": "system/developer response_item role filter",
+        "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
+        "summary": "Added role check in normalizeCodexRolloutMessage: system and developer role messages are now hidden before they enter chat, counts, or titles. This prevents internal context instructions from appearing as user-visible chat bubbles."
+      },
+      {
+        "change": "Broad bootstrap matcher narrowed",
+        "file": "mms-remote-bridge/src/mmschat-codex-rollout.js",
+        "summary": "Changed bootstrap pattern from /You are (powered by|an?)\\s/i to /You are (powered by|an AI)\\s/i. The original 'an?' wildcard was too broad and matched genuine role prompts like 'You are an expert reviewer'. The narrowed pattern preserves real user prompts while still catching 'You are an AI' bootstrap injections."
+      },
+      {
+        "change": "Fallback rollout-id title coverage non-guarded",
+        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+        "summary": "Updated 'falls back to rollout ID in title when no real user text exists' test to use synthetic response_item-only records instead of bootstrap helper. The test now asserts the exact fallback title format (cwd-prefixed rollout ID), verified message counts, and role distribution, proving the title fallback path is exercised without guarded conditions."
+      },
+      {
+        "change": "New role filter test",
+        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+        "summary": "Added 'response_item system and developer messages stay hidden while visible chat remains discoverable' test: verifies system/developer messages are excluded while user/assistant messages remain, confirms message counts (2 total), and asserts no system/developer text leaks into transcript."
+      },
+      {
+        "change": "Bootstrap matcher regression guard",
+        "file": "mms-remote-bridge/test/mmschat-codex-rollout.test.js",
+        "summary": "Added assertion: isBootstrapContextText('You are an expert reviewer; inspect this diff') === false. Ensures the narrowed pattern does not regress on real role prompts."
+      }
+    ]
+  },
   "validation": [
     {
       "command": "cd mms-remote-bridge && node --test test/mmschat-codex-rollout.test.js",
       "status": "passed",
-      "result": "17 tests, 17 passed, 0 failed"
+      "result": "18 tests, 18 passed, 0 failed"
     },
     {
       "command": "cd mms-remote-bridge && node --test test/mmschat-*.test.js",
       "status": "passed",
-      "result": "51 tests, 51 passed, 0 failed"
+      "result": "52 tests, 52 passed, 0 failed"
     },
     {
       "command": "git diff --check",
@@ -86,12 +117,13 @@
   "residual_risks": [
     "No phone reinstall, on-device verification, or main-apply/merge was performed in this session.",
     "Real live send, resume, open-visible, and kill flows were not exercised; validation remained compile and test only per boundary.",
-    "Version stamp not applied — no marketing/build version bump needed since no Swift files changed."
+    "Version stamp not applied — no marketing/build version bump needed since no Swift files changed.",
+    "Release gate repair applied only to bridge+test; phone app reinstall NOT performed. HumanGate needed before live deployment to confirm role filtering and title fallback render correctly on device."
   ],
   "human_gate": {
     "version_stamp_required": true,
     "phone_reinstall_optional": true,
-    "next": "HumanGate for version stamp/install candidate if desired"
+    "next": "HumanGate for version stamp/install candidate if desired. Release gate repair committed; phone reinstall recommended to validate role filter + title fallback on device."
   },
-  "timestamp": "2026-05-18T09:00:00Z"
+  "timestamp": "2026-05-19T02:17:35Z"
 }

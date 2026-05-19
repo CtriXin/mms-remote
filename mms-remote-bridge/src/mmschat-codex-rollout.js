@@ -34,7 +34,7 @@ const BOOTSTRAP_CONTEXT_PATTERNS = [
   /\[MCP\]/i,
   /^system\s+prompt\s*:/im,
   /^developer\s+instructions\s*:/im,
-  /You are (powered by|an?)\s/i,  // Model identity preamble
+  /You are (powered by|an AI)\s/i,  // Model identity preamble / bootstrap role injection
 ];
 
 function isBootstrapContextText(text) {
@@ -385,6 +385,10 @@ function normalizeCodexRolloutMessage(entry, { commandCalls, fallbackSessionId, 
 
   if (itemType === "message") {
     const role = readNonEmptyString(payload.role) || "assistant";
+    // Hide system/developer context messages before they enter chat, counts, or titles
+    if (role === "system" || role === "developer") {
+      return null;
+    }
     const text = flattenContentText(payload.content) || readNonEmptyString(payload.text);
     if (!text) return null;
     // Mark bootstrap context user messages so they can be filtered
