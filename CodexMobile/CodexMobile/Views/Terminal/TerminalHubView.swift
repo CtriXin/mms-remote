@@ -111,15 +111,17 @@ struct TerminalHubView: View {
         }
         .confirmationDialog(
             "Close Terminal?",
-            item: $panePendingClose,
+            isPresented: closeDialogIsPresented,
             titleVisibility: .visible
-        ) { pane in
-            Button("Close \(pane.displayTitle)", role: .destructive) {
-                closePane(pane)
+        ) {
+            if let pane = panePendingClose {
+                Button("Close \(pane.displayTitle)", role: .destructive) {
+                    closePane(pane)
+                }
             }
             Button("Cancel", role: .cancel) {}
-        } message: { pane in
-            Text("Kills tmux pane \(pane.paneKey) on Mac and phone.")
+        } message: {
+            Text("Kills tmux pane \(panePendingClose?.paneKey ?? "") on Mac and phone.")
         }
         .sheet(isPresented: $isShowingCreateTerminalSheet) {
             NavigationStack {
@@ -384,6 +386,17 @@ struct TerminalHubView: View {
                 if !isPresented {
                     localErrorMessage = nil
                     codex.terminalLastErrorMessage = nil
+                }
+            }
+        )
+    }
+
+    private var closeDialogIsPresented: Binding<Bool> {
+        Binding(
+            get: { panePendingClose != nil },
+            set: { isPresented in
+                if !isPresented {
+                    panePendingClose = nil
                 }
             }
         )
