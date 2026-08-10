@@ -15,9 +15,11 @@ struct SettingsView: View {
             VStack(spacing: 24) {
                 SettingsArchivedChatsCard()
                 SettingsAppearanceCard(appFontStyle: appFontStyleBinding)
+                SettingsLanguageCard()
                 SettingsNotificationsCard()
                 SettingsGPTAccountCard()
                 SettingsSubscriptionCard()
+                SettingsAppVersionCard()
                 SettingsBridgeVersionCard()
                 SettingsRuntimeDefaultsCard()
                 SettingsAboutCard()
@@ -27,7 +29,7 @@ struct SettingsView: View {
             .padding()
         }
         .font(AppFont.body())
-        .navigationTitle("Settings")
+        .navigationTitle(Text(localized: "settings.title"))
     }
 
     private var appFontStyleBinding: Binding<AppFont.Style> {
@@ -46,12 +48,12 @@ private struct SettingsRuntimeDefaultsCard: View {
     private let settingsAccentColor = Color(.plan)
 
     var body: some View {
-        SettingsCard(title: "Runtime defaults") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.runtime_defaults")) {
             HStack {
-                Text("Model")
+                Text(localized: "settings.model")
                 Spacer()
                 Picker("Model", selection: runtimeModelSelection) {
-                    Text("Auto").tag(runtimeAutoValue)
+                    Text(localized: "settings.auto").tag(runtimeAutoValue)
                     ForEach(runtimeModelOptions, id: \.id) { model in
                         Text(TurnComposerMetaMapper.modelTitle(for: model))
                             .tag(model.id)
@@ -63,10 +65,10 @@ private struct SettingsRuntimeDefaultsCard: View {
             }
 
             HStack {
-                Text("Reasoning")
+                Text(localized: "settings.reasoning")
                 Spacer()
                 Picker("Reasoning", selection: runtimeReasoningSelection) {
-                    Text("Auto").tag(runtimeAutoValue)
+                    Text(localized: "settings.auto").tag(runtimeAutoValue)
                     ForEach(runtimeReasoningOptions, id: \.id) { option in
                         Text(option.title).tag(option.effort)
                     }
@@ -79,10 +81,10 @@ private struct SettingsRuntimeDefaultsCard: View {
 
             if codex.selectedModelSupportsServiceTier(.fast) {
                 HStack {
-                    Text("Speed")
+                    Text(localized: "settings.speed")
                     Spacer()
                     Picker("Speed", selection: runtimeServiceTierSelection) {
-                        Text("Normal").tag(runtimeNormalValue)
+                        Text(localized: "settings.normal").tag(runtimeNormalValue)
                         ForEach(CodexServiceTier.allCases, id: \.rawValue) { tier in
                             Text(tier.displayName).tag(tier.rawValue)
                         }
@@ -94,7 +96,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             }
 
             HStack {
-                Text("Access")
+                Text(localized: "settings.access")
                 Spacer()
                 Picker("Access", selection: runtimeAccessSelection) {
                     ForEach(CodexAccessMode.allCases, id: \.self) { mode in
@@ -109,7 +111,7 @@ private struct SettingsRuntimeDefaultsCard: View {
             Divider()
 
             HStack {
-                Text("Git writer model")
+                Text(localized: "settings.git_writer_model")
                 Spacer()
                 Picker("Git writer model", selection: gitWriterModelSelection) {
                     ForEach(gitWriterModelOptions, id: \.id) { model in
@@ -123,7 +125,7 @@ private struct SettingsRuntimeDefaultsCard: View {
                 .disabled(gitWriterModelOptions.isEmpty)
             }
 
-            Text("Used for AI-generated commit messages and PR drafts. Defaults to GPT-5.4 Mini when available.")
+            Text(localized: "settings.git_writer_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
         }
@@ -194,7 +196,7 @@ private struct SettingsConnectionCard: View {
     private let settingsAccentColor = Color(.plan)
 
     var body: some View {
-        SettingsCard(title: "Connection") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.connection")) {
             if let trustedPairPresentation = codex.trustedPairPresentation {
                 SettingsTrustedComputerCard(
                     presentation: trustedPairPresentation,
@@ -204,7 +206,7 @@ private struct SettingsConnectionCard: View {
                     }
                 )
             } else {
-                Text("No paired computer")
+                Text(localized: "settings.no_paired_computer")
                     .font(AppFont.subheadline(weight: .semibold))
                     .foregroundStyle(.primary)
             }
@@ -234,29 +236,29 @@ private struct SettingsConnectionCard: View {
             Divider()
 
             if codex.supportsKeepAwakeWhileBridgeRuns {
-                Toggle("Keep computer reachable", isOn: keepMacAwakeWhileBridgeRunsBinding)
+                Toggle(LocalizationManager.shared.localized("settings.keep_awake"), isOn: keepMacAwakeWhileBridgeRunsBinding)
                     .tint(settingsAccentColor)
 
                 Text(codex.keepMacAwakeWhileBridgeRuns
-                     ? "Uses the host computer's keep-awake support while the bridge is running so the computer stays reachable even if the display turns off. Best while charging."
-                     : "The computer can go back to sleeping normally when the bridge is idle.")
+                     ? LocalizationManager.shared.localized("settings.keep_awake_hint")
+                     : LocalizationManager.shared.localized("settings.keep_awake_idle_hint"))
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
 
                 if !codex.isConnected {
-                    Text("Saved on this iPhone. It will sync to the paired computer the next time the bridge reconnects.")
+                    Text(localized: "settings.saved_on_iphone")
                         .font(AppFont.caption())
                         .foregroundStyle(.secondary)
                 }
             }
 
             if codex.isConnected {
-                SettingsButton("Disconnect", role: .destructive) {
+                SettingsButton(LocalizationManager.shared.localized("settings.disconnect"), role: .destructive) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     disconnectRelay()
                 }
             } else if codex.hasTrustedMacReconnectCandidate {
-                SettingsButton("Forget Pair", role: .destructive) {
+                SettingsButton(LocalizationManager.shared.localized("settings.forget_pair"), role: .destructive) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     codex.forgetTrustedMac()
                 }
@@ -295,28 +297,30 @@ private struct SettingsConnectionCard: View {
     }
 
     private var connectionStatusLabel: String {
+        let lm = LocalizationManager.shared
         switch codex.connectionPhase {
         case .offline:
-            return "offline"
+            return lm.localized("connection.offline")
         case .connecting:
-            return "connecting"
+            return lm.localized("connection.connecting")
         case .loadingChats:
-            return "loading chats"
+            return lm.localized("connection.loading_chats")
         case .syncing:
-            return "syncing"
+            return lm.localized("connection.syncing")
         case .connected:
-            return "connected"
+            return lm.localized("connection.connected")
         }
     }
 
     private var connectionProgressLabel: String {
+        let lm = LocalizationManager.shared
         switch codex.connectionPhase {
         case .connecting:
-            return "Connecting to relay..."
+            return lm.localized("connection.connecting_relay")
         case .loadingChats:
-            return "Loading chats..."
+            return lm.localized("connection.loading_chats_progress")
         case .syncing:
-            return "Syncing workspace..."
+            return lm.localized("connection.syncing_workspace")
         case .offline, .connected:
             return ""
         }
@@ -342,15 +346,15 @@ private struct SettingsConnectionCard: View {
 
 private struct SettingsSubscriptionCard: View {
     var body: some View {
-        SettingsCard(title: "Access") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.access")) {
             HStack {
-                Text("Status")
+                Text(localized: "settings.status")
                 Spacer()
-                Text("Local build")
+                Text(localized: "settings.local_build")
                     .foregroundStyle(.green)
             }
 
-            Text("This source build does not enable an App Store subscription gate.")
+            Text(localized: "settings.local_build_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
         }
@@ -425,7 +429,7 @@ private struct SettingsUsageCard: View {
     @State private var isRefreshing = false
 
     var body: some View {
-        SettingsCard(title: "Usage") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.usage")) {
             UsageStatusSummaryContent(
                 contextWindowUsage: nil,
                 showsContextWindowSection: false,
@@ -433,7 +437,7 @@ private struct SettingsUsageCard: View {
                 isLoadingRateLimits: codex.isLoadingRateLimits,
                 rateLimitsErrorMessage: codex.rateLimitsErrorMessage,
                 refreshControl: UsageStatusRefreshControl(
-                    title: "Refresh",
+                    title: LocalizationManager.shared.localized("button.refresh"),
                     isRefreshing: isRefreshing,
                     action: refreshStatus
                 )
@@ -482,6 +486,33 @@ private struct SettingsUsageCard: View {
     }
 }
 
+private struct SettingsLanguageCard: View {
+    @State private var languageRefreshToken = UUID()
+
+    var body: some View {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.language")) {
+            HStack {
+                Text(LocalizationManager.shared.localized("settings.language"))
+                Spacer()
+                Picker("Language", selection: Binding(
+                    get: { LocalizationManager.shared.currentLanguage },
+                    set: { LocalizationManager.shared.currentLanguage = $0 }
+                )) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(language.displayName).tag(language)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+        }
+        .id(languageRefreshToken)
+        .onReceive(NotificationCenter.default.publisher(for: .languageChanged)) { _ in
+            languageRefreshToken = UUID()
+        }
+    }
+}
+
 private struct SettingsAppearanceCard: View {
     @Binding var appFontStyle: AppFont.Style
     @AppStorage("codex.useLiquidGlass") private var useLiquidGlass = true
@@ -489,9 +520,9 @@ private struct SettingsAppearanceCard: View {
     private let settingsAccentColor = Color(.plan)
 
     var body: some View {
-        SettingsCard(title: "Appearance") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.appearance")) {
             HStack {
-                Text("Font")
+                Text(localized: "settings.font")
                 Spacer()
                 Picker("Font", selection: $appFontStyle) {
                     ForEach(AppFont.Style.allCases) { style in
@@ -506,7 +537,7 @@ private struct SettingsAppearanceCard: View {
             Divider()
 
             HStack {
-                Text("Message Bubble")
+                Text(localized: "settings.message_bubble")
                 Menu {
                     ForEach(UserBubbleColor.allCases) { color in
                         Button {
@@ -530,7 +561,7 @@ private struct SettingsAppearanceCard: View {
                     .frame(maxWidth: .infinity, minHeight: 28, alignment: .trailing)
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Message Bubble color")
+                .accessibilityLabel(LocalizationManager.shared.localized("settings.message_bubble"))
                 .accessibilityValue(selectedUserBubbleColor.title)
                 .tint(settingsAccentColor)
             }
@@ -538,7 +569,7 @@ private struct SettingsAppearanceCard: View {
             if GlassPreference.isSupported {
                 Divider()
 
-                Toggle("Liquid Glass", isOn: $useLiquidGlass)
+                Toggle(LocalizationManager.shared.localized("settings.liquid_glass"), isOn: $useLiquidGlass)
                     .tint(settingsAccentColor)
             }
 
@@ -563,8 +594,8 @@ private struct SettingsPetCompanionSection: View {
         Group {
             Toggle(isOn: petEnabledBinding) {
                 HStack(spacing: 8) {
-                    Text("Companion Pet")
-                    Text("BETA")
+                    Text(localized: "settings.companion_pet")
+                    Text(localized: "settings.beta")
                         .font(.system(size: 10, weight: .semibold))
                         .tracking(0.5)
                         .foregroundStyle(settingsAccentColor)
@@ -580,13 +611,13 @@ private struct SettingsPetCompanionSection: View {
             if petStore.isEnabled {
                 if petStore.availablePets.isEmpty {
                     Text(petStore.isLoading
-                         ? "Loading local Codex pets from your Mac..."
-                         : "No local Codex pets found in ~/.codex/pets.")
+                         ? LocalizationManager.shared.localized("pets.loading")
+                         : LocalizationManager.shared.localized("pets.not_found"))
                         .font(AppFont.caption())
                         .foregroundStyle(.secondary)
                 } else {
                     HStack {
-                        Text("Pet")
+                        Text(localized: "settings.pet")
                         Spacer()
                         Picker("Pet", selection: selectedPetBinding) {
                             ForEach(petStore.availablePets) { pet in
@@ -612,7 +643,7 @@ private struct SettingsPetCompanionSection: View {
                         .foregroundStyle(.red)
                 }
 
-                SettingsButton("Refresh Pets", isLoading: petStore.isLoading) {
+                SettingsButton(LocalizationManager.shared.localized("settings.refresh_pets"), isLoading: petStore.isLoading) {
                     HapticFeedback.shared.triggerImpactFeedback(style: .light)
                     Task {
                         await petStore.refreshPets(codex: codex)
@@ -663,22 +694,22 @@ private struct SettingsNotificationsCard: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        SettingsCard(title: "Notifications") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.notifications")) {
             HStack(spacing: 10) {
                 Image(systemName: "bell.badge")
                     .foregroundStyle(.primary)
-                Text("Status")
+                Text(localized: "settings.status")
                 Spacer()
                 Text(statusLabel)
                     .foregroundStyle(.secondary)
             }
 
-            Text("Used for local alerts when a run finishes while the app is in background.")
+            Text(localized: "settings.notifications_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
 
             if codex.notificationAuthorizationStatus == .notDetermined {
-                SettingsButton("Allow notifications") {
+                SettingsButton(LocalizationManager.shared.localized("settings.allow_notifications")) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     Task {
                         await codex.requestNotificationPermission()
@@ -687,7 +718,7 @@ private struct SettingsNotificationsCard: View {
             }
 
             if codex.notificationAuthorizationStatus == .denied {
-                SettingsButton("Open iOS Settings") {
+                SettingsButton(LocalizationManager.shared.localized("settings.open_ios_settings")) {
                     HapticFeedback.shared.triggerImpactFeedback()
                     if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                         UIApplication.shared.open(url)
@@ -709,13 +740,14 @@ private struct SettingsNotificationsCard: View {
     }
 
     private var statusLabel: String {
+        let lm = LocalizationManager.shared
         switch codex.notificationAuthorizationStatus {
-        case .authorized: "Authorized"
-        case .denied: "Denied"
-        case .provisional: "Provisional"
-        case .ephemeral: "Ephemeral"
-        case .notDetermined: "Not requested"
-        @unknown default: "Unknown"
+        case .authorized: lm.localized("settings.notif_status.authorized")
+        case .denied: lm.localized("settings.notif_status.denied")
+        case .provisional: lm.localized("settings.notif_status.provisional")
+        case .ephemeral: lm.localized("settings.notif_status.ephemeral")
+        case .notDetermined: lm.localized("settings.notif_status.not_requested")
+        @unknown default: lm.localized("settings.notif_status.unknown")
         }
     }
 }
@@ -724,7 +756,7 @@ private struct SettingsGPTAccountCard: View {
     @State private var isShowingMacLoginInfo = false
 
     var body: some View {
-        SettingsCard(title: "ChatGPT voice mode") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.chatgpt_voice_mode")) {
             Button {
                 HapticFeedback.shared.triggerImpactFeedback(style: .light)
                 isShowingMacLoginInfo = true
@@ -732,7 +764,7 @@ private struct SettingsGPTAccountCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .font(AppFont.subheadline(weight: .medium))
-                    Text("Info")
+                    Text(localized: "settings.info")
                         .font(AppFont.subheadline(weight: .medium))
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -755,26 +787,45 @@ private struct SettingsGPTAccountCard: View {
     }
 }
 
+private struct SettingsAppVersionCard: View {
+    var body: some View {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.app_version")) {
+            HStack(spacing: 10) {
+                Text(localized: "settings.current_build")
+                Spacer()
+                Text(appVersion)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? LocalizationManager.shared.localized("settings.unknown")
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? LocalizationManager.shared.localized("settings.unknown")
+        return "\(version) (\(build))"
+    }
+}
+
 private struct SettingsBridgeVersionCard: View {
     @Environment(CodexService.self) private var codex
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        SettingsCard(title: "Bridge Version") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.bridge_version")) {
             HStack(spacing: 10) {
-                Text("Status")
+                Text(localized: "settings.status")
                 Spacer()
                 SettingsStatusPill(label: versionStatusLabel)
             }
 
             settingsVersionRow(
-                title: "Installed on Computer",
+                title: LocalizationManager.shared.localized("bridge.version.installed_on_computer"),
                 value: installedVersionLabel,
                 valueStyle: installedValueStyle
             )
 
             settingsVersionRow(
-                title: "Latest available",
+                title: LocalizationManager.shared.localized("bridge.version.latest_available"),
                 value: latestVersionLabel,
                 valueStyle: .primary
             )
@@ -797,51 +848,53 @@ private struct SettingsBridgeVersionCard: View {
     }
 
     private var installedVersionLabel: String {
-        normalizedVersion(codex.bridgeInstalledVersion) ?? "Unknown"
+        normalizedVersion(codex.bridgeInstalledVersion) ?? LocalizationManager.shared.localized("bridge.version.status_unknown")
     }
 
     private var latestVersionLabel: String {
-        normalizedVersion(codex.latestBridgePackageVersion) ?? "Unknown"
+        normalizedVersion(codex.latestBridgePackageVersion) ?? LocalizationManager.shared.localized("bridge.version.status_unknown")
     }
 
     private var guidanceText: String? {
+        let lm = LocalizationManager.shared
         guard let installedVersion else {
-            return "Connect to a computer bridge to read the installed package version."
+            return lm.localized("bridge.version.connect_first")
         }
 
         guard let latestVersion else {
-            return "Installed version detected. The latest published package is unavailable right now."
+            return lm.localized("bridge.version.installed_detected")
         }
 
         if installedVersion == latestVersion {
-            return "The installed bridge matches the latest published package."
+            return lm.localized("bridge.version.up_to_date")
         }
 
         if installedVersion.compare(latestVersion, options: .numeric) == .orderedAscending {
-            return "A newer MMS Remote package is available on npm."
+            return lm.localized("bridge.version.newer_available")
         }
 
-        return "This Mac is running a different build than the current npm latest."
+        return lm.localized("bridge.version.different_build")
     }
 
     private var versionStatusLabel: String {
+        let lm = LocalizationManager.shared
         guard let installedVersion else {
-            return "Unknown"
+            return lm.localized("bridge.version.status_unknown")
         }
 
         guard let latestVersion else {
-            return "Installed"
+            return lm.localized("bridge.version.status_installed")
         }
 
         if installedVersion == latestVersion {
-            return "Up to date"
+            return lm.localized("bridge.version.status_up_to_date")
         }
 
         if installedVersion.compare(latestVersion, options: .numeric) == .orderedAscending {
-            return "Update available"
+            return lm.localized("bridge.version.status_update_available")
         }
 
-        return "Different build"
+        return lm.localized("bridge.version.status_different_build")
     }
 
     private var guidanceColor: Color {
@@ -902,12 +955,12 @@ private struct SettingsArchivedChatsCard: View {
     }
 
     var body: some View {
-        SettingsCard(title: "Archived Chats") {
+        SettingsCard(title: LocalizationManager.shared.localized("settings.archived_chats")) {
             NavigationLink {
                 ArchivedChatsView()
             } label: {
                 HStack {
-                    Label("Archived Chats", systemImage: "archivebox")
+                    Label(LocalizationManager.shared.localized("settings.archived_chats"), systemImage: "archivebox")
                         .font(AppFont.subheadline(weight: .medium))
                     Spacer()
                     if archivedCount > 0 {
@@ -929,8 +982,8 @@ private struct SettingsAboutCard: View {
     @State private var isShowingAbout = false
 
     var body: some View {
-        SettingsCard(title: "About") {
-            Text("Chats are End-to-end encrypted between your iPhone and Mac. The relay only sees ciphertext and connection metadata after the secure handshake completes.")
+        SettingsCard(title: LocalizationManager.shared.localized("settings.about")) {
+            Text(localized: "settings.security_hint")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
 
@@ -939,7 +992,7 @@ private struct SettingsAboutCard: View {
                 isShowingAbout = true
             } label: {
                 settingsAccessoryRow(
-                    title: "How MMS Remote Works",
+                    title: LocalizationManager.shared.localized("settings.how_it_works"),
                     leading: {
                         Image(systemName: "info.circle")
                             .font(AppFont.subheadline(weight: .medium))
@@ -953,7 +1006,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.feedbackMailtoURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Send Feedback",
+                    title: LocalizationManager.shared.localized("settings.send_feedback"),
                     leading: {
                         Image(systemName: "envelope")
                             .font(AppFont.subheadline(weight: .medium))
@@ -967,7 +1020,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Privacy Policy",
+                    title: LocalizationManager.shared.localized("settings.privacy_policy"),
                     leading: {
                         Image(systemName: "hand.raised")
                             .font(AppFont.subheadline(weight: .medium))
@@ -981,7 +1034,7 @@ private struct SettingsAboutCard: View {
                 UIApplication.shared.open(AppEnvironment.termsOfUseURL)
             } label: {
                 settingsAccessoryRow(
-                    title: "Terms of Use",
+                    title: LocalizationManager.shared.localized("settings.terms_of_use"),
                     leading: {
                         Image(systemName: "doc.text")
                             .font(AppFont.subheadline(weight: .medium))
@@ -1038,7 +1091,7 @@ private struct SettingsTrustedComputerCard: View {
                         )
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Computer")
+                        Text(localized: "settings.computer")
                             .font(AppFont.caption(weight: .semibold))
                             .foregroundStyle(.secondary)
 
@@ -1063,7 +1116,7 @@ private struct SettingsTrustedComputerCard: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Edit computer name")
+                .accessibilityLabel(LocalizationManager.shared.localized("settings.edit_computer_name"))
             }
 
             HStack(spacing: 8) {
@@ -1076,12 +1129,12 @@ private struct SettingsTrustedComputerCard: View {
 
             if let systemName = presentation.systemName,
                !systemName.isEmpty {
-                labeledRow("System", value: systemName)
+                labeledRow(LocalizationManager.shared.localized("settings.computer_system"), value: systemName)
             }
 
             if let detail = presentation.detail,
                !detail.isEmpty {
-                labeledRow("Status", value: detail)
+                labeledRow(LocalizationManager.shared.localized("settings.computer_status"), value: detail)
             }
         }
         .padding(14)
@@ -1145,7 +1198,7 @@ private struct SettingsComputerNameSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                        Text("Computer name")
+                        Text(localized: "settings.computer_name")
                         .font(AppFont.subheadline(weight: .semibold))
                         .foregroundStyle(.primary)
 
@@ -1165,19 +1218,19 @@ private struct SettingsComputerNameSheet: View {
                             .fill(Color(.secondarySystemFill))
                     )
 
-                Text("This nickname stays on this iPhone and appears anywhere this computer is shown.")
+                Text(localized: "settings.computer_name_hint")
                     .font(AppFont.caption())
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 10) {
-                    SettingsButton("Use Default", role: .cancel) {
+                    SettingsButton(LocalizationManager.shared.localized("settings.use_default"), role: .cancel) {
                         nickname = ""
                         dismiss()
                     }
                     .opacity(canResetToDefault ? 1 : 0.5)
                     .disabled(!canResetToDefault)
 
-                    SettingsButton("Save") {
+                    SettingsButton(LocalizationManager.shared.localized("settings.save")) {
                         nickname = draftNickname
                         dismiss()
                     }
@@ -1190,11 +1243,11 @@ private struct SettingsComputerNameSheet: View {
             .padding(20)
             .presentationDetents([.height(300)])
             .presentationDragIndicator(.visible)
-            .navigationTitle("Edit Computer Name")
+            .navigationTitle(Text(localized: "settings.edit_computer_name"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button(LocalizationManager.shared.localized("settings.close")) {
                         dismiss()
                     }
                 }

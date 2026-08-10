@@ -26,16 +26,19 @@ private struct PaywallFeature: Identifiable {
     let title: String
 }
 
-private let paywallFeatures: [PaywallFeature] = [
-    .init(id: 0, icon: "bolt", title: "Fast mode"),
-    .init(id: 1, icon: "arrow.triangle.branch", title: "Git from your phone"),
-    .init(id: 2, icon: "lock.shield", title: "End-to-end encrypted"),
-    .init(id: 3, icon: "waveform", title: "Voice mode with speech-to-text"),
-    .init(id: 4, icon: "point.3.connected.trianglepath.dotted", title: "Subagents"),
-    .init(id: 5, icon: "at", title: "$skills, /commands & @file mentions"),
-    .init(id: 6, icon: "server.rack", title: "Hosted relay included"),
-    .init(id: 7, icon: "heart", title: "Support development"),
-]
+private let paywallFeatures: [PaywallFeature] = {
+    let lm = LocalizationManager.shared
+    return [
+        .init(id: 0, icon: "bolt", title: lm.localized("paywall.feature.fast.title")),
+        .init(id: 1, icon: "arrow.triangle.branch", title: lm.localized("paywall.feature.git.title")),
+        .init(id: 2, icon: "lock.shield", title: lm.localized("paywall.feature.e2ee.title")),
+        .init(id: 3, icon: "waveform", title: lm.localized("paywall.feature.voice.title")),
+        .init(id: 4, icon: "point.3.connected.trianglepath.dotted", title: lm.localized("paywall.feature.subagents.title")),
+        .init(id: 5, icon: "at", title: lm.localized("paywall.feature.skills.title")),
+        .init(id: 6, icon: "server.rack", title: lm.localized("paywall.feature.relay.title")),
+        .init(id: 7, icon: "heart", title: lm.localized("paywall.feature.support.title")),
+    ]
+}()
 
 // MARK: - Main paywall
 
@@ -157,10 +160,10 @@ struct RevenueCatPaywallView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 
 
-            Text("Unlock MMS Remote Pro")
+            Text(localized: "paywall.title")
                 .font(AppFont.system(size: 24, weight: .bold))
 
-            Text("Everything runs on your computer. Your phone is the remote.")
+            Text(localized: "paywall.subtitle")
                 .font(AppFont.caption())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -176,7 +179,7 @@ struct RevenueCatPaywallView: View {
 
     private var featureCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Here's what you'll get")
+            Text(localized: "paywall.features_title")
                 .font(AppFont.body(weight: .semibold))
                 .padding(.bottom, 2)
 
@@ -242,7 +245,7 @@ struct RevenueCatPaywallView: View {
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 0) {
-                    Button(subscriptions.isRestoring ? "Restoring..." : "Restore Purchase") {
+                    Button(subscriptions.isRestoring ? LocalizationManager.shared.localized("sub.button.restoring") : LocalizationManager.shared.localized("sub.button.restore")) {
                         Task {
                             await subscriptions.restorePurchases()
                         }
@@ -250,25 +253,25 @@ struct RevenueCatPaywallView: View {
                     .disabled(subscriptions.isPurchasing || subscriptions.isRestoring)
 
                     Text(" · ").foregroundStyle(.secondary)
-                    Button("Redeem Code") {
+                    Button(LocalizationManager.shared.localized("sub.button.redeem")) {
                         isPresentingOfferCodeRedemption = true
                     }
                     .disabled(subscriptions.isPurchasing || subscriptions.isRestoring)
 
                     if let managementURL {
                         Text(" · ").foregroundStyle(.secondary)
-                        Button("Manage") {
+                        Button(LocalizationManager.shared.localized("common.manage")) {
                             UIApplication.shared.open(managementURL)
                         }
                     }
 
                     Text(" · ").foregroundStyle(.secondary)
-                    Button("Privacy") {
+                    Button(LocalizationManager.shared.localized("sub.button.privacy")) {
                         UIApplication.shared.open(AppEnvironment.privacyPolicyURL)
                     }
 
                     Text(" · ").foregroundStyle(.secondary)
-                    Button("Terms") {
+                    Button(LocalizationManager.shared.localized("sub.button.terms")) {
                         UIApplication.shared.open(AppEnvironment.termsOfUseURL)
                     }
                 }
@@ -277,7 +280,7 @@ struct RevenueCatPaywallView: View {
             }
 
             if hasProAccess {
-                Text("Pro is already active on this account.")
+                Text(localized: "paywall.active")
                     .font(AppFont.caption())
                     .foregroundStyle(.green)
             }
@@ -338,7 +341,7 @@ struct RevenueCatPaywallView: View {
                     Spacer()
 
                     if plan.isBestValue {
-                        Text("37% OFF")
+                        Text(localized: "paywall.discount")
                             .font(AppFont.caption2(weight: .semibold))
                             .foregroundStyle(isSelected ? accentForeground.opacity(0.9) : accent)
                             .padding(.horizontal, 8)
@@ -457,11 +460,11 @@ struct RevenueCatPaywallView: View {
     }
 
     private var selectedCallToActionTitle: String {
-        selectedPlan?.callToActionTitle ?? "Unlock MMS Remote Pro"
+        selectedPlan?.callToActionTitle ?? LocalizationManager.shared.localized("paywall.cta_fallback")
     }
 
     private var selectedFooterDescription: String {
-        selectedPlan?.footerDescription ?? "Recurring billing. Cancel anytime."
+        selectedPlan?.footerDescription ?? LocalizationManager.shared.localized("paywall.footer.recurring")
     }
 
     // Keeps the pricing line compact by showing cadence inline with the main amount.
@@ -471,7 +474,7 @@ struct RevenueCatPaywallView: View {
         }
 
         if plan.termsDescription.localizedCaseInsensitiveContains("one-time") {
-            return "one-time"
+            return LocalizationManager.shared.localized("paywall.footer.one_time")
         }
 
         return nil

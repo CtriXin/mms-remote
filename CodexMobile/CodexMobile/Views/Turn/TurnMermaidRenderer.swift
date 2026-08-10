@@ -150,7 +150,7 @@ private struct MermaidBlockView: View {
             )
         }
         .alert("Image", isPresented: saveAlertIsPresented, actions: {
-            Button("OK", role: .cancel) {
+            Button(LocalizationManager.shared.localized("common.ok"), role: .cancel) {
                 saveAlertMessage = nil
             }
         }, message: {
@@ -243,7 +243,7 @@ private struct MermaidBlockView: View {
         .buttonStyle(.plain)
         .padding(.top, 10)
         .padding(.trailing, 10)
-        .accessibilityLabel("Save diagram")
+        .accessibilityLabel(LocalizationManager.shared.localized("message.save_diagram"))
     }
 
     private var saveAlertIsPresented: Binding<Bool> {
@@ -264,7 +264,7 @@ private struct MermaidPlaceholderView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.primary.opacity(0.03))
 
-            Text("Rendering diagram…")
+            Text(localized: "diagram.rendering")
                 .font(AppFont.mono(.caption))
                 .foregroundStyle(.secondary)
         }
@@ -378,6 +378,21 @@ private final class MermaidSnapshotRendererCoordinator: NSObject, WKScriptMessag
             webView.loadHTMLString(html, baseURL: assetDirectoryURL)
         } else {
             webView.loadHTMLString(MermaidHTMLBuilder.fallbackHTML(source: source), baseURL: nil)
+        }
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        // Only allow initial file loads from the bundled mermaid asset directory.
+        if navigationAction.navigationType == .other,
+           let url = navigationAction.request.url,
+           url.scheme == "file" {
+            decisionHandler(.allow)
+        } else {
+            decisionHandler(.cancel)
         }
     }
 

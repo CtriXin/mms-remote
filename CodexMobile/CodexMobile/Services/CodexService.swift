@@ -432,6 +432,9 @@ final class CodexService {
     var terminalTmuxVersion: String = ""
     var isLoadingTerminals = false
     var terminalLastErrorMessage: String?
+    var terminalStreamMessagesByStreamId: [String: [TerminalStreamMessage]] = [:]
+    var terminalStreamStatusByStreamId: [String: TerminalStreamRuntimeStatus] = [:]
+    var terminalStreamRevision = 0
 
     // Relay session persistence
     var relaySessionId: String?

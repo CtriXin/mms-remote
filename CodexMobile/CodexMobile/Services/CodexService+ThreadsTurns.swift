@@ -119,7 +119,8 @@ extension CodexService {
             : runtimeServiceTierForTurn()
         var includesServiceTier = explicitServiceTier != nil
 
-        while true {
+        let maxRetries = 5
+        for _ in 0..<maxRetries {
             let params = CodexThreadStartProjectBinding.makeThreadStartParams(
                 modelIdentifier: runtimeModelIdentifierForTurn(),
                 preferredProjectPath: normalizedPreferredProjectPath,
@@ -165,9 +166,8 @@ extension CodexService {
                 }
             }
         }
-    }
-
-    // Stores one-shot composer setup so a newly created thread can open in the requested mode.
+        throw CodexServiceError.invalidResponse("thread/start failed after \(maxRetries) retries due to service tier incompatibility")
+    } so a newly created thread can open in the requested mode.
     func queuePendingComposerAction(_ action: CodexPendingThreadComposerAction, for threadId: String) {
         pendingComposerActionByThreadID[threadId] = action
     }
@@ -1145,7 +1145,8 @@ extension CodexService {
             )
         }
 
-        while true {
+        let maxRetries = 5
+        for _ in 0..<maxRetries {
             do {
                 let requestParams = try buildTurnStartRequestParams(
                     threadId: threadId,
@@ -1239,9 +1240,8 @@ extension CodexService {
                 return
             }
         }
-    }
-
-    // Starts the app-server's manual context compaction turn for the selected thread.
+        throw CodexServiceError.invalidResponse("turn/start failed after \(maxRetries) retries")
+    } for the selected thread.
     func compactThread(_ threadId: String) async throws {
         activeThreadId = threadId
         markThreadAsRunning(threadId)
@@ -1425,7 +1425,8 @@ extension CodexService {
             )
         }
 
-        while true {
+        let maxRetries = 5
+        for _ in 0..<maxRetries {
             var params: RPCObject = [
                 "threadId": .string(normalizedThreadID),
                 "expectedTurnId": .string(currentExpectedTurnID),
@@ -1519,9 +1520,8 @@ extension CodexService {
                 throw error
             }
         }
-    }
-
-    func userFacingTurnErrorMessage(from error: Error) -> String {
+        throw CodexServiceError.invalidResponse("turn/steer failed after \(maxRetries) retries")
+    }(from error: Error) -> String {
         if isCancellationLikeError(error) {
             return ""
         }

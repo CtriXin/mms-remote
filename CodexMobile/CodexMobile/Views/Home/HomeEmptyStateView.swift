@@ -108,7 +108,7 @@ struct HomeEmptyStateView<AuthSection: View, Footer: View>: View {
                 .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("MMS Remote")
+        .navigationTitle(Text(localized: "sidebar.title"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if connectionPhase == .connecting {
@@ -145,33 +145,35 @@ struct HomeEmptyStateView<AuthSection: View, Footer: View>: View {
     }
 
     private var statusLabel: String {
+        let lm = LocalizationManager.shared
         switch connectionPhase {
         case .connecting:
-            guard let connectionAttemptStartedAt else { return "Connecting" }
+            guard let connectionAttemptStartedAt else { return lm.localized("connection.connecting") }
             let elapsed = Date().timeIntervalSince(connectionAttemptStartedAt)
-            if elapsed >= 12 { return "Still connecting…" }
-            return "Connecting"
+            if elapsed >= 12 { return lm.localized("connection.connecting") + "…" }
+            return lm.localized("connection.connecting")
         case .loadingChats:
-            return "Loading chats"
+            return lm.localized("connection.loading_chats")
         case .syncing:
-            return "Syncing"
+            return lm.localized("connection.syncing")
         case .connected:
-            return "Connected"
+            return lm.localized("connection.connected")
         case .offline:
-            return "Offline"
+            return lm.localized("connection.offline")
         }
     }
 
     private var primaryButtonTitle: String {
+        let lm = LocalizationManager.shared
         switch connectionPhase {
         case .connecting:
-            return "Reconnecting..."
+            return lm.localized("connection.reconnecting")
         case .loadingChats:
-            return "Loading chats..."
+            return lm.localized("connection.loading_chats_progress")
         case .syncing:
-            return "Syncing..."
+            return lm.localized("connection.syncing_workspace")
         case .connected:
-            return "Disconnect"
+            return lm.localized("connection.disconnect")
         case .offline:
             return offlinePrimaryButtonTitle
         }
